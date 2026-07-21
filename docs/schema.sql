@@ -1,0 +1,63 @@
+-- ============================================================
+-- Sikkim Tourism Assistant — MySQL Schema
+-- ============================================================
+-- Run this against the department's MySQL database when
+-- USE_MOCK_DB is switched to false.
+--
+-- Notes:
+--   • The `destinations` table mirrors mock_data.py exactly.
+--   • Conversations/messages are managed by the app; the
+--     department's existing tables do not need to be modified.
+--   • Adjust column sizes / charsets to match the existing DB
+--     encoding (usually utf8mb4).
+-- ============================================================
+
+CREATE DATABASE IF NOT EXISTS sikkim_tourism
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE sikkim_tourism;
+
+-- ── Destinations ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS destinations (
+  id              INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  name            VARCHAR(200)     NOT NULL,
+  slug            VARCHAR(200)     NOT NULL UNIQUE,
+  category        ENUM('nature','culture','adventure','pilgrimage','wildlife') NOT NULL,
+  description     TEXT             NOT NULL,
+  location        VARCHAR(300)     NOT NULL,
+  district        VARCHAR(100)     NOT NULL,
+  altitude        VARCHAR(100)     NULL,
+  best_time       VARCHAR(200)     NOT NULL,
+  entry_fee       VARCHAR(100)     NULL,
+  permit_required TINYINT(1)       NOT NULL DEFAULT 0,
+  permit_info     TEXT             NULL,
+  how_to_reach    TEXT             NOT NULL,
+  highlights      JSON             NOT NULL DEFAULT ('[]'),
+  tags            JSON             NOT NULL DEFAULT ('[]'),
+  image_placeholder VARCHAR(20)    NOT NULL DEFAULT '#888888',
+  created_at      DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  FULLTEXT KEY ft_destinations (name, description)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Conversations ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS conversations (
+  id         CHAR(36)   NOT NULL,
+  created_at DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Messages ───────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS messages (
+  id              CHAR(36)                    NOT NULL,
+  conversation_id CHAR(36)                    NOT NULL,
+  role            ENUM('user','assistant')    NOT NULL,
+  content         LONGTEXT                    NOT NULL,
+  created_at      DATETIME                    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  INDEX idx_messages_conversation (conversation_id),
+  CONSTRAINT fk_messages_conversation
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

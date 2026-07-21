@@ -1,0 +1,482 @@
+# Sikkim Tourism and Civil Aviation Department Assistant 
+
+> **AI-Powered Travel Chatbot for the Tourism & Civil Aviation Department, Government of Sikkim.**
+> 
+> Built with LangChain · Qdrant · Google Gemini · FastAPI · React 18
+
+---
+
+## Table of Contents
+
+- [Sikkim Tourism and Civil Aviation Department Assistant](#sikkim-tourism-and-civil-aviation-department-assistant)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [What's New in v2.0](#whats-new-in-v20)
+  - [Tech Stack](#tech-stack)
+  - [Architecture](#architecture)
+  - [Quick Start](#quick-start)
+    - [macOS](#macos)
+    - [Linux (Ubuntu / Debian / Fedora)](#linux-ubuntu--debian--fedora)
+    - [Windows 10 / 11](#windows-10--11)
+  - [Manual Setup (All Platforms)](#manual-setup-all-platforms)
+    - [Backend](#backend)
+    - [Frontend](#frontend)
+  - [Environment Variables](#environment-variables)
+    - [Core (required)](#core-required)
+    - [AI / Model](#ai--model)
+    - [Database](#database)
+    - [MySQL (only when `USE_MOCK_DB=false`)](#mysql-only-when-use_mock_dbfalse)
+    - [Vector Store (Qdrant)](#vector-store-qdrant)
+    - [Server](#server)
+  - [API Reference](#api-reference)
+    - [Chat endpoint — SSE format](#chat-endpoint--sse-format)
+  - [RAG Pipeline](#rag-pipeline)
+  - [Vector Store Modes](#vector-store-modes)
+  - [Switching to MySQL](#switching-to-mysql)
+  - [Project Structure](#project-structure)
+
+---
+
+## Overview
+
+The Sikkim Tourism Assistant is a production-grade Retrieval-Augmented Generation (RAG) chatbot that answers questions about travel destinations across Sikkim. It uses semantic vector search to retrieve the most relevant destination data, then generates grounded, accurate answers through Google Gemini — all streamed in real time to the browser.
+
+**Zero external services needed in dev mode.** The vector store (Qdrant) runs in-memory and the database falls back to rich mock data, so the app works fully offline with only API keys.
+
+---
+
+## What's New in v2.0
+
+| Area | v1 | v2 (this version) |
+|---|---|---|
+| RAG retrieval | Keyword scoring | **Vector similarity search via Qdrant** |
+| Orchestration | Manual API calls | **LangChain LCEL pipeline** |
+| Conversation memory | Manual dict | **History-aware retriever** (rephrases follow-ups) |
+| Vector store | None | **Qdrant in-memory** (zero setup) or remote |
+| Embeddings | None | **Gemini `text-embedding-004`** (768-dim) or Gemini `text-embedding-001` (3072-dim) |
+| Auto-sync | N/A | Qdrant **auto-populated on startup** from DB |
+| Live re-sync | N/A | `POST /api/admin/sync` — no restart needed |
+| LLM provider | Gemini only | **Gemini + Groq** (configurable) |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Backend** | Python 3.11 · FastAPI · Uvicorn |
+| **AI / LLM** | LangChain LCEL · Google Gemini (`gemini-1.5-flash`) · Groq (`llama-3.3-70b-versatile`) |
+| **Embeddings** | Gemini `text-embedding-004` — 768-dim, API-based |
+| **RAG** | History-aware retriever + stuff-documents chain (LangChain) |
+| **Vector Store** | Qdrant — in-memory by default, remote optional |
+| **Database (dev)** | Mock in-memory (Python dicts, no server needed) |
+| **Database (prod)** | MySQL — auto-syncs to Qdrant on startup |
+| **Frontend** | React 18 · Vite · TypeScript · Tailwind CSS v4 |
+| **Animations** | Framer Motion |
+| **Routing** | Wouter |
+| **UI Components** | Radix UI primitives |
+| **Validation** | Zod · Pydantic v2 |
+
+
+
+
+---
+
+## Architecture
+
+```
+Browser (React + Vite)
+       │
+       │  HTTP / SSE  (Vite dev proxy → localhost:8000)
+       ▼
+FastAPI  (uvicorn, async)
+       │
+       ├── GET  /api/destinations/*   →  Database layer (mock or MySQL)
+       │
+       └── POST /api/conversations/{id}/chat
+                │
+                ▼
+        [History-aware retriever]
+          Rephrases follow-up questions into a standalone search query
+          using chat history + Gemini
+                │
+                ▼
+        [Qdrant vector similarity search]
+          Embeds the query with Gemini text-embedding-004
+          Returns top-4 most relevant destination documents
+                │
+                ▼
+        [Stuff-documents chain]
+          Injects retrieved destinations into the Gemini system prompt
+                │
+                ▼
+        [Gemini 1.5 Flash  /  Groq Llama 3.3]
+          Generates a grounded, accurate response
+                │
+                ▼
+        [SSE stream → browser]
+          Token-by-token real-time streaming
+```
+
+---
+
+## Quick Start
+
+> **One-command setup scripts** are provided for each OS.  
+> They create the Python virtual environment, install all dependencies,  
+> and copy `.env.example` → `.env` automatically.
+
+### macOS
+
+Requires **Homebrew**. The script installs Python 3.11 and Node.js automatically if missing.
+
+```bash
+# Clone the repository
+git clone https://github.com/Kernel-00-Node/Sikkim_Tourism__AI_ChatBot.git
+
+cd Sikkim_Tourism__AI_ChatBot
+
+# Run the setup script
+chmod +x scripts/setup-mac.sh
+./scripts/setup-mac.sh
+
+# Edit your API keys
+nano backend/.env          # add GEMINI_API_KEY and GROQ_API_KEY
+
+# Terminal 1 — Backend
+cd backend
+source v_env/bin/activate
+python main.py             # → http://localhost:8000
+
+# Terminal 2 — Frontend
+cd frontend
+npm run dev                # → http://localhost:5173
+```
+
+---
+
+### Linux (Ubuntu / Debian / Fedora)
+
+The script auto-detects `apt`, `dnf`, or `pacman` and installs the right system packages.
+
+```bash
+git clone https://github.com/Kernel-00-Node/Sikkim_Tourism__AI_ChatBot.git
+
+cd Sikkim_Tourism__AI_ChatBot
+
+chmod +x scripts/setup-linux.sh
+./scripts/setup-linux.sh
+
+# Edit your API keys
+nano backend/.env          # add GEMINI_API_KEY and GROQ_API_KEY
+
+# Terminal 1 — Backend
+cd backend && source v_env/bin/activate && python main.py
+
+# Terminal 2 — Frontend
+cd frontend && npm run dev
+```
+
+---
+
+### Windows 10 / 11
+
+**Prerequisites** — install these first if not already present:
+
+| Tool | Download |
+|---|---|
+| Python 3.11 | https://www.python.org/downloads/release/python-3119/ — ⚠ tick **"Add Python to PATH"** |
+| Node.js 20 | https://nodejs.org/en/download |
+| Git | https://git-scm.com/download/win |
+
+```bat
+REM Clone the repo (Git Bash or Command Prompt)
+git clone https://github.com/Kernel-00-Node/Sikkim_Tourism__AI_ChatBot.git
+
+cd Sikkim_Tourism__AI_ChatBot
+
+REM Run the setup script
+scripts\setup-windows.bat
+```
+
+After setup completes:
+
+```bat
+REM Edit API keys
+notepad backend\.env
+
+REM Command Prompt 1 — Backend
+cd backend
+v_env\Scripts\activate.bat
+python main.py
+
+REM Command Prompt 2 — Frontend
+cd frontend
+npm run dev
+```
+
+Open **http://localhost:5173** in your browser.
+
+---
+
+## Manual Setup (All Platforms)
+
+If you prefer to set up without the scripts:
+
+### Backend
+
+```bash
+cd backend
+
+# Create and Activate a Virtual Environment
+python3.11 -m venv v_env          # macOS / Linux
+# python -m venv v_env            # Windows
+
+source v_env/bin/activate         # macOS / Linux
+# v_env\Scripts\activate.bat      # Windows (Command Prompt)
+# v_env\Scripts\Activate.ps1      # Windows (PowerShell)
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Open .env and fill in GEMINI_API_KEY (required) and GROQ_API_KEY
+
+# Start the server
+python main.py
+# Server starts on http://localhost:8000
+# Qdrant is auto-populated with all destination data on startup
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install          # or: pnpm install
+npm run dev          # → http://localhost:5173
+```
+
+Vite automatically proxies every `/api/*` request to `http://localhost:8000` — no CORS or port changes needed in dev.
+
+---
+
+## Environment Variables
+
+Copy `backend/.env.example` to `backend/.env` and fill in the values below.
+
+### Core (required)
+
+| Variable | Default | Description |
+|---|---|---|
+| `GEMINI_API_KEY` | _(required)_ | [Get one free at Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `GROQ_API_KEY` | _(optional)_ | [Get one free at console.groq.com](https://console.groq.com) — enables Groq LLM |
+
+### AI / Model
+
+| Variable | Default | Description |
+|---|---|---|
+| `GEMINI_MODEL` | `gemini-1.5-flash` | Gemini Chat Model |
+| `GEMINI_EMBEDDING_MODEL` | `models/text-embedding-004` | Embedding model (768-dim) |
+| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq LLM model |
+
+### Database
+
+| Variable | Default | Description |
+|---|---|---|
+| `USE_MOCK_DB` | `true` | `true` = in-memory mock data (no MySQL needed) |
+
+### MySQL (only when `USE_MOCK_DB=false`)
+
+| Variable | Default |
+|---|---|
+| `MYSQL_HOST` | `localhost` |
+| `MYSQL_PORT` | `3306` |
+| `MYSQL_USER` | `root` |
+| `MYSQL_PASSWORD` | _(empty)_ |
+| `MYSQL_DATABASE` | `sikkim_tourism` |
+
+### Vector Store (Qdrant)
+
+| Variable | Default | Description |
+|---|---|---|
+| `QDRANT_URL` | _(empty)_ | Leave empty for in-memory mode. Set to connect to a server. |
+| `QDRANT_API_KEY` | _(empty)_ | Only needed for Qdrant Cloud |
+| `QDRANT_COLLECTION` | `sikkim_destinations` | Qdrant collection name |
+
+### Server
+
+| Variable | Default | Description |
+|---|---|---|
+| `ALLOWED_ORIGINS` | `*` | CORS allowed origins. In production, set to your exact frontend URL. |
+
+---
+
+## API Reference
+
+Interactive docs available at **http://localhost:8000/api/docs** (Swagger UI) after starting the backend.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/health` | Health check — returns `db_mode`, `qdrant_mode`, `ai_configured` |
+| `GET` | `/api/destinations/` | List destinations — supports `?search=` and `?category=` |
+| `GET` | `/api/destinations/categories` | All available category slugs |
+| `GET` | `/api/destinations/{id}` | Full destination detail |
+| `POST` | `/api/conversations/` | Create a new conversation |
+| `GET` | `/api/conversations/{id}` | Fetch conversation + message history |
+| `POST` | `/api/conversations/{id}/chat` | Send a message → **SSE stream** of AI tokens |
+| `POST` | `/api/admin/sync` | Re-index Qdrant from the current database without restarting |
+
+### Chat endpoint — SSE format
+
+```
+POST /api/conversations/{id}/chat
+Content-Type: application/json
+
+{ "message": "What are the best places in North Sikkim?" }
+```
+
+Response is a **Server-Sent Events** stream:
+
+```
+data: The best places in North
+
+data:  Sikkim include...
+
+data: [DONE]
+```
+
+---
+
+## RAG Pipeline
+
+```
+User message
+    │
+    ▼
+[1] History-aware retriever
+    Uses previous chat turns to rephrase the user's question into a
+    self-contained search query (handles "tell me more", "what about that?" etc.)
+    │
+    ▼
+[2] Qdrant vector similarity search
+    The standalone query is embedded with Gemini text-embedding-004
+    The top-4 closest destination documents are retrieved
+    │
+    ▼
+[3] Stuff-documents chain
+    Retrieved documents are formatted and injected into the system prompt
+    │
+    ▼
+[4] Gemini 1.5 Flash  (or Groq Llama 3.3)
+    Generates a grounded, factually anchored response
+    │
+    ▼
+[5] SSE stream
+    Tokens are streamed to the browser in real time via Server-Sent Events
+```
+
+---
+
+## Vector Store Modes
+
+| Mode | Configuration | Best for |
+|---|---|---|
+| **In-memory** _(default)_ | `QDRANT_URL=` _(empty)_ | Dev, testing, mock DB mode |
+| **Local server** | `QDRANT_URL=http://localhost:6333` | Persistent local dev (requires Docker) |
+| **Qdrant Cloud** | `QDRANT_URL=https://xyz.cloud.qdrant.io` + `QDRANT_API_KEY=...` | Production |
+
+To run a local Qdrant server with Docker:
+
+```bash
+docker run -p 6333:6333 qdrant/qdrant
+```
+
+---
+
+## Switching to MySQL
+
+1. Run the database schema:
+
+   ```bash
+   mysql -u root -p < docs/schema.sql
+   ```
+
+2. Update `backend/.env`:
+
+   ```ini
+   USE_MOCK_DB=false
+   MYSQL_HOST=localhost
+   MYSQL_USER=root
+   MYSQL_PASSWORD=yourpassword
+   MYSQL_DATABASE=sikkim_tourism
+   ```
+
+3. Restart the backend — Qdrant is **automatically re-populated** from MySQL on startup.
+
+No other changes are needed. The vector store, RAG chain, and frontend all work identically in both modes.
+
+---
+
+## Project Structure
+
+```
+Sikkim_Tourism__AI_ChatBot/
+│
+├── backend/
+│   ├── app/
+│   │   ├── config.py              # Pydantic settings — reads .env
+│   │   ├── startup.py             # Qdrant auto-population on startup
+│   │   ├── database/
+│   │   │   ├── base.py            # Abstract repository interface
+│   │   │   ├── mock_repo.py       # In-memory mock data (dev default)
+│   │   │   └── mysql_repo.py      # MySQL repository (production)
+│   │   ├── models/
+│   │   │   └── schemas.py         # Pydantic request/response models
+│   │   ├── routers/
+│   │   │   ├── chat.py            # Conversation + SSE chat endpoint
+│   │   │   ├── destinations.py    # Destination list/detail endpoints
+│   │   │   └── admin.py           # Admin sync endpoint
+│   │   └── services/
+│   │       ├── ai_service.py      # LangChain LCEL RAG chain
+│   │       └── vectorstore.py     # Qdrant client + embedding helpers
+│   ├── main.py                    # FastAPI app + middleware + lifespan
+│   ├── requirements.txt
+│   ├── .env.example               # Template — copy to .env and fill in keys
+│   └── docs/
+│       └── schema.sql             # MySQL schema for production
+│
+├── frontend/
+│   ├── src/
+│   │   ├── main.tsx               # React entry point
+│   │   ├── App.tsx                # Router + layout wrapper
+│   │   ├── lib/
+│   │   │   ├── api.ts             # Typed API client (fetch wrappers)
+│   │   │   └── utils.ts           # Shared helpers (cn, etc.)
+│   │   ├── pages/
+│   │   │   ├── home.tsx           # Landing page + popular destinations
+│   │   │   ├── destinations.tsx   # Searchable destination grid
+│   │   │   └── not-found.tsx      # 404 page
+│   │   └── components/
+│   │       ├── chat.tsx                        # SSE chat panel
+│   │       ├── destination-card.tsx            # Destination summary card
+│   │       ├── destination-details-dialog.tsx  # Full-detail modal
+│   │       ├── layout.tsx                      # Navbar + page shell
+│   │       └── ui/                             # Radix UI component wrappers
+│   ├── vite.config.ts             # Vite config + /api proxy
+│   └── package.json
+│
+├── scripts/
+│   ├── setup-mac.sh               # One-command setup for macOS
+│   ├── setup-linux.sh             # One-command setup for Linux
+│   └── setup-windows.bat          # One-command setup for Windows
+│
+├── .gitignore
+└── README.md
+```
+
+---
+
+
+
+*Built as part of an Summer Internship Project for the `Tourism & Civil Aviation Department, Government of Sikkim.`*

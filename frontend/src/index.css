@@ -1,0 +1,512 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover-border: hsl(var(--popover-border));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-border: var(--primary-border);
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-secondary-border: var(--secondary-border);
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-muted-border: var(--muted-border);
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-accent-border: var(--accent-border);
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-destructive-border: var(--destructive-border);
+
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-primary-border: var(--sidebar-primary-border);
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-accent-border: var(--sidebar-accent-border);
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --font-sans: var(--app-font-sans);
+  --font-serif: var(--app-font-serif);
+  --font-mono: var(--app-font-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  /* ── Warm Stone — monastery walls, aged parchment, Himalayan earth ───── */
+  --button-outline: rgba(0, 0, 0, .08);
+  --badge-outline: rgba(0, 0, 0, .04);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0, 0, 0, .025);
+  --elevate-2: rgba(0, 0, 0, .06);
+
+  --background: 36 28% 92%;
+  /* warm parchment      #f0e9de */
+  --foreground: 25 22% 18%;
+  /* deep walnut text    #302318 */
+  --border: 36 20% 80%;
+  /* sand divider        #d9cebf */
+  --card: 36 30% 96%;
+  /* lifted warm white   #faf5ee */
+  --card-foreground: 25 22% 18%;
+  --card-border: 36 20% 82%;
+  --sidebar: 36 30% 96%;
+  --sidebar-foreground: 25 22% 18%;
+  --sidebar-border: 36 20% 80%;
+  --sidebar-primary: 353 52% 38%;
+  /* monastery crimson   #922030 */
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 36 25% 88%;
+  --sidebar-accent-foreground: 25 22% 18%;
+  --sidebar-ring: 353 52% 38%;
+  --popover: 36 30% 96%;
+  --popover-foreground: 25 22% 18%;
+  --popover-border: 36 20% 80%;
+  --primary: 353 52% 38%;
+  /* monastery crimson   #922030 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 38 80% 48%;
+  /* prayer-flag gold    #d4890a */
+  --secondary-foreground: 25 22% 18%;
+  --muted: 36 22% 86%;
+  /* warm oat            #e5dcd0 */
+  --muted-foreground: 30 12% 42%;
+  /* warm grey           #6e5f52 */
+  --accent: 36 22% 86%;
+  --accent-foreground: 25 22% 18%;
+  --destructive: 0 75% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 36 20% 82%;
+  --ring: 353 52% 38%;
+
+  --chart-1: 353 52% 38%;
+  --chart-2: 38 80% 48%;
+  --chart-3: 180 30% 38%;
+  --chart-4: 40 18% 52%;
+  --chart-5: 15 45% 44%;
+
+  --app-font-sans: 'Plus Jakarta Sans', sans-serif;
+  --app-font-serif: 'Fraunces', serif;
+  --app-font-mono: Menlo, monospace;
+  --radius: 0.75rem;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.06);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.09), 0 1px 2px -1px rgb(0 0 0 / 0.09);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+}
+
+.dark {
+  --background: 30 18% 12%;
+  --foreground: 36 25% 88%;
+  --border: 30 14% 22%;
+  --card: 30 16% 16%;
+  --card-foreground: 36 25% 88%;
+  --card-border: 30 14% 22%;
+  --sidebar: 30 16% 16%;
+  --sidebar-foreground: 36 25% 88%;
+  --sidebar-border: 30 14% 22%;
+  --sidebar-primary: 353 52% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 30 14% 20%;
+  --sidebar-accent-foreground: 36 25% 88%;
+  --sidebar-ring: 353 52% 50%;
+  --popover: 30 16% 16%;
+  --popover-foreground: 36 25% 88%;
+  --popover-border: 30 14% 22%;
+  --primary: 353 52% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 38 80% 52%;
+  --secondary-foreground: 30 18% 12%;
+  --muted: 30 14% 20%;
+  --muted-foreground: 36 10% 58%;
+  --accent: 30 14% 20%;
+  --accent-foreground: 36 25% 88%;
+  --destructive: 0 75% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 30 14% 22%;
+  --ring: 353 52% 50%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-serif;
+  }
+}
+
+@layer utilities {
+  input[type="search"]::-webkit-search-cancel-button {
+    @apply hidden;
+  }
+
+  [contenteditable][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+  }
+}
+
+/* ── Sikkim Tourism Assistant — ambient & widget animations ──────────────── */
+
+@keyframes sikkim-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  25% {
+    background-position: 100% 0%;
+  }
+
+  50% {
+    background-position: 100% 100%;
+  }
+
+  75% {
+    background-position: 0% 100%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-sikkim-gradient {
+  animation: sikkim-gradient 18s ease infinite;
+}
+
+@keyframes ping-slow {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+
+  70%,
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@keyframes ping-slower {
+  0% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+
+  70%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.animate-ping-slow {
+  animation: ping-slow 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-ping-slower {
+  animation: ping-slower 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  animation-delay: 0.6s;
+}
+
+@keyframes drift-clouds {
+  0% {
+    transform: translateX(-8%);
+  }
+
+  50% {
+    transform: translateX(6%);
+  }
+
+  100% {
+    transform: translateX(-8%);
+  }
+}
+
+@keyframes drift-clouds-slow {
+  0% {
+    transform: translateX(4%);
+  }
+
+  50% {
+    transform: translateX(-10%);
+  }
+
+  100% {
+    transform: translateX(4%);
+  }
+}
+
+@keyframes flag-wave {
+
+  0%,
+  100% {
+    transform: skewX(0deg) scaleY(1);
+  }
+
+  50% {
+    transform: skewX(-1.5deg) scaleY(0.985);
+  }
+}
+
+/* Realistic rectangular prayer-flag flutter */
+@keyframes flag-flutter {
+  0% {
+    transform: rotate(-3deg) skewX(2deg) scaleX(0.96);
+  }
+
+  20% {
+    transform: rotate(1deg) skewX(-3deg) scaleX(1.02);
+  }
+
+  45% {
+    transform: rotate(4deg) skewX(2deg) scaleX(0.97);
+  }
+
+  65% {
+    transform: rotate(-1deg) skewX(-2deg) scaleX(1.01);
+  }
+
+  80% {
+    transform: rotate(2deg) skewX(3deg) scaleX(0.98);
+  }
+
+  100% {
+    transform: rotate(-3deg) skewX(2deg) scaleX(0.96);
+  }
+}
+
+@keyframes glow-breathe {
+
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes rise-fade {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-out-rise {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+
+.animate-drift-clouds {
+  animation: drift-clouds 34s ease-in-out infinite;
+}
+
+.animate-drift-clouds-slow {
+  animation: drift-clouds-slow 46s ease-in-out infinite;
+}
+
+.animate-flag-wave {
+  animation: flag-wave 3.2s ease-in-out infinite;
+  transform-origin: top left;
+}
+
+.animate-flag-flutter {
+  animation: flag-flutter ease-in-out infinite;
+  transform-origin: top center;
+}
+
+.animate-glow-breathe {
+  animation: glow-breathe 4.5s ease-in-out infinite;
+}
+
+.animate-rise-fade {
+  animation: rise-fade 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade-out-rise {
+  animation: fade-out-rise 0.5s ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .animate-ping-slow,
+  .animate-ping-slower,
+  .animate-drift-clouds,
+  .animate-drift-clouds-slow,
+  .animate-flag-wave,
+  .animate-flag-flutter,
+  .animate-glow-breathe,
+  .animate-rise-fade,
+  .animate-fade-out-rise,
+  .animate-cursor-blink,
+  .animate-sikkim-gradient {
+    animation: none !important;
+  }
+}
+
+@keyframes cursor-blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-cursor-blink {
+  animation: cursor-blink 0.75s step-start infinite;
+}
+
+/* ── Snow particles ──────────────────────────────────────────────────────── */
+@keyframes snow-fall {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 0.75;
+  }
+
+  88% {
+    opacity: 0.45;
+  }
+
+  100% {
+    transform: translateY(105%) translateX(var(--drift, 12px));
+    opacity: 0;
+  }
+}
+
+.animate-snow-fall {
+  animation: snow-fall linear infinite both;
+}
+
+/* ── Star twinkle ────────────────────────────────────────────────────────── */
+@keyframes star-twinkle {
+
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.85;
+    transform: scale(1.4);
+  }
+}
+
+.animate-star-twinkle {
+  animation: star-twinkle 3.5s ease-in-out infinite;
+}
+
+/* ── Prayer-flag colour ring on the launcher button ─────────────────────── */
+@keyframes flag-ring {
+  0% {
+    box-shadow: 0 0 0 3px #3B82F688;
+  }
+
+  20% {
+    box-shadow: 0 0 0 3px #F8FAFC88;
+  }
+
+  40% {
+    box-shadow: 0 0 0 3px #EF444488;
+  }
+
+  60% {
+    box-shadow: 0 0 0 3px #22C55E88;
+  }
+
+  80% {
+    box-shadow: 0 0 0 3px #EAB30888;
+  }
+
+  100% {
+    box-shadow: 0 0 0 3px #3B82F688;
+  }
+}
+
+.animate-flag-ring {
+  animation: flag-ring 4s linear infinite;
+  border-radius: 9999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .animate-snow-fall,
+  .animate-star-twinkle,
+  .animate-flag-ring {
+    animation: none !important;
+  }
+}
