@@ -253,7 +253,7 @@ export function ChatWidget() {
                 }
               : { duration: 0.2 }
           }
-          className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-primary text-primary-foreground shadow-2xl flex items-center justify-center focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 overflow-hidden"
+          className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-primary text-primary-foreground shadow-2xl flex items-center justify-center focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 overflow-hidden border border-white/20"
           aria-label={isOpen ? "Close chat" : "Open Sikkim Tourism Assistant"}
         >
           {/* Dual-ring pulse */}
@@ -323,7 +323,7 @@ export function ChatWidget() {
                 className="relative shrink-0 overflow-hidden"
                 style={{
                   background:
-                    "linear-gradient(135deg, #1E3A8A 0%, #2563EB 55%, #0891B2 100%)",
+                    "linear-gradient(135deg, #143C35 0%, #277A6B 54%, #D9A03B 100%)",
                 }}
               >
                 {/* Radial highlight */}
@@ -388,7 +388,7 @@ export function ChatWidget() {
                   aria-hidden="true"
                   style={{
                     background:
-                      "linear-gradient(135deg, #060D1F, #0a1829, #0d1f35, #071525, #060D1F)",
+                      "linear-gradient(135deg, #081412, #0d201c, #13322d, #0c1c19, #081412)",
                     backgroundSize: "400% 400%",
                   }}
                 />

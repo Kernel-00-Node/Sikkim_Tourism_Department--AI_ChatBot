@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { DestinationCard } from "@/components/destination-card";
 import { DestinationDetailsDialog } from "@/components/destination-details-dialog";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchDestinations, fetchCategories, type DestinationSummary } from "@/lib/api";
+import {
+  fetchDestinations,
+  fetchCategories,
+  type DestinationSummary,
+} from "@/lib/api";
 
 function useDebounce<T>(value: T, delay = 350): T {
   const [debounced, setDebounced] = useState(value);
@@ -34,13 +38,12 @@ export default function Destinations() {
   useEffect(() => {
     fetchCategories()
       .then(setCategories)
-      .catch((err: unknown) => console.error("Failed to load categories:", err));
+      .catch((err: unknown) =>
+        console.error("Failed to load categories:", err),
+      );
   }, []);
 
   useEffect(() => {
-    // AbortController cancels the in-flight request when the user types again
-    // before the previous fetch resolves, preventing stale results from
-    // overwriting newer state (classic React race condition).
     const controller = new AbortController();
 
     setIsLoading(true);
@@ -51,116 +54,136 @@ export default function Destinations() {
     )
       .then(setDestinations)
       .catch((err: unknown) => {
-        // Ignore intentional cancellations — they are not real errors.
         if (err instanceof Error && err.name === "AbortError") return;
         console.error("Failed to load destinations:", err);
       })
       .finally(() => setIsLoading(false));
 
-    // Cancel the previous request on the next render cycle.
     return () => controller.abort();
   }, [debouncedSearch, category]);
 
   const isFiltered = debouncedSearch || category !== "all";
 
   return (
-    <div className="flex-1 bg-background flex flex-col">
+    <div className="flex flex-1 flex-col bg-transparent">
+      <div className="relative overflow-hidden border-b border-border/50">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(39,122,107,0.10),rgba(39,122,107,0.02)),radial-gradient(circle_at_top_left,rgba(233,169,59,0.16),transparent_26%),radial-gradient(circle_at_top_right,rgba(39,122,107,0.14),transparent_32%)]" />
+        <div className="absolute -left-16 top-10 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute -right-12 bottom-0 h-56 w-56 rounded-full bg-secondary/12 blur-3xl" />
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden border-b border-white/10">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/5 to-background pointer-events-none" />
-        <div className="absolute -top-10 -right-10 w-72 h-72 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-10 -left-10 w-56 h-56 rounded-full bg-primary/8 blur-2xl pointer-events-none" />
-
-        <div className="relative container mx-auto px-4 py-14 md:py-20 text-center max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold tracking-widest uppercase mb-6 animate-rise-fade">
-            <MountainSnow className="w-3.5 h-3.5" />
-            Official Destination Guide
+        <div className="relative container mx-auto max-w-6xl px-4 py-14 md:py-18">
+          <div className="mx-auto max-w-3xl text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white/75 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary shadow-sm backdrop-blur-sm animate-rise-fade dark:bg-card/80">
+              <MountainSnow className="h-3.5 w-3.5" />
+              Official destination guide
+            </div>
+            <h1
+              className="font-serif text-4xl font-bold text-foreground animate-rise-fade md:text-5xl"
+              style={{ animationDelay: "80ms" }}
+            >
+              Explore Destinations
+            </h1>
+            <p
+              className="mt-4 text-lg leading-relaxed text-muted-foreground animate-rise-fade"
+              style={{ animationDelay: "160ms" }}
+            >
+              From the serene waters of Tsomgo Lake to the ancient walls of
+              Rumtek Monastery, discover the beauty of the Himalayas.
+            </p>
           </div>
-          <h1 className="font-serif text-4xl md:text-5xl font-bold text-foreground mb-4 animate-rise-fade" style={{ animationDelay: "80ms" }}>
-            Explore Destinations
-          </h1>
-          <p className="text-lg text-muted-foreground leading-relaxed animate-rise-fade" style={{ animationDelay: "160ms" }}>
-            From the serene waters of Tsomgo Lake to the ancient walls of Rumtek Monastery,
-            discover the beauty of the Himalayas.
-          </p>
+
+          <div className="mx-auto mt-10 max-w-5xl rounded-[1.8rem] border border-border/70 bg-white/78 p-4 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/78 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search places, districts, or experiences..."
+                  className="h-13 rounded-2xl border-border/70 bg-background/70 pl-11 text-base shadow-none"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="h-13 w-full rounded-2xl border-border/70 bg-background/70 px-4 shadow-none sm:w-[230px]">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="All Categories" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c} className="capitalize">
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 flex-1">
+      <div className="container mx-auto flex flex-1 px-4 py-8">
+        <div className="w-full rounded-[1.9rem] border border-border/70 bg-white/72 p-6 shadow-[0_22px_56px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:bg-card/72 sm:p-8">
+          {!isLoading && (
+            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                {isFiltered
+                  ? `${destinations.length} result${destinations.length !== 1 ? "s" : ""} found`
+                  : `${destinations.length} destination${destinations.length !== 1 ? "s" : ""} in Sikkim`}
+              </p>
+              {isFiltered && (
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setCategory("all");
+                  }}
+                  className="text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
 
-        {/* ── Search & Filter ───────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="Search places, districts, or experiences..."
-              className="pl-10 h-12 bg-card border-border/60 shadow-sm text-base rounded-xl"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-full sm:w-[200px] h-12 bg-card rounded-xl shadow-sm">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-muted-foreground" />
-                <SelectValue placeholder="All Categories" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
+          {isLoading ? (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div
+                  key={i}
+                  className="h-[410px] rounded-[1.6rem] border border-border/50 bg-muted/70 animate-pulse"
+                />
               ))}
-            </SelectContent>
-          </Select>
+            </div>
+          ) : destinations.length > 0 ? (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {destinations.map((dest, i) => (
+                <div
+                  key={dest.id}
+                  className="animate-in slide-in-from-bottom-4 fade-in duration-500 fill-mode-both"
+                  style={{ animationDelay: `${i * 50}ms` }}
+                >
+                  <DestinationCard
+                    dest={dest}
+                    onClick={() => setSelectedId(dest.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[1.8rem] border border-dashed border-border bg-background/70 px-4 py-24 text-center">
+              <MapPin className="mx-auto mb-4 h-12 w-12 text-muted-foreground/30" />
+              <h3 className="mb-2 text-xl font-semibold text-foreground">
+                No destinations found
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Try adjusting your search or filters to find what you're looking
+                for.
+              </p>
+            </div>
+          )}
         </div>
-
-        {/* ── Result count ─────────────────────────────────────────────── */}
-        {!isLoading && (
-          <p className="text-sm text-muted-foreground mb-6">
-            {isFiltered
-              ? `${destinations.length} result${destinations.length !== 1 ? "s" : ""} found`
-              : `${destinations.length} destination${destinations.length !== 1 ? "s" : ""} in Sikkim`}
-          </p>
-        )}
-
-        {/* ── Grid ─────────────────────────────────────────────────────── */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div key={i} className="bg-muted rounded-2xl h-[400px] animate-pulse" />
-            ))}
-          </div>
-        ) : destinations.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {destinations.map((dest, i) => (
-              <div
-                key={dest.id}
-                className="animate-in slide-in-from-bottom-4 fade-in duration-500 fill-mode-both"
-                style={{ animationDelay: `${i * 50}ms` }}
-              >
-                <DestinationCard dest={dest} onClick={() => setSelectedId(dest.id)} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-24 px-4 border rounded-2xl bg-card border-dashed">
-            <MapPin className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-foreground mb-2">No destinations found</h3>
-            <p className="text-muted-foreground text-sm">
-              Try adjusting your search or filters to find what you're looking for.
-            </p>
-            {isFiltered && (
-              <button
-                onClick={() => { setSearch(""); setCategory("all"); }}
-                className="mt-4 text-sm text-primary hover:underline font-medium"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       <DestinationDetailsDialog

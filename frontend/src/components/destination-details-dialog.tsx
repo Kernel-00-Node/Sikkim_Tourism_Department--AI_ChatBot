@@ -1,8 +1,21 @@
 import { useState, useEffect } from "react";
 import { fetchDestination, type Destination } from "@/lib/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Clock, Ticket, IndianRupee, Mountain, Loader2, X } from "lucide-react";
+import {
+  MapPin,
+  Clock,
+  Ticket,
+  IndianRupee,
+  Mountain,
+  Loader2,
+  X,
+} from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function DestinationDetailsDialog({
@@ -36,107 +49,153 @@ export function DestinationDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-card border-none rounded-3xl shadow-2xl">
+      <DialogContent className="max-w-4xl overflow-hidden rounded-[2rem] border border-border/60 bg-white/92 p-0 shadow-[0_36px_100px_rgba(15,23,42,0.24)] backdrop-blur-2xl dark:bg-card/95">
         <DialogHeader className="sr-only">
           <DialogTitle>{dest?.name ?? "Destination details"}</DialogTitle>
         </DialogHeader>
 
         <button
           onClick={() => onOpenChange(false)}
-          className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+          className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55"
           aria-label="Close"
         >
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" />
         </button>
 
         {fetchError ? (
-          // Show a user-visible error rather than silently failing
-          <div className="h-96 flex flex-col items-center justify-center px-6 text-center">
-            <p className="text-destructive font-medium mb-2">Something went wrong</p>
-            <p className="text-muted-foreground text-sm">{fetchError}</p>
+          <div className="flex h-96 flex-col items-center justify-center px-6 text-center">
+            <p className="mb-2 font-medium text-destructive">
+              Something went wrong
+            </p>
+            <p className="text-sm text-muted-foreground">{fetchError}</p>
           </div>
         ) : isLoading || !dest ? (
-          <div className="h-96 flex flex-col items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground font-medium">Loading details...</p>
+          <div className="flex h-96 flex-col items-center justify-center">
+            <Loader2 className="mb-4 h-8 w-8 animate-spin text-primary" />
+            <p className="font-medium text-muted-foreground">
+              Loading details...
+            </p>
           </div>
         ) : (
-          <div className="flex flex-col max-h-[88vh]">
-            <div className="h-64 sm:h-72 relative shrink-0 overflow-hidden">
+          <div className="flex max-h-[88vh] flex-col">
+            <div className="relative h-72 shrink-0 overflow-hidden sm:h-80">
               {dest.imageUrl && !imgError ? (
                 <img
                   src={dest.imageUrl}
                   alt={dest.name}
-                  className="w-full h-full object-cover"
+                  className="h-full w-full object-cover"
                   onError={() => setImgError(true)}
                 />
               ) : (
                 <div
-                  className="w-full h-full flex items-center justify-center text-white/20"
-                  style={{ backgroundColor: dest.imagePlaceholder || "#6b7280" }}
+                  className="flex h-full w-full items-center justify-center text-white/25"
+                  style={{
+                    backgroundColor: dest.imagePlaceholder || "#6b7280",
+                  }}
                 >
-                  <Mountain className="w-20 h-20" />
+                  <Mountain className="h-20 w-20" />
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-              <div className="absolute bottom-0 left-0 p-6 sm:p-8">
-                <div className="flex items-center gap-3 mb-2 flex-wrap">
-                  <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-white/10 backdrop-blur capitalize">
+
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,21,18,0.06),rgba(5,21,18,0.16),rgba(5,21,18,0.82))]" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(233,169,59,0.20),transparent_28%)]" />
+
+              <div className="absolute bottom-0 left-0 w-full p-6 sm:p-8">
+                <div className="mb-3 flex flex-wrap items-center gap-3">
+                  <Badge
+                    variant="secondary"
+                    className="rounded-full border-0 bg-white/92 px-3 py-1 text-[0.72rem] font-semibold capitalize text-foreground shadow-sm backdrop-blur"
+                  >
                     {dest.category}
                   </Badge>
-                  <div className="flex items-center gap-1.5 text-sm font-medium text-white/80">
-                    <MapPin className="w-4 h-4" />
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/12 px-3 py-1 text-sm font-medium text-white/88 backdrop-blur-sm">
+                    <MapPin className="h-4 w-4" />
                     {dest.district} District
                   </div>
                 </div>
-                <h2 className="text-3xl sm:text-4xl font-serif font-bold text-white leading-tight">{dest.name}</h2>
+                <h2 className="max-w-3xl font-serif text-3xl font-bold leading-tight text-white sm:text-4xl">
+                  {dest.name}
+                </h2>
               </div>
             </div>
 
-            <ScrollArea className="p-6 sm:p-8 shrink min-h-0">
+            <ScrollArea className="min-h-0 shrink p-6 sm:p-8">
               <div className="space-y-8">
-                <div>
-                  <h3 className="text-lg font-serif font-semibold text-foreground mb-3 border-b pb-2">About this place</h3>
-                  <p className="text-muted-foreground leading-relaxed">{dest.description}</p>
+                <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+                  <div className="rounded-[1.5rem] border border-border/70 bg-background/72 p-6 dark:bg-muted/20">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">
+                      About this place
+                    </p>
+                    <h3 className="mb-3 font-serif text-xl font-semibold text-foreground">
+                      Travel snapshot
+                    </h3>
+                    <p className="leading-relaxed text-muted-foreground">
+                      {dest.description}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[1.5rem] border border-border/70 bg-gradient-to-br from-primary/[0.06] via-white to-secondary/[0.08] p-6 dark:from-primary/10 dark:via-card dark:to-secondary/10">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">
+                      Quick planning info
+                    </p>
+                    <div className="mt-4 grid gap-4 text-sm">
+                      <div className="rounded-2xl border border-border/60 bg-white/80 p-4 dark:bg-card/70">
+                        <div className="mb-1.5 flex items-center gap-2 font-medium text-primary">
+                          <Clock className="h-4 w-4" /> Best Time to Visit
+                        </div>
+                        <p className="leading-relaxed text-muted-foreground">
+                          {dest.bestTimeToVisit}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-border/60 bg-white/80 p-4 dark:bg-card/70">
+                        <div className="mb-1.5 flex items-center gap-2 font-medium text-primary">
+                          <Ticket className="h-4 w-4" /> Permits Required
+                        </div>
+                        <p className="leading-relaxed text-muted-foreground">
+                          {dest.permitsRequired}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 bg-muted/30 p-6 rounded-2xl border">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-primary font-medium text-sm">
-                      <Clock className="w-4 h-4" /> Best Time to Visit
-                    </div>
-                    <p className="text-muted-foreground text-sm leading-relaxed">{dest.bestTimeToVisit}</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-primary font-medium text-sm">
-                      <Ticket className="w-4 h-4" /> Permits Required
-                    </div>
-                    <p className="text-muted-foreground text-sm leading-relaxed">{dest.permitsRequired}</p>
-                  </div>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   {dest.entryFee && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 text-primary font-medium text-sm">
-                        <IndianRupee className="w-4 h-4" /> Entry Fee
+                    <div className="rounded-[1.4rem] border border-border/70 bg-white/75 p-5 shadow-sm dark:bg-card/70">
+                      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
+                        <IndianRupee className="h-4 w-4" /> Entry Fee
                       </div>
-                      <p className="text-muted-foreground text-sm leading-relaxed">{dest.entryFee}</p>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {dest.entryFee}
+                      </p>
                     </div>
                   )}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-primary font-medium text-sm">
-                      <MapPin className="w-4 h-4" /> How to Reach
+                  <div className="rounded-[1.4rem] border border-border/70 bg-white/75 p-5 shadow-sm dark:bg-card/70">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
+                      <MapPin className="h-4 w-4" /> How to Reach
                     </div>
-                    <p className="text-muted-foreground text-sm leading-relaxed">{dest.howToReach}</p>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {dest.howToReach}
+                    </p>
                   </div>
                 </div>
 
                 {dest.highlights && dest.highlights.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-serif font-semibold text-foreground mb-3 border-b pb-2">Highlights</h3>
-                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="rounded-[1.5rem] border border-border/70 bg-background/72 p-6 dark:bg-muted/20">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">
+                      Highlights
+                    </p>
+                    <h3 className="mb-4 font-serif text-xl font-semibold text-foreground">
+                      What makes this place special
+                    </h3>
+                    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {dest.highlights.map((h, i) => (
-                        <li key={i} className="flex items-start gap-2.5 text-muted-foreground text-sm">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                          {h}
+                        <li
+                          key={i}
+                          className="flex items-start gap-3 rounded-2xl border border-border/60 bg-white/78 px-4 py-3 text-sm text-muted-foreground shadow-sm dark:bg-card/70"
+                        >
+                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                          <span>{h}</span>
                         </li>
                       ))}
                     </ul>

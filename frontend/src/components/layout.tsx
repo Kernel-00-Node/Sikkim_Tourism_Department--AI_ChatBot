@@ -46,26 +46,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isTransparent = isHome && !scrolled;
 
   const headerBg = isTransparent
-    ? "bg-transparent border-b border-transparent"
+    ? "bg-transparent border-transparent"
     : isHome
-      ? "bg-black/30 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.18)]"
-      : "bg-background/95 backdrop-blur-xl border-b border-border shadow-sm";
+      ? "bg-[rgba(10,28,25,0.72)] backdrop-blur-2xl border-white/10 shadow-[0_18px_40px_rgba(5,20,18,0.28)]"
+      : "bg-background/82 backdrop-blur-2xl border-border/70 shadow-[0_16px_38px_rgba(15,23,42,0.08)]";
 
   const txtMain = isHome ? "text-white" : "text-foreground";
-  const txtMuted = isHome ? "text-white/60" : "text-muted-foreground";
+  const txtMuted = isHome ? "text-white/72" : "text-muted-foreground";
   const badgeCls = isHome
-    ? "bg-white/10 border-white/15 text-white/70"
-    : "bg-muted border-transparent text-muted-foreground";
+    ? "bg-white/10 border-white/15 text-white/80"
+    : "bg-white/70 border-border/70 text-muted-foreground shadow-sm";
   const linkActive = isHome ? "text-white" : "text-foreground";
   const linkInactive = isHome
-    ? "text-white/60 hover:text-white/90"
+    ? "text-white/70 hover:text-white"
     : "text-muted-foreground hover:text-foreground";
   const linkActiveBg = isHome
-    ? "bg-white/15 border-white/20"
-    : "bg-primary/10 border-primary/20";
+    ? "bg-white/14 border-white/18"
+    : "bg-primary/10 border-primary/20 shadow-sm";
   const linkHoverBg = isHome
-    ? "group-hover:bg-white/8 group-hover:border-white/10"
-    : "group-hover:bg-muted group-hover:border-border";
+    ? "group-hover:bg-white/8 group-hover:border-white/12"
+    : "group-hover:bg-white/70 group-hover:border-border/80";
 
   const navLinks = [
     { href: "/", label: "Home", icon: MessageSquare },
@@ -73,26 +73,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="flex flex-col min-h-[100dvh]">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute inset-x-0 top-0 h-[32rem] bg-[radial-gradient(circle_at_top_left,rgba(233,169,59,0.17),transparent_36%),radial-gradient(circle_at_top_right,rgba(39,122,107,0.17),transparent_32%)]" />
+        <div className="absolute left-[-10rem] top-[24rem] h-[24rem] w-[24rem] rounded-full bg-primary/8 blur-3xl" />
+        <div className="absolute right-[-8rem] top-[40rem] h-[20rem] w-[20rem] rounded-full bg-secondary/10 blur-3xl" />
+      </div>
+
       <header
-        className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ${headerBg}`}
+        className={`fixed top-0 left-0 right-0 z-50 w-full border-b transition-all duration-500 ${headerBg}`}
       >
-        <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3 group shrink-0">
-            <div className="relative w-11 h-11 shrink-0">
-              <span className="absolute inset-0 rounded-full bg-primary/25 animate-glow-breathe" />
-              <div className="relative w-11 h-11 rounded-full bg-white ring-1 ring-black/5 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300 p-1.5 overflow-hidden">
-                <SikkimLogo className="w-full h-full object-contain" />
+        <div className="container mx-auto flex h-18 items-center justify-between gap-4 px-4 sm:px-6">
+          <Link href="/" className="group flex shrink-0 items-center gap-3">
+            <div className="relative h-12 w-12 shrink-0">
+              <span className="absolute inset-0 rounded-full bg-primary/25 blur-[2px] animate-glow-breathe" />
+              <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-white p-1.5 shadow-lg ring-1 ring-black/5 transition-transform duration-300 group-hover:scale-105">
+                <SikkimLogo className="h-full w-full object-contain" />
               </div>
             </div>
             <div className="flex flex-col leading-none">
               <span
-                className={`font-serif text-[1.05rem] font-bold tracking-tight drop-shadow-sm transition-colors duration-300 ${txtMain}`}
+                className={`font-serif text-[1.08rem] font-bold tracking-tight drop-shadow-sm transition-colors duration-300 ${txtMain}`}
               >
                 Sikkim Tourism
               </span>
               <span
-                className={`text-[0.58rem] font-semibold tracking-[0.18em] uppercase mt-0.5 transition-colors duration-300 ${txtMuted}`}
+                className={`mt-0.5 text-[0.58rem] font-semibold uppercase tracking-[0.2em] transition-colors duration-300 ${txtMuted}`}
               >
                 &amp; Civil Aviation Dept.
               </span>
@@ -100,53 +106,48 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div
-            className={`hidden md:flex items-center gap-2 px-3 py-1 rounded-full border backdrop-blur-sm transition-all duration-300 ${badgeCls}`}
+            className={`hidden items-center gap-2 rounded-full border px-3.5 py-1.5 backdrop-blur-sm transition-all duration-300 md:flex ${badgeCls}`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[0.65rem] font-semibold tracking-widest uppercase">
-              Government of Sikkim · Official
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[0.65rem] font-semibold uppercase tracking-[0.22em]">
+              Official travel assistant
             </span>
           </div>
 
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1.5 rounded-full border border-transparent bg-transparent p-1">
             {navLinks.map(({ href, label, icon: Icon }) => {
               const active = location === href;
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 group ${active ? linkActive : linkInactive}`}
+                  className={`group relative flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${active ? linkActive : linkInactive}`}
                 >
                   <span
-                    className={`absolute inset-0 rounded-lg transition-all duration-200 border ${active ? linkActiveBg : `bg-transparent border-transparent ${linkHoverBg}`}`}
+                    className={`absolute inset-0 rounded-full border transition-all duration-200 ${active ? linkActiveBg : `bg-transparent border-transparent ${linkHoverBg}`}`}
                   />
-                  <Icon className="w-3.5 h-3.5 relative" />
+                  <Icon className="relative h-3.5 w-3.5" />
                   <span className="relative hidden sm:inline">{label}</span>
-                  {active && (
-                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
-                  )}
                 </Link>
               );
             })}
 
-            {/* Dark / light toggle */}
             <button
               type="button"
               onClick={() => setIsDark((v) => !v)}
               aria-label={
                 isDark ? "Switch to light mode" : "Switch to dark mode"
               }
-              className={`relative w-9 h-9 ml-1 rounded-lg flex items-center justify-center transition-all duration-200 group ${
+              className={`group relative ml-1 flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-200 ${
                 isHome
-                  ? "text-white/70 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/15"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent hover:border-border"
+                  ? "border-white/10 text-white/75 hover:border-white/20 hover:bg-white/10 hover:text-white"
+                  : "border-border/70 bg-white/70 text-muted-foreground hover:border-border hover:bg-white hover:text-foreground"
               }`}
             >
-              <span className="absolute inset-0 rounded-lg" />
               {isDark ? (
-                <Sun className="w-4 h-4 relative transition-transform duration-300 rotate-0 group-hover:rotate-12" />
+                <Sun className="relative h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
               ) : (
-                <Moon className="w-4 h-4 relative transition-transform duration-300 rotate-0 group-hover:-rotate-12" />
+                <Moon className="relative h-4 w-4 transition-transform duration-300 group-hover:-rotate-12" />
               )}
             </button>
           </nav>
@@ -154,20 +155,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       <main
-        className={`flex-1 flex flex-col relative ${isHome ? "" : "pt-16"}`}
+        className={`relative flex flex-1 flex-col ${isHome ? "" : "pt-18"}`}
       >
         {children}
       </main>
 
-      <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-5">
-        <div className="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[0.68rem] text-muted-foreground tracking-wide">
+      <footer className="border-t border-border/70 bg-white/72 py-6 backdrop-blur-xl dark:bg-card/70">
+        <div className="container mx-auto flex flex-col items-center justify-between gap-3 px-4 text-[0.72rem] tracking-wide text-muted-foreground sm:flex-row">
           <span>
             © {new Date().getFullYear()} Department of Tourism &amp; Civil
             Aviation, Government of Sikkim
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/70 animate-pulse" />
-            All services operational
+          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/15 bg-emerald-500/8 px-3 py-1 text-[0.68rem] font-medium text-emerald-700 dark:text-emerald-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Information services available
           </span>
         </div>
       </footer>

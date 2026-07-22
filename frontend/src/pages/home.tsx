@@ -2,7 +2,13 @@ import { useState, useEffect } from "react";
 import { DestinationCard } from "@/components/destination-card";
 import { DestinationDetailsDialog } from "@/components/destination-details-dialog";
 import { Link } from "wouter";
-import { ArrowRight, MountainSnow, ShieldCheck, Compass, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  MountainSnow,
+  ShieldCheck,
+  Compass,
+  Sparkles,
+} from "lucide-react";
 import { fetchDestinations, type DestinationSummary } from "@/lib/api";
 import { heroVideo } from "@/config/hero-media";
 
@@ -14,7 +20,9 @@ const heroTaglines = [
 
 export default function Home() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [popularDestinations, setPopularDestinations] = useState<DestinationSummary[]>([]);
+  const [popularDestinations, setPopularDestinations] = useState<
+    DestinationSummary[]
+  >([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [taglineIndex, setTaglineIndex] = useState(0);
   const [taglineVisible, setTaglineVisible] = useState(true);
@@ -28,7 +36,6 @@ export default function Home() {
       });
   }, []);
 
-  // Every 10s, fade the headline out, swap to the next tagline, then fade back in.
   useEffect(() => {
     const interval = setInterval(() => {
       setTaglineVisible(false);
@@ -58,130 +65,186 @@ export default function Home() {
     },
   ];
 
+  const highlights = [
+    { value: "India's First", label: "Fully Organic State" },
+    { value: "Kanchenjunga", label: "World's 3rd Highest Peak" },
+    { value: "200+", label: "Monasteries & Sacred Sites" },
+  ];
+
   return (
-      <div className="flex-1 flex flex-col overflow-hidden bg-background">
-        {/* ── Hero ─────────────────────────────────────────────────────────── */}
-        <section className="relative overflow-hidden border-b min-h-[72vh] sm:min-h-screen flex flex-col">
-          {/* Ambient background: video (local file or URL, see src/config/hero-media.ts) */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-            <video
-                key={heroVideo.src}
-                className="absolute inset-0 w-full h-full object-cover object-[center_35%]"
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                poster={heroVideo.poster}
-            >
-              <source src={heroVideo.src} type="video/mp4" />
-            </video>
-            {/* Dark/tint overlay so white text stays readable over any footage */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-background" />
+    <div className="flex flex-1 flex-col overflow-hidden bg-transparent">
+      <section className="relative flex min-h-[78vh] flex-col overflow-hidden border-b border-white/10 sm:min-h-screen">
+        <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+          <video
+            key={heroVideo.src}
+            className="absolute inset-0 h-full w-full object-cover object-[center_35%]"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            poster={heroVideo.poster}
+          >
+            <source src={heroVideo.src} type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,21,18,0.18)_0%,rgba(5,21,18,0.52)_26%,rgba(5,21,18,0.72)_65%,rgba(244,248,246,0.96)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(233,169,59,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(39,122,107,0.28),transparent_34%)]" />
+        </div>
+
+        <div className="relative container mx-auto flex min-h-[78vh] flex-1 flex-col items-center justify-center px-4 py-18 text-center sm:min-h-screen">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/90 backdrop-blur-md animate-rise-fade">
+            <MountainSnow className="h-3.5 w-3.5" />
+            Government of Sikkim · Tourism &amp; Civil Aviation Dept.
           </div>
 
-          <div className="relative container mx-auto px-4 flex flex-col items-center justify-center text-center flex-1 py-16 min-h-[72vh] sm:min-h-screen">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 text-white backdrop-blur-sm text-xs font-semibold tracking-wide uppercase mb-6 animate-rise-fade">
-              <MountainSnow className="w-3.5 h-3.5" />
-              Government of Sikkim · Tourism &amp; Civil Aviation Dept.
-            </div>
+          <div className="mt-6 max-w-5xl rounded-[2rem] border border-white/10 bg-white/7 px-6 py-8 shadow-[0_30px_90px_rgba(0,0,0,0.24)] backdrop-blur-md sm:px-10 sm:py-10">
             <h1
-                key={taglineIndex}
-                className={`font-serif text-4xl sm:text-6xl font-bold tracking-tight text-white max-w-3xl leading-[1.1] ${
-                    taglineVisible ? "animate-rise-fade" : "animate-fade-out-rise"
-                }`}
-                style={taglineIndex === 0 ? { animationDelay: "100ms" } : undefined}
+              key={taglineIndex}
+              className={`mx-auto max-w-4xl font-serif text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-6xl ${
+                taglineVisible ? "animate-rise-fade" : "animate-fade-out-rise"
+              }`}
+              style={
+                taglineIndex === 0 ? { animationDelay: "100ms" } : undefined
+              }
             >
               {heroTaglines[taglineIndex]}
             </h1>
+
             <p
-                className="text-white/80 text-lg sm:text-xl mt-6 max-w-xl mx-auto leading-relaxed animate-rise-fade"
-                style={{ animationDelay: "220ms" }}
+              className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/84 animate-rise-fade sm:text-xl"
+              style={{ animationDelay: "220ms" }}
             >
-              Where snow peaks meet prayer flags, monasteries keep centuries of silence, and every valley
-              has a story. Ask our assistant about permits, routes, and the best time to visit — anytime.
+              Where snow peaks meet prayer flags, monasteries keep centuries of
+              silence, and every valley has a story. Ask our assistant about
+              permits, routes, and the best time to visit — anytime.
             </p>
 
             <div
-                className="flex flex-wrap items-center justify-center gap-3 mt-8 animate-rise-fade"
-                style={{ animationDelay: "340ms" }}
+              className="mt-8 flex flex-wrap items-center justify-center gap-3 animate-rise-fade"
+              style={{ animationDelay: "340ms" }}
             >
               <Link
-                  href="/destinations"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-medium shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+                href="/destinations"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_16px_40px_rgba(39,122,107,0.32)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_46px_rgba(39,122,107,0.38)]"
               >
-                Explore destinations <ArrowRight className="w-4 h-4" />
+                Explore destinations <ArrowRight className="h-4 w-4" />
               </Link>
-              <span className="text-sm text-white/70">or click the chat icon to ask a question</span>
-            </div>
-
-            <div
-                className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 mt-12 pt-8 border-t border-white/15 max-w-2xl animate-rise-fade"
-                style={{ animationDelay: "440ms" }}
-            >
-              {[
-                { value: "India's First", label: "Fully Organic State" },
-                { value: "Kanchenjunga", label: "World's 3rd Highest Peak" },
-                { value: "200+", label: "Monasteries & Sacred Sites" },
-              ].map((stat) => (
-                  <div key={stat.label} className="flex flex-col items-center">
-                    <span className="font-serif text-lg sm:text-xl font-bold text-white">{stat.value}</span>
-                    <span className="text-[0.68rem] sm:text-xs uppercase tracking-wider text-white/60 mt-0.5">{stat.label}</span>
-                  </div>
-              ))}
+              <span className="inline-flex items-center rounded-full border border-white/14 bg-white/8 px-4 py-3 text-sm text-white/78 backdrop-blur-sm">
+                Or click the chat icon to ask a question
+              </span>
             </div>
           </div>
-        </section>
 
-        {/* ── Pillars ──────────────────────────────────────────────────────── */}
-        <section className="container mx-auto px-4 py-14 sm:py-20">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {pillars.map((p, i) => (
-                <div
-                    key={p.title}
-                    className="animate-rise-fade rounded-2xl border bg-card p-6 hover:shadow-md hover:border-primary/20 transition-all duration-300"
-                    style={{ animationDelay: `${180 + i * 100}ms` }}
-                >
-                  <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4">
-                    <p.icon className="w-5.5 h-5.5" />
-                  </div>
-                  <h3 className="font-serif text-lg font-semibold text-foreground mb-1.5">{p.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{p.body}</p>
-                </div>
+          <div
+            className="mt-12 grid w-full max-w-4xl grid-cols-1 gap-3 border-t border-white/12 pt-8 text-white animate-rise-fade sm:grid-cols-3"
+            style={{ animationDelay: "440ms" }}
+          >
+            {highlights.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-2xl border border-white/10 bg-white/8 px-5 py-4 backdrop-blur-sm"
+              >
+                <span className="block font-serif text-xl font-bold sm:text-2xl">
+                  {stat.value}
+                </span>
+                <span className="mt-1 block text-[0.72rem] uppercase tracking-[0.22em] text-white/65">
+                  {stat.label}
+                </span>
+              </div>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* ── Popular destinations ─────────────────────────────────────────── */}
-        <section className="container mx-auto px-4 pb-20">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Popular Places</h2>
-            <Link href="/destinations" className="text-sm font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors">
-              View all <ArrowRight className="w-3.5 h-3.5" />
+      <section className="container mx-auto px-4 py-14 sm:py-20">
+        <div className="rounded-[2rem] border border-border/70 bg-white/72 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/72 sm:p-8 lg:p-10">
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary/80">
+                Why this assistant feels official
+              </p>
+              <h2 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">
+                Designed for clarity, trust, and discovery
+              </h2>
+            </div>
+            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-right">
+              The refreshed interface keeps every existing feature intact, while
+              giving the site a cleaner tourism-focused identity with better
+              depth, spacing, and color harmony.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {pillars.map((p, i) => (
+              <div
+                key={p.title}
+                className="animate-rise-fade rounded-[1.6rem] border border-border/70 bg-gradient-to-b from-white to-white/70 p-6 shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(39,122,107,0.12)] dark:from-card dark:to-card/80"
+                style={{ animationDelay: `${180 + i * 100}ms` }}
+              >
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/10">
+                  <p.icon className="h-5.5 w-5.5" />
+                </div>
+                <h3 className="mb-2 font-serif text-lg font-semibold text-foreground">
+                  {p.title}
+                </h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {p.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="container mx-auto px-4 pb-20">
+        <div className="rounded-[2rem] border border-border/70 bg-white/72 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/72 sm:p-8">
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary/80">
+                Curated inspiration
+              </p>
+              <h2 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">
+                Popular Places
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                Start with a few of Sikkim's most searched destinations, then
+                open each place for travel timing, permits, and local guidance.
+              </p>
+            </div>
+            <Link
+              href="/destinations"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+            >
+              View all <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          {/* Show a user-visible message if the API call failed */}
+
           {loadError && (
-            <p className="text-sm text-destructive mb-4">{loadError}</p>
+            <p className="mb-4 text-sm text-destructive">{loadError}</p>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {popularDestinations.map((dest, i) => (
-                <div
-                    key={dest.id}
-                    className="animate-in slide-in-from-bottom-3 fade-in duration-500 fill-mode-both"
-                    style={{ animationDelay: `${i * 100}ms` }}
-                >
-                  <DestinationCard dest={dest} onClick={() => setSelectedId(dest.id)} />
-                </div>
+              <div
+                key={dest.id}
+                className="animate-in slide-in-from-bottom-3 fade-in duration-500 fill-mode-both"
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <DestinationCard
+                  dest={dest}
+                  onClick={() => setSelectedId(dest.id)}
+                />
+              </div>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <DestinationDetailsDialog
-            id={selectedId}
-            open={selectedId !== null}
-            onOpenChange={(open) => !open && setSelectedId(null)}
-        />
-      </div>
+      <DestinationDetailsDialog
+        id={selectedId}
+        open={selectedId !== null}
+        onOpenChange={(open) => !open && setSelectedId(null)}
+      />
+    </div>
   );
 }
