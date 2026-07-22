@@ -63,27 +63,16 @@ function useTypedGreeting() {
   return { displayed, sub: GREETINGS[idx].sub, isTyping: phase === "typing" };
 }
 
-/* ── Prayer flag strip (Lung ta — rectangular cloth panels) ─────────────── */
+/* ── Prayer flag colour bar (compact decorative strip) ───────────────────── */
 function PrayerFlagStrip() {
-  // Authentic order: Blue · White · Red · Green · Yellow (×3 repeats)
-  const flags = Array.from({ length: 15 }, (_, i) => FLAG_COLORS[i % 5]);
   return (
-    <div className="relative h-12 overflow-hidden select-none pointer-events-none px-3">
-      {/* Cord — slightly drooping catenary via SVG */}
-      <svg
-        className="absolute top-0 left-0 right-0 w-full"
-        height="6"
-        preserveAspectRatio="none"
-        viewBox="0 0 100 6"
-        aria-hidden="true"
-      >
-        <path
-          d="M0,1 Q50,5 100,1"
-          stroke="rgba(255,255,255,0.55)"
-          strokeWidth="0.5"
-          fill="none"
-        />
-      </svg>
+    <div
+      className="flex w-full h-[3px] select-none pointer-events-none"
+      aria-hidden="true"
+    >
+      {FLAG_COLORS.map((c, i) => (
+        <div key={i} className="flex-1" style={{ background: c }} />
+      ))}
     </div>
   );
 }
@@ -334,7 +323,7 @@ export function ChatWidget() {
                 className="relative shrink-0 overflow-hidden"
                 style={{
                   background:
-                    "linear-gradient(135deg, #7B1A27 0%, #922030 50%, #5c1a0a 100%)",
+                    "linear-gradient(135deg, #1E3A8A 0%, #2563EB 55%, #0891B2 100%)",
                 }}
               >
                 {/* Radial highlight */}
@@ -399,24 +388,24 @@ export function ChatWidget() {
                   aria-hidden="true"
                   style={{
                     background:
-                      "linear-gradient(135deg, #0d1f14, #0a1829, #1a0c05, #0f1e2e, #0d1f14)",
+                      "linear-gradient(135deg, #060D1F, #0a1829, #0d1f35, #071525, #060D1F)",
                     backgroundSize: "400% 400%",
                   }}
                 />
                 {/* Subtle vignette */}
-                <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+                <div className="absolute inset-0 bg-black/15 pointer-events-none" />
 
                 {/* Atmospheric blobs */}
                 <div
-                  className="absolute -top-12 -left-12 w-52 h-52 rounded-full bg-emerald-950/50 blur-3xl pointer-events-none animate-drift-clouds"
+                  className="absolute -top-12 -left-12 w-52 h-52 rounded-full bg-blue-950/60 blur-3xl pointer-events-none animate-drift-clouds"
                   aria-hidden="true"
                 />
                 <div
-                  className="absolute -bottom-12 -right-12 w-44 h-44 rounded-full bg-primary/15 blur-3xl pointer-events-none animate-drift-clouds-slow"
+                  className="absolute -bottom-12 -right-12 w-44 h-44 rounded-full bg-primary/20 blur-3xl pointer-events-none animate-drift-clouds-slow"
                   aria-hidden="true"
                 />
                 <div
-                  className="absolute top-1/3 right-0 w-32 h-32 rounded-full bg-secondary/10 blur-2xl pointer-events-none animate-drift-clouds"
+                  className="absolute top-1/3 right-0 w-32 h-32 rounded-full bg-secondary/15 blur-2xl pointer-events-none animate-drift-clouds"
                   style={{ animationDelay: "8s" }}
                   aria-hidden="true"
                 />

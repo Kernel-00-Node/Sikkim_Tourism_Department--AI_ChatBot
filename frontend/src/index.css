@@ -69,99 +69,108 @@
 }
 
 :root {
-  /* ── Warm Stone — monastery walls, aged parchment, Himalayan earth ───── */
-  --button-outline: rgba(0, 0, 0, .08);
+  /* ── Himalayan Sky — crisp alpine blues, clear high-altitude light ────── */
+  --button-outline: rgba(0, 0, 0, .07);
   --badge-outline: rgba(0, 0, 0, .04);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0, 0, 0, .025);
-  --elevate-2: rgba(0, 0, 0, .06);
+  --elevate-1: rgba(0, 0, 0, .022);
+  --elevate-2: rgba(0, 0, 0, .055);
 
-  --background: 36 28% 92%;
-  /* warm parchment      #f0e9de */
-  --foreground: 25 22% 18%;
-  /* deep walnut text    #302318 */
-  --border: 36 20% 80%;
-  /* sand divider        #d9cebf */
-  --card: 36 30% 96%;
-  /* lifted warm white   #faf5ee */
-  --card-foreground: 25 22% 18%;
-  --card-border: 36 20% 82%;
-  --sidebar: 36 30% 96%;
-  --sidebar-foreground: 25 22% 18%;
-  --sidebar-border: 36 20% 80%;
-  --sidebar-primary: 353 52% 38%;
-  /* monastery crimson   #922030 */
+  --background: 214 32% 97%;
+  /* cool alpine white   #F3F6FC */
+  --foreground: 222 47% 11%;
+  /* deep navy           #0F172A */
+  --border: 214 24% 87%;
+  /* cool blue-gray      #CDD7ED */
+  --card: 0 0% 100%;
+  /* pure white          #FFFFFF */
+  --card-foreground: 222 47% 11%;
+  --card-border: 214 24% 90%;
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-border: 214 24% 87%;
+  --sidebar-primary: 221 83% 53%;
+  /* sky blue            #2563EB */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 36 25% 88%;
-  --sidebar-accent-foreground: 25 22% 18%;
-  --sidebar-ring: 353 52% 38%;
-  --popover: 36 30% 96%;
-  --popover-foreground: 25 22% 18%;
-  --popover-border: 36 20% 80%;
-  --primary: 353 52% 38%;
-  /* monastery crimson   #922030 */
+  --sidebar-accent: 214 24% 93%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-ring: 221 83% 53%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border: 214 24% 87%;
+  --primary: 221 83% 53%;
+  /* sky blue            #2563EB */
   --primary-foreground: 0 0% 100%;
-  --secondary: 38 80% 48%;
-  /* prayer-flag gold    #d4890a */
-  --secondary-foreground: 25 22% 18%;
-  --muted: 36 22% 86%;
-  /* warm oat            #e5dcd0 */
-  --muted-foreground: 30 12% 42%;
-  /* warm grey           #6e5f52 */
-  --accent: 36 22% 86%;
-  --accent-foreground: 25 22% 18%;
-  --destructive: 0 75% 52%;
+  --secondary: 187 75% 38%;
+  /* himalayan teal      #0B8EA8 */
+  --secondary-foreground: 0 0% 100%;
+  --muted: 214 24% 93%;
+  /* light blue-gray     #E7EDF8 */
+  --muted-foreground: 215 16% 47%;
+  /* slate blue          #6B7FA3 */
+  --accent: 214 24% 93%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
-  --input: 36 20% 82%;
-  --ring: 353 52% 38%;
+  --input: 214 24% 87%;
+  --ring: 221 83% 53%;
 
-  --chart-1: 353 52% 38%;
-  --chart-2: 38 80% 48%;
-  --chart-3: 180 30% 38%;
-  --chart-4: 40 18% 52%;
-  --chart-5: 15 45% 44%;
+  --chart-1: 221 83% 53%;
+  --chart-2: 187 75% 38%;
+  --chart-3: 262 52% 57%;
+  --chart-4: 38 80% 48%;
+  --chart-5: 142 72% 38%;
 
   --app-font-sans: 'Plus Jakarta Sans', sans-serif;
   --app-font-serif: 'Fraunces', serif;
   --app-font-mono: Menlo, monospace;
   --radius: 0.75rem;
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.06);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.09), 0 1px 2px -1px rgb(0 0 0 / 0.09);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.08);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  --shadow-sm: 0 1px 2px 0 rgb(37 99 235 / 0.06);
+  --shadow: 0 1px 3px 0 rgb(37 99 235 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.07);
+  --shadow-md: 0 4px 6px -1px rgb(37 99 235 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 10px 15px -3px rgb(37 99 235 / 0.10), 0 4px 6px -4px rgb(0 0 0 / 0.07);
 }
 
 .dark {
-  --background: 30 18% 12%;
-  --foreground: 36 25% 88%;
-  --border: 30 14% 22%;
-  --card: 30 16% 16%;
-  --card-foreground: 36 25% 88%;
-  --card-border: 30 14% 22%;
-  --sidebar: 30 16% 16%;
-  --sidebar-foreground: 36 25% 88%;
-  --sidebar-border: 30 14% 22%;
-  --sidebar-primary: 353 52% 50%;
+  --background: 222 47% 7%;
+  /* deep navy            #060D1F */
+  --foreground: 213 40% 91%;
+  /* pale sky             #DDE8F5 */
+  --border: 222 30% 18%;
+  /* navy border          #1D2A48 */
+  --card: 222 45% 10%;
+  /* dark card            #0A1428 */
+  --card-foreground: 213 40% 91%;
+  --card-border: 222 30% 18%;
+  --sidebar: 222 45% 10%;
+  --sidebar-foreground: 213 40% 91%;
+  --sidebar-border: 222 30% 18%;
+  --sidebar-primary: 217 91% 60%;
+  /* bright blue          #3B82F6 */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 30 14% 20%;
-  --sidebar-accent-foreground: 36 25% 88%;
-  --sidebar-ring: 353 52% 50%;
-  --popover: 30 16% 16%;
-  --popover-foreground: 36 25% 88%;
-  --popover-border: 30 14% 22%;
-  --primary: 353 52% 50%;
+  --sidebar-accent: 222 30% 14%;
+  --sidebar-accent-foreground: 213 40% 91%;
+  --sidebar-ring: 217 91% 60%;
+  --popover: 222 45% 10%;
+  --popover-foreground: 213 40% 91%;
+  --popover-border: 222 30% 18%;
+  --primary: 217 91% 60%;
+  /* bright blue          #3B82F6 */
   --primary-foreground: 0 0% 100%;
-  --secondary: 38 80% 52%;
-  --secondary-foreground: 30 18% 12%;
-  --muted: 30 14% 20%;
-  --muted-foreground: 36 10% 58%;
-  --accent: 30 14% 20%;
-  --accent-foreground: 36 25% 88%;
-  --destructive: 0 75% 52%;
+  --secondary: 187 75% 45%;
+  /* bright teal          #14B8D4 */
+  --secondary-foreground: 222 47% 7%;
+  --muted: 222 30% 14%;
+  /* dark muted           #141F38 */
+  --muted-foreground: 215 20% 60%;
+  /* slate                #7A94C4 */
+  --accent: 222 30% 14%;
+  --accent-foreground: 213 40% 91%;
+  --destructive: 0 72% 56%;
   --destructive-foreground: 0 0% 100%;
-  --input: 30 14% 22%;
-  --ring: 353 52% 50%;
+  --input: 222 30% 18%;
+  --ring: 217 91% 60%;
 }
 
 @layer base {
@@ -298,7 +307,6 @@
   }
 }
 
-/* Realistic rectangular prayer-flag flutter */
 @keyframes flag-flutter {
   0% {
     transform: rotate(-3deg) skewX(2deg) scaleX(0.96);

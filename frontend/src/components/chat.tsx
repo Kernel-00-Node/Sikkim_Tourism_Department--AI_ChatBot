@@ -242,10 +242,19 @@ export function Chat({ compact = false }: { compact?: boolean }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isStreaming]);
+
+  // Auto-focus input after AI finishes responding so users can type immediately
+  useEffect(() => {
+    if (!isStreaming && messages.length > 0) {
+      const t = setTimeout(() => inputRef.current?.focus(), 80);
+      return () => clearTimeout(t);
+    }
+  }, [isStreaming]);
 
   const handleSend = async (text: string) => {
     if (!text.trim() || isStreaming) return;
@@ -489,11 +498,11 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             className="relative flex items-center gap-2"
           >
             <Input
-              value={input}
+              ref={inputRef}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask about Sikkim…"
               className="pr-12 py-5 rounded-full text-sm text-white placeholder:text-white/40 border-white/12 focus-visible:ring-white/20 focus-visible:border-white/25 transition-all"
-              style={{ background: "rgba(255,255,255,0.08)" }}
+              style={{ background: "rgba(255,255,255,0.10)" }}
               disabled={isStreaming}
             />
             <Button
@@ -501,7 +510,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
               size="icon"
               className="absolute right-1.5 rounded-full w-9 h-9 shadow-lg shrink-0"
               style={{
-                background: "linear-gradient(135deg, #922030, #b8293f)",
+                background: "linear-gradient(135deg, #2563EB, #1D4ED8)",
               }}
               disabled={!input.trim() || isStreaming}
             >
@@ -626,7 +635,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
           className="max-w-3xl mx-auto relative flex items-center"
         >
           <Input
-            value={input}
+            ref={inputRef}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about destinations, permits, or travel tips..."
             className="pr-12 py-6 rounded-full shadow-inner text-base bg-muted/30 border-muted-foreground/20 focus-visible:ring-primary/30"
