@@ -69,47 +69,47 @@
 }
 
 :root {
-  /* ── Alpine forest palette — professional tourism greens + warm saffron ─ */
-  --button-outline: rgba(16, 42, 36, 0.08);
-  --badge-outline: rgba(16, 42, 36, 0.05);
+  /* ── Navy & forest palette — professional tourism blues + forest green + gold ─ */
+  --button-outline: rgba(16, 32, 48, 0.08);
+  --badge-outline: rgba(16, 32, 48, 0.05);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(16, 42, 36, 0.02);
-  --elevate-2: rgba(16, 42, 36, 0.07);
+  --elevate-1: rgba(16, 32, 48, 0.02);
+  --elevate-2: rgba(16, 32, 48, 0.07);
 
-  --background: 150 24% 97%;
-  --foreground: 170 28% 16%;
-  --border: 156 18% 85%;
+  --background: 210 20% 98%;
+  --foreground: 215 35% 15%;
+  --border: 214 20% 88%;
   --card: 0 0% 100%;
-  --card-foreground: 170 28% 16%;
-  --card-border: 156 18% 88%;
+  --card-foreground: 215 35% 15%;
+  --card-border: 214 20% 90%;
   --sidebar: 0 0% 100%;
-  --sidebar-foreground: 170 28% 16%;
-  --sidebar-border: 156 18% 85%;
-  --sidebar-primary: 168 46% 33%;
+  --sidebar-foreground: 215 35% 15%;
+  --sidebar-border: 214 20% 88%;
+  --sidebar-primary: 213 62% 27%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 156 18% 94%;
-  --sidebar-accent-foreground: 170 28% 16%;
-  --sidebar-ring: 168 46% 33%;
+  --sidebar-accent: 214 20% 95%;
+  --sidebar-accent-foreground: 215 35% 15%;
+  --sidebar-ring: 213 62% 27%;
   --popover: 0 0% 100%;
-  --popover-foreground: 170 28% 16%;
-  --popover-border: 156 18% 85%;
-  --primary: 168 46% 33%;
+  --popover-foreground: 215 35% 15%;
+  --popover-border: 214 20% 88%;
+  --primary: 213 62% 27%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 40 86% 58%;
-  --secondary-foreground: 170 28% 16%;
-  --muted: 156 18% 93%;
-  --muted-foreground: 168 12% 39%;
-  --accent: 156 18% 93%;
-  --accent-foreground: 170 28% 16%;
+  --secondary: 152 45% 30%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 214 20% 94%;
+  --muted-foreground: 215 15% 40%;
+  --accent: 214 20% 94%;
+  --accent-foreground: 215 35% 15%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
-  --input: 156 18% 85%;
-  --ring: 168 46% 33%;
+  --input: 214 20% 88%;
+  --ring: 213 62% 27%;
 
-  --chart-1: 168 46% 33%;
-  --chart-2: 40 86% 58%;
-  --chart-3: 193 67% 41%;
-  --chart-4: 142 41% 43%;
+  --chart-1: 213 62% 27%;
+  --chart-2: 152 45% 30%;
+  --chart-3: 40 86% 58%;
+  --chart-4: 193 67% 41%;
   --chart-5: 15 72% 58%;
 
   --app-font-sans: 'Plus Jakarta Sans', sans-serif;
@@ -124,25 +124,25 @@
   --radius-panel: 1.75rem;
   --radius-card: 1.25rem;
 
-  --shadow-sm: 0 1px 2px 0 rgb(39 122 107 / 0.07);
-  --shadow: 0 10px 30px -18px rgb(39 122 107 / 0.16), 0 2px 6px -2px rgb(15 23 42 / 0.08);
-  --shadow-md: 0 18px 40px -24px rgb(39 122 107 / 0.18), 0 8px 16px -8px rgb(15 23 42 / 0.08);
-  --shadow-lg: 0 26px 60px -30px rgb(39 122 107 / 0.24), 0 14px 24px -14px rgb(15 23 42 / 0.12);
+  --shadow-sm: 0 1px 2px 0 rgb(30 58 95 / 0.07);
+  --shadow: 0 10px 30px -18px rgb(30 58 95 / 0.16), 0 2px 6px -2px rgb(15 23 42 / 0.08);
+  --shadow-md: 0 18px 40px -24px rgb(30 58 95 / 0.18), 0 8px 16px -8px rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 26px 60px -30px rgb(30 58 95 / 0.24), 0 14px 24px -14px rgb(15 23 42 / 0.12);
 
   /* ── Chat surface tokens — read live by useChatTheme() in chat-theme.ts ──
      Glassmorphism build: surfaces are translucent rgba() so backdrop-blur
      classes on the consuming elements actually show frosted glass. ────── */
-  --chat-bg: rgba(244, 248, 246, 0.55);
-  --chat-bg-deep: rgba(224, 234, 230, 0.65);
+  --chat-bg: rgba(244, 247, 250, 0.55);
+  --chat-bg-deep: rgba(224, 230, 238, 0.65);
   --chat-surface: rgba(255, 255, 255, 0.6);
-  --chat-border: rgba(20, 60, 50, 0.1);
-  --chat-border-strong: rgba(20, 60, 50, 0.18);
-  --chat-ink: #142622;
-  --chat-ink-soft: #435650;
-  --chat-ink-muted: #6E7F78;
-  --chat-ink-faint: #93A29B;
-  --chat-pine: #0E6E5C;
-  --chat-pine-alt: #0EA5A3;
+  --chat-border: rgba(20, 40, 65, 0.1);
+  --chat-border-strong: rgba(20, 40, 65, 0.18);
+  --chat-ink: #16233A;
+  --chat-ink-soft: #435066;
+  --chat-ink-muted: #6E7A8C;
+  --chat-ink-faint: #93A0B0;
+  --chat-pine: #1E3A5F;
+  --chat-pine-alt: #2F7D5B;
   --chat-pine-on: #FFFFFF;
   --chat-accent: #C6892A;
   --chat-accent-soft: rgba(198, 137, 42, 0.18);
@@ -150,60 +150,60 @@
   --chat-launcher-fg: #FFFFFF;
   --chat-launcher-surface: rgba(255, 255, 255, 0.7);
   --chat-launcher-hint-bg: rgba(255, 255, 255, 0.72);
-  --chat-launcher-hint-ink: #142622;
+  --chat-launcher-hint-ink: #16233A;
 }
 
 .dark {
-  --background: 170 32% 8%;
-  --foreground: 155 22% 92%;
-  --border: 170 20% 18%;
-  --card: 170 30% 10%;
-  --card-foreground: 155 22% 92%;
-  --card-border: 170 20% 18%;
-  --sidebar: 170 30% 10%;
-  --sidebar-foreground: 155 22% 92%;
-  --sidebar-border: 170 20% 18%;
-  --sidebar-primary: 164 47% 48%;
-  --sidebar-primary-foreground: 170 32% 8%;
-  --sidebar-accent: 170 20% 14%;
-  --sidebar-accent-foreground: 155 22% 92%;
-  --sidebar-ring: 164 47% 48%;
-  --popover: 170 30% 10%;
-  --popover-foreground: 155 22% 92%;
-  --popover-border: 170 20% 18%;
-  --primary: 164 47% 48%;
-  --primary-foreground: 170 32% 8%;
-  --secondary: 42 86% 64%;
-  --secondary-foreground: 170 32% 8%;
-  --muted: 170 20% 14%;
-  --muted-foreground: 156 10% 68%;
-  --accent: 170 20% 14%;
-  --accent-foreground: 155 22% 92%;
+  --background: 215 35% 8%;
+  --foreground: 210 20% 92%;
+  --border: 215 20% 18%;
+  --card: 215 30% 10%;
+  --card-foreground: 210 20% 92%;
+  --card-border: 215 20% 18%;
+  --sidebar: 215 30% 10%;
+  --sidebar-foreground: 210 20% 92%;
+  --sidebar-border: 215 20% 18%;
+  --sidebar-primary: 213 55% 55%;
+  --sidebar-primary-foreground: 215 35% 8%;
+  --sidebar-accent: 215 20% 14%;
+  --sidebar-accent-foreground: 210 20% 92%;
+  --sidebar-ring: 213 55% 55%;
+  --popover: 215 30% 10%;
+  --popover-foreground: 210 20% 92%;
+  --popover-border: 215 20% 18%;
+  --primary: 213 55% 55%;
+  --primary-foreground: 215 35% 8%;
+  --secondary: 152 40% 45%;
+  --secondary-foreground: 215 35% 8%;
+  --muted: 215 20% 14%;
+  --muted-foreground: 210 12% 68%;
+  --accent: 215 20% 14%;
+  --accent-foreground: 210 20% 92%;
   --destructive: 0 72% 56%;
   --destructive-foreground: 0 0% 100%;
-  --input: 170 20% 18%;
-  --ring: 164 47% 48%;
+  --input: 215 20% 18%;
+  --ring: 213 55% 55%;
 
   /* ── Chat surface tokens (dark) — mirrors the DARK palette in chat-theme.ts ── */
-  --chat-bg: rgba(9, 14, 13, 0.55);
-  --chat-bg-deep: rgba(20, 28, 26, 0.65);
-  --chat-surface: rgba(22, 31, 29, 0.55);
+  --chat-bg: rgba(10, 16, 24, 0.55);
+  --chat-bg-deep: rgba(20, 28, 40, 0.65);
+  --chat-surface: rgba(22, 30, 42, 0.55);
   --chat-border: rgba(255, 255, 255, 0.08);
   --chat-border-strong: rgba(255, 255, 255, 0.16);
-  --chat-ink: #E8F0EC;
-  --chat-ink-soft: #AFC0B9;
-  --chat-ink-muted: #86988F;
-  --chat-ink-faint: #62726B;
-  --chat-pine: #14B8A6;
+  --chat-ink: #E9EEF5;
+  --chat-ink-soft: #AEB9C9;
+  --chat-ink-muted: #86909F;
+  --chat-ink-faint: #626C79;
+  --chat-pine: #4A90D9;
   --chat-pine-alt: #34D399;
   --chat-pine-on: #05100D;
   --chat-accent: #F2B84B;
   --chat-accent-soft: rgba(242, 184, 75, 0.16);
   --chat-assistant-bubble: rgba(255, 255, 255, 0.06);
   --chat-launcher-fg: #05100D;
-  --chat-launcher-surface: rgba(22, 31, 29, 0.7);
-  --chat-launcher-hint-bg: rgba(22, 31, 29, 0.72);
-  --chat-launcher-hint-ink: #E8F0EC;
+  --chat-launcher-surface: rgba(22, 30, 42, 0.7);
+  --chat-launcher-hint-bg: rgba(22, 30, 42, 0.72);
+  --chat-launcher-hint-ink: #E9EEF5;
 }
 
 @layer base {
@@ -215,7 +215,7 @@
     @apply font-sans antialiased bg-background text-foreground;
     background-image:
       radial-gradient(circle at top left, rgba(233, 169, 59, 0.12), transparent 24%),
-      radial-gradient(circle at top right, rgba(39, 122, 107, 0.14), transparent 28%),
+      radial-gradient(circle at top right, rgba(30, 58, 95, 0.14), transparent 28%),
       linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
     background-attachment: fixed;
     min-height: 100vh;
@@ -729,8 +729,8 @@
   z-index: -1;
   border-radius: inherit;
   background: linear-gradient(135deg,
-      var(--chat-pine, #0e6e5c),
-      var(--chat-pine-alt, #0ea5a3));
+      var(--chat-pine, #1e3a5f),
+      var(--chat-pine-alt, #2f7d5b));
   filter: blur(9px);
   opacity: 0.45;
 }
