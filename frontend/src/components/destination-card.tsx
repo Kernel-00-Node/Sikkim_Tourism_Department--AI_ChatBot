@@ -24,7 +24,7 @@ export function DestinationCard({
             }
           : undefined
       }
-      className={`group flex h-full flex-col overflow-hidden rounded-[1.6rem] border border-border/70 bg-gradient-to-b from-white to-white/82 shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1.5 hover:border-primary/20 hover:shadow-[0_24px_52px_rgba(39,122,107,0.14)] dark:from-card dark:to-card/92 ${onClick ? "cursor-pointer" : ""}`}
+      className={`group focus-ring flex h-full flex-col overflow-hidden rounded-[var(--radius-card)] border border-border/70 bg-gradient-to-b from-white to-white/82 shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1.5 hover:border-primary/20 hover:shadow-[0_24px_52px_rgba(39,122,107,0.14)] dark:from-card dark:to-card/92 ${onClick ? "cursor-pointer" : ""}`}
     >
       <div className="relative aspect-[4/3] overflow-hidden">
         {dest.imageUrl ? (
@@ -76,7 +76,7 @@ export function DestinationCard({
           {dest.description}
         </p>
 
-        <div className="mt-auto grid gap-2 rounded-[1.25rem] border border-border/60 bg-background/70 p-3 text-sm dark:bg-muted/30">
+        <div className="mt-auto grid gap-2 rounded-[var(--radius-card)] border border-border/60 bg-background/70 p-3 text-sm dark:bg-muted/30">
           <div className="flex items-start gap-2 text-muted-foreground">
             <Clock className="mt-0.5 h-4 w-4 shrink-0 text-primary/80" />
             <span className="line-clamp-2">

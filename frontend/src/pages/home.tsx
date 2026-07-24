@@ -8,8 +8,6 @@ import {
   ShieldCheck,
   Compass,
   Sparkles,
-  Clock,
-  Leaf,
 } from "lucide-react";
 import { fetchDestinations, type DestinationSummary } from "@/lib/api";
 import { heroVideo } from "@/config/hero-media";
@@ -49,8 +47,6 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Pillar cards — three things that distinguish this assistant from any
-  // generic AI chatbot. Wording is direct, brand-true, no marketing fluff.
   const pillars = [
     {
       icon: Compass,
@@ -69,32 +65,10 @@ export default function Home() {
     },
   ];
 
-  // Block of high-level department stats — small grid below the fold, sourced
-  // from the State Tourism office's public positioning material.
   const highlights = [
     { value: "India's First", label: "Fully Organic State" },
     { value: "Kanchenjunga", label: "World's 3rd Highest Peak" },
     { value: "200+", label: "Monasteries & Sacred Sites" },
-  ];
-
-  // Mini "about" section — keeps the page from feeling like a single giant
-  // hero block, while being factual rather than decorative.
-  const aboutStrip = [
-    {
-      icon: Leaf,
-      title: "Sustainable by policy",
-      body: "State-wide organic farming since 2016 — a national first.",
-    },
-    {
-      icon: MountainSnow,
-      title: "All four districts, covered",
-      body: "Gangtok, Namchi, Gyalshing, Mangan — including restricted zones.",
-    },
-    {
-      icon: Clock,
-      title: "Available round the clock",
-      body: "Trained on permit windows, road closures, and seasonal advisories.",
-    },
   ];
 
   return (
@@ -113,9 +87,7 @@ export default function Home() {
           >
             <source src={heroVideo.src} type="video/mp4" />
           </video>
-          {/* Lighter overlay in dark mode so the video is still visible
-              against the deep forest backdrop. */}
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,21,18,0.18)_0%,rgba(5,21,18,0.52)_26%,rgba(5,21,18,0.72)_65%,rgba(244,248,246,0.96)_100%)] dark:bg-[linear-gradient(180deg,rgba(2,10,9,0.22)_0%,rgba(2,10,9,0.55)_28%,rgba(2,10,9,0.76)_68%,rgba(8,18,15,0.96)_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,21,18,0.18)_0%,rgba(5,21,18,0.52)_26%,rgba(5,21,18,0.72)_65%,rgba(244,248,246,0.96)_100%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(233,169,59,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(39,122,107,0.28),transparent_34%)]" />
         </div>
 
@@ -125,10 +97,10 @@ export default function Home() {
             Government of Sikkim · Tourism &amp; Civil Aviation Dept.
           </div>
 
-          <div className="mt-6 max-w-5xl rounded-[2rem] border border-white/10 bg-white/7 px-6 py-8 shadow-[0_30px_90px_rgba(0,0,0,0.24)] backdrop-blur-md sm:px-10 sm:py-10">
+          <div className="mt-6 max-w-5xl px-4 sm:px-6">
             <h1
               key={taglineIndex}
-              className={`mx-auto max-w-4xl font-serif text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-6xl ${
+              className={`mx-auto max-w-4xl font-serif text-4xl font-bold leading-[1.05] tracking-tight text-white [text-shadow:0_4px_28px_rgba(0,0,0,0.45)] sm:text-6xl ${
                 taglineVisible ? "animate-rise-fade" : "animate-fade-out-rise"
               }`}
               style={
@@ -139,7 +111,7 @@ export default function Home() {
             </h1>
 
             <p
-              className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/84 animate-rise-fade sm:text-xl"
+              className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/90 [text-shadow:0_2px_16px_rgba(0,0,0,0.4)] animate-rise-fade sm:text-xl"
               style={{ animationDelay: "220ms" }}
             >
               Where snow peaks meet prayer flags, monasteries keep centuries of
@@ -157,7 +129,7 @@ export default function Home() {
               >
                 Explore destinations <ArrowRight className="h-4 w-4" />
               </Link>
-              <span className="inline-flex items-center rounded-full border border-white/14 bg-white/8 px-4 py-3 text-sm text-white/78 backdrop-blur-sm">
+              <span className="inline-flex items-center rounded-full border border-white/20 px-4 py-3 text-sm text-white/90 [text-shadow:0_2px_10px_rgba(0,0,0,0.4)]">
                 Or click the chat icon to ask a question
               </span>
             </div>
@@ -184,13 +156,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pillars band — design language: plain cards, breathing room, no
-          Decoration-for-its-own-sake. Dark surfaces are tinted, not flat. */}
       <section className="container mx-auto px-4 py-14 sm:py-20">
-        <div className="rounded-[2rem] border border-border/70 bg-white/72 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/72 dark:border-border/60 sm:p-8 lg:p-10">
+        <div className="rounded-[2rem] border border-border/70 bg-white/72 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/72 sm:p-8 lg:p-10">
           <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary/80 dark:text-primary">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary/80">
                 Why this assistant feels official
               </p>
               <h2 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">
@@ -208,7 +178,7 @@ export default function Home() {
             {pillars.map((p, i) => (
               <div
                 key={p.title}
-                className="animate-rise-fade rounded-[1.6rem] border border-border/70 bg-gradient-to-b from-white to-white/70 p-6 shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(39,122,107,0.12)] dark:border-border/60 dark:from-card dark:to-card/80"
+                className="animate-rise-fade rounded-[1.6rem] border border-border/70 bg-gradient-to-b from-white to-white/70 p-6 shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(39,122,107,0.12)] dark:from-card dark:to-card/80"
                 style={{ animationDelay: `${180 + i * 100}ms` }}
               >
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/10">
@@ -226,37 +196,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Small new section — additional context, "why trust this assistant".
-          Pulled out so the page does not feel like a single chunk of perks. */}
-      <section className="container mx-auto px-4 pb-8 sm:pb-10">
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-          {aboutStrip.map((s, i) => (
-            <div
-              key={s.title}
-              className="animate-rise-fade rounded-[1.4rem] border border-border/60 bg-background/55 p-5 backdrop-blur-md dark:border-border/60 dark:bg-card/60"
-              style={{ animationDelay: `${240 + i * 90}ms` }}
-            >
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8 text-primary">
-                <s.icon className="h-5 w-5" />
-              </div>
-              <h3 className="mb-1 font-serif text-base font-semibold text-foreground">
-                {s.title}
-              </h3>
-              <p className="text-[0.83rem] leading-relaxed text-muted-foreground">
-                {s.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Popular destinations — the same surface as before, but a touch calmer
-          and theme-aware. */}
       <section className="container mx-auto px-4 pb-20">
-        <div className="rounded-[2rem] border border-border/70 bg-white/72 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/72 dark:border-border/60 sm:p-8">
+        <div className="rounded-[2rem] border border-border/70 bg-white/72 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/72 sm:p-8">
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary/80 dark:text-primary">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary/80">
                 Curated inspiration
               </p>
               <h2 className="font-serif text-2xl font-bold text-foreground sm:text-3xl">

@@ -49,7 +49,7 @@ export function DestinationDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl overflow-hidden rounded-[2rem] border border-border/60 bg-white/92 p-0 shadow-[0_36px_100px_rgba(15,23,42,0.24)] backdrop-blur-2xl dark:bg-card/95">
+      <DialogContent className="max-w-4xl overflow-hidden rounded-[var(--radius-panel)] border border-border/60 bg-white/92 p-0 shadow-[0_36px_100px_rgba(15,23,42,0.24)] backdrop-blur-2xl dark:bg-card/95">
         <DialogHeader className="sr-only">
           <DialogTitle>{dest?.name ?? "Destination details"}</DialogTitle>
         </DialogHeader>
@@ -122,7 +122,7 @@ export function DestinationDetailsDialog({
             <ScrollArea className="min-h-0 shrink p-6 sm:p-8">
               <div className="space-y-8">
                 <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-                  <div className="rounded-[1.5rem] border border-border/70 bg-background/72 p-6 dark:bg-muted/20">
+                  <div className="rounded-[var(--radius-card)] border border-border/70 bg-background/72 p-6 dark:bg-muted/20">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">
                       About this place
                     </p>
@@ -134,7 +134,7 @@ export function DestinationDetailsDialog({
                     </p>
                   </div>
 
-                  <div className="rounded-[1.5rem] border border-border/70 bg-gradient-to-br from-primary/[0.06] via-white to-secondary/[0.08] p-6 dark:from-primary/10 dark:via-card dark:to-secondary/10">
+                  <div className="rounded-[var(--radius-card)] border border-border/70 bg-gradient-to-br from-primary/[0.06] via-white to-secondary/[0.08] p-6 dark:from-primary/10 dark:via-card dark:to-secondary/10">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">
                       Quick planning info
                     </p>
@@ -161,7 +161,7 @@ export function DestinationDetailsDialog({
 
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   {dest.entryFee && (
-                    <div className="rounded-[1.4rem] border border-border/70 bg-white/75 p-5 shadow-sm dark:bg-card/70">
+                    <div className="rounded-[var(--radius-card)] border border-border/70 bg-white/75 p-5 shadow-sm dark:bg-card/70">
                       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
                         <IndianRupee className="h-4 w-4" /> Entry Fee
                       </div>
@@ -170,7 +170,7 @@ export function DestinationDetailsDialog({
                       </p>
                     </div>
                   )}
-                  <div className="rounded-[1.4rem] border border-border/70 bg-white/75 p-5 shadow-sm dark:bg-card/70">
+                  <div className="rounded-[var(--radius-card)] border border-border/70 bg-white/75 p-5 shadow-sm dark:bg-card/70">
                     <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
                       <MapPin className="h-4 w-4" /> How to Reach
                     </div>
@@ -181,7 +181,7 @@ export function DestinationDetailsDialog({
                 </div>
 
                 {dest.highlights && dest.highlights.length > 0 && (
-                  <div className="rounded-[1.5rem] border border-border/70 bg-background/72 p-6 dark:bg-muted/20">
+                  <div className="rounded-[var(--radius-card)] border border-border/70 bg-background/72 p-6 dark:bg-muted/20">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">
                       Highlights
                     </p>

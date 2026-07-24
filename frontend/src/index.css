@@ -6,7 +6,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ── Chat palette tokens — used by chat-widget and chat.tsx ──────────────── */
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -118,98 +117,54 @@
   --app-font-mono: Menlo, monospace;
   --radius: 0.9rem;
 
+  /* Two intentional steps above the base --radius: large section panels,
+     and the cards/tiles that live inside them. Previously each page picked
+     its own one-off rem value (1.4–2rem); this keeps every rounded corner
+     on-scale even as sections get added or edited. */
+  --radius-panel: 1.75rem;
+  --radius-card: 1.25rem;
+
   --shadow-sm: 0 1px 2px 0 rgb(39 122 107 / 0.07);
   --shadow: 0 10px 30px -18px rgb(39 122 107 / 0.16), 0 2px 6px -2px rgb(15 23 42 / 0.08);
   --shadow-md: 0 18px 40px -24px rgb(39 122 107 / 0.18), 0 8px 16px -8px rgb(15 23 42 / 0.08);
   --shadow-lg: 0 26px 60px -30px rgb(39 122 107 / 0.24), 0 14px 24px -14px rgb(15 23 42 / 0.12);
-
-  /* ── Chat palette (light) — warm Himalayan parchment ─────────────────── */
-  --chat-bg: #F6F0E3;
-  --chat-bg-deep: #ECDFC8;
-  --chat-surface: #FFFFFF;
-  --chat-border: #D8CDB1;
-  --chat-border-strong: #B7A98A;
-  --chat-ink: #1B2A24;
-  --chat-ink-soft: #52635C;
-  --chat-ink-muted: #7C8A83;
-  --chat-ink-faint: #9AA59E;
-  --chat-pine: #134238;
-  --chat-pine-alt: #1E5F52;
-  --chat-pine-on: #FFFFFF;
-  --chat-accent: #B07A1F;
-  --chat-accent-soft: #EBD8B0;
-  --chat-assistant-bubble: #FDFAF2;
-  /* Tokens used by chat-widget launcher in light mode */
-  --chat-launcher-fg: #FFFFFF;
-  --chat-launcher-surface: #FFFFFF;
-  --chat-launcher-hint-bg: #FFFFFF;
-  --chat-launcher-hint-ink: #1B2A24;
 }
 
 .dark {
-  --background: 172 26% 7%;
-  --foreground: 156 18% 92%;
-  --border: 170 14% 19%;
-  --card: 172 22% 10%;
-  --card-foreground: 156 18% 92%;
-  --card-border: 170 14% 19%;
-  --sidebar: 172 22% 10%;
-  --sidebar-foreground: 156 18% 92%;
-  --sidebar-border: 170 14% 19%;
-  --sidebar-primary: 164 47% 52%;
-  --sidebar-primary-foreground: 172 26% 7%;
-  --sidebar-accent: 172 18% 14%;
-  --sidebar-accent-foreground: 156 18% 92%;
-  --sidebar-ring: 164 47% 52%;
-  --popover: 172 22% 10%;
-  --popover-foreground: 156 18% 92%;
-  --popover-border: 170 14% 19%;
-  --primary: 164 47% 52%;
-  --primary-foreground: 172 26% 7%;
+  --background: 170 32% 8%;
+  --foreground: 155 22% 92%;
+  --border: 170 20% 18%;
+  --card: 170 30% 10%;
+  --card-foreground: 155 22% 92%;
+  --card-border: 170 20% 18%;
+  --sidebar: 170 30% 10%;
+  --sidebar-foreground: 155 22% 92%;
+  --sidebar-border: 170 20% 18%;
+  --sidebar-primary: 164 47% 48%;
+  --sidebar-primary-foreground: 170 32% 8%;
+  --sidebar-accent: 170 20% 14%;
+  --sidebar-accent-foreground: 155 22% 92%;
+  --sidebar-ring: 164 47% 48%;
+  --popover: 170 30% 10%;
+  --popover-foreground: 155 22% 92%;
+  --popover-border: 170 20% 18%;
+  --primary: 164 47% 48%;
+  --primary-foreground: 170 32% 8%;
   --secondary: 42 86% 64%;
-  --secondary-foreground: 172 26% 7%;
-  --muted: 172 18% 14%;
-  --muted-foreground: 156 8% 70%;
-  --accent: 172 18% 14%;
-  --accent-foreground: 156 18% 92%;
-  --destructive: 0 72% 58%;
+  --secondary-foreground: 170 32% 8%;
+  --muted: 170 20% 14%;
+  --muted-foreground: 156 10% 68%;
+  --accent: 170 20% 14%;
+  --accent-foreground: 155 22% 92%;
+  --destructive: 0 72% 56%;
   --destructive-foreground: 0 0% 100%;
-  --input: 170 14% 19%;
-  --ring: 164 47% 52%;
-
-  /* ── Chat palette (dark) — same calm soul, dimmer parchment ─────────── */
-  --chat-bg: #131C19;
-  --chat-bg-deep: #1B2622;
-  --chat-surface: #1B2622;
-  --chat-border: #2A3934;
-  --chat-border-strong: #3D4F48;
-  --chat-ink: #E8EFEB;
-  --chat-ink-soft: #B7C2BD;
-  --chat-ink-muted: #8FA29B;
-  --chat-ink-faint: #6F7E77;
-  --chat-pine: #3FA88F;
-  --chat-pine-alt: #5DBDA4;
-  --chat-pine-on: #07120F;
-  --chat-accent: #E2A948;
-  --chat-accent-soft: #44341D;
-  --chat-assistant-bubble: #1F2C28;
-  --chat-launcher-fg: #07120F;
-  --chat-launcher-surface: #1B2622;
-  --chat-launcher-hint-bg: #1B2622;
-  --chat-launcher-hint-ink: #E8EFEB;
+  --input: 170 20% 18%;
+  --ring: 164 47% 48%;
 }
 
 @layer base {
   * {
     @apply border-border;
-  }
-
-  html {
-    color-scheme: light;
-  }
-
-  html.dark {
-    color-scheme: dark;
   }
 
   body {
@@ -222,13 +177,6 @@
     min-height: 100vh;
   }
 
-  .dark body {
-    background-image:
-      radial-gradient(circle at top left, rgba(232, 169, 59, 0.07), transparent 26%),
-      radial-gradient(circle at top right, rgba(63, 168, 143, 0.10), transparent 30%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
-  }
-
   body::before {
     content: "";
     position: fixed;
@@ -239,13 +187,6 @@
       radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.44), transparent 18%);
     opacity: 0.75;
     z-index: -1;
-  }
-
-  .dark body::before {
-    background:
-      radial-gradient(circle at 20% 10%, rgba(232, 169, 59, 0.05), transparent 22%),
-      radial-gradient(circle at 80% 0%, rgba(63, 168, 143, 0.06), transparent 24%);
-    opacity: 0.6;
   }
 
   ::selection {
@@ -263,16 +204,6 @@
   }
 }
 
-/* Short, gentle cross-fade when light/dark is toggled */
-.theme-transition,
-.theme-transition *,
-.theme-transition *::before,
-.theme-transition *::after {
-  transition: background-color 320ms ease, border-color 320ms ease,
-    color 220ms ease, fill 220ms ease, stroke 220ms ease,
-    box-shadow 220ms ease !important;
-}
-
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
@@ -282,6 +213,50 @@
     content: attr(data-placeholder);
     color: hsl(var(--muted-foreground));
     pointer-events: none;
+  }
+
+  /* Consistent keyboard-focus ring for custom (non-shadcn) interactive
+     elements — cards, nav links, launcher buttons — that don't already
+     inherit a focus style from the ui/ primitives. */
+  .focus-ring {
+    outline: none;
+  }
+
+  .focus-ring:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: inherit;
+  }
+}
+
+/* ── Shimmer skeleton — replaces the flat opacity pulse on loading cards ── */
+@keyframes shimmer-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: hsl(var(--muted) / 0.7);
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg,
+      transparent,
+      hsl(var(--primary) / 0.08),
+      transparent);
+  animation: shimmer-sweep 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after {
+    animation: none !important;
   }
 }
 
@@ -641,22 +616,4 @@
     transform: scale(1.12);
     opacity: 0.32;
   }
-}
-
-@keyframes chat-launcher-halo-dark {
-
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.22;
-  }
-
-  50% {
-    transform: scale(1.12);
-    opacity: 0.42;
-  }
-}
-
-.dark .chat-launcher-halo {
-  animation-name: chat-launcher-halo-dark !important;
 }
