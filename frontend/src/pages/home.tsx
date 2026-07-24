@@ -150,22 +150,25 @@ export default function Home() {
           </div>
 
           <div
-            className="mt-12 grid w-full max-w-4xl grid-cols-1 gap-3 border-t border-white/12 pt-8 text-white animate-rise-fade sm:grid-cols-3"
+            className="mt-12 flex w-full max-w-4xl flex-col items-center gap-6 border-t border-white/12 pt-8 text-white animate-rise-fade sm:flex-row sm:justify-center sm:gap-0 sm:divide-x sm:divide-white/12"
             style={{ animationDelay: "440ms" }}
           >
             {highlights.map((stat) => (
               <div
                 key={stat.label}
-                className="flex flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-white/8 px-5 py-5 text-center backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/12"
+                className="flex flex-1 items-center justify-center gap-3 px-6 text-center transition-opacity duration-300 hover:opacity-80"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/15">
-                  <stat.icon className="h-4.5 w-4.5" />
-                </span>
-                <span className="block font-serif text-xl font-bold sm:text-2xl">
-                  {stat.value}
-                </span>
-                <span className="block text-[0.72rem] uppercase tracking-[0.22em] text-white/65">
-                  {stat.label}
+                <stat.icon
+                  className="h-5 w-5 shrink-0 text-white/70"
+                  strokeWidth={1.6}
+                />
+                <span className="flex flex-col items-start leading-tight">
+                  <span className="font-serif text-lg font-bold sm:text-xl">
+                    {stat.value}
+                  </span>
+                  <span className="text-[0.68rem] uppercase tracking-[0.2em] text-white/60">
+                    {stat.label}
+                  </span>
                 </span>
               </div>
             ))}

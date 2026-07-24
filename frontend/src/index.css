@@ -129,26 +129,28 @@
   --shadow-md: 0 18px 40px -24px rgb(39 122 107 / 0.18), 0 8px 16px -8px rgb(15 23 42 / 0.08);
   --shadow-lg: 0 26px 60px -30px rgb(39 122 107 / 0.24), 0 14px 24px -14px rgb(15 23 42 / 0.12);
 
-  /* ── Chat surface tokens — read live by useChatTheme() in chat-theme.ts ── */
-  --chat-bg: #F6F0E3;
-  --chat-bg-deep: #ECDFC8;
-  --chat-surface: #FFFFFF;
-  --chat-border: #D8CDB1;
-  --chat-border-strong: #B7A98A;
-  --chat-ink: #1B2A24;
-  --chat-ink-soft: #52635C;
-  --chat-ink-muted: #7C8A83;
-  --chat-ink-faint: #9AA59E;
-  --chat-pine: #134238;
-  --chat-pine-alt: #1E5F52;
+  /* ── Chat surface tokens — read live by useChatTheme() in chat-theme.ts ──
+     Glassmorphism build: surfaces are translucent rgba() so backdrop-blur
+     classes on the consuming elements actually show frosted glass. ────── */
+  --chat-bg: rgba(244, 248, 246, 0.55);
+  --chat-bg-deep: rgba(224, 234, 230, 0.65);
+  --chat-surface: rgba(255, 255, 255, 0.6);
+  --chat-border: rgba(20, 60, 50, 0.1);
+  --chat-border-strong: rgba(20, 60, 50, 0.18);
+  --chat-ink: #142622;
+  --chat-ink-soft: #435650;
+  --chat-ink-muted: #6E7F78;
+  --chat-ink-faint: #93A29B;
+  --chat-pine: #0E6E5C;
+  --chat-pine-alt: #0EA5A3;
   --chat-pine-on: #FFFFFF;
-  --chat-accent: #B07A1F;
-  --chat-accent-soft: #EBD8B0;
-  --chat-assistant-bubble: #FDFAF2;
+  --chat-accent: #C6892A;
+  --chat-accent-soft: rgba(198, 137, 42, 0.18);
+  --chat-assistant-bubble: rgba(255, 255, 255, 0.55);
   --chat-launcher-fg: #FFFFFF;
-  --chat-launcher-surface: #FFFFFF;
-  --chat-launcher-hint-bg: #FFFFFF;
-  --chat-launcher-hint-ink: #1B2A24;
+  --chat-launcher-surface: rgba(255, 255, 255, 0.7);
+  --chat-launcher-hint-bg: rgba(255, 255, 255, 0.72);
+  --chat-launcher-hint-ink: #142622;
 }
 
 .dark {
@@ -183,25 +185,25 @@
   --ring: 164 47% 48%;
 
   /* ── Chat surface tokens (dark) — mirrors the DARK palette in chat-theme.ts ── */
-  --chat-bg: #131C19;
-  --chat-bg-deep: #1B2622;
-  --chat-surface: #1B2622;
-  --chat-border: #2A3934;
-  --chat-border-strong: #3D4F48;
-  --chat-ink: #E8EFEB;
-  --chat-ink-soft: #B7C2BD;
-  --chat-ink-muted: #8FA29B;
-  --chat-ink-faint: #6F7E77;
-  --chat-pine: #3FA88F;
-  --chat-pine-alt: #5DBDA4;
-  --chat-pine-on: #07120F;
-  --chat-accent: #E2A948;
-  --chat-accent-soft: #44341D;
-  --chat-assistant-bubble: #1F2C28;
-  --chat-launcher-fg: #07120F;
-  --chat-launcher-surface: #1B2622;
-  --chat-launcher-hint-bg: #1B2622;
-  --chat-launcher-hint-ink: #E8EFEB;
+  --chat-bg: rgba(9, 14, 13, 0.55);
+  --chat-bg-deep: rgba(20, 28, 26, 0.65);
+  --chat-surface: rgba(22, 31, 29, 0.55);
+  --chat-border: rgba(255, 255, 255, 0.08);
+  --chat-border-strong: rgba(255, 255, 255, 0.16);
+  --chat-ink: #E8F0EC;
+  --chat-ink-soft: #AFC0B9;
+  --chat-ink-muted: #86988F;
+  --chat-ink-faint: #62726B;
+  --chat-pine: #14B8A6;
+  --chat-pine-alt: #34D399;
+  --chat-pine-on: #05100D;
+  --chat-accent: #F2B84B;
+  --chat-accent-soft: rgba(242, 184, 75, 0.16);
+  --chat-assistant-bubble: rgba(255, 255, 255, 0.06);
+  --chat-launcher-fg: #05100D;
+  --chat-launcher-surface: rgba(22, 31, 29, 0.7);
+  --chat-launcher-hint-bg: rgba(22, 31, 29, 0.72);
+  --chat-launcher-hint-ink: #E8F0EC;
 }
 
 @layer base {
@@ -700,10 +702,145 @@
   animation: chat-caret 1s steps(1) infinite;
 }
 
+/* ── Glassmorphism v2 — animated mesh background, glowing rotating border,
+     bouncy message entrance. ─────────────────────────────────────────── */
+
+/* Slow-drifting multi-colour mesh used behind the glass chat panel. */
+@keyframes chat-mesh-drift {
+  0% {
+    background-position: 0% 0%, 100% 0%, 50% 100%, 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%, 0% 100%, 100% 0%, 50% 0%;
+  }
+
+  100% {
+    background-position: 0% 0%, 100% 0%, 50% 100%, 0% 50%;
+  }
+}
+
+.animate-chat-mesh {
+  background-size: 180% 180%;
+  animation: chat-mesh-drift 18s ease-in-out infinite;
+}
+
+/* Rotating conic-gradient ring — painted on a ::before pseudo layer that
+   sits just behind the glass panel, giving it a glowing animated edge. */
+@keyframes chat-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.chat-glow-ring {
+  position: relative;
+  isolation: isolate;
+}
+
+.chat-glow-ring::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  z-index: -1;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg,
+      var(--chat-pine, #0e6e5c),
+      var(--chat-accent, #c6892a),
+      var(--chat-pine-alt, #0ea5a3),
+      var(--chat-pine, #0e6e5c));
+  filter: blur(9px);
+  opacity: 0.55;
+  animation: chat-ring-spin 6s linear infinite;
+}
+
+/* Header gradient — slow colour sweep instead of a static fill. */
+@keyframes chat-header-sweep {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-chat-header {
+  background-size: 220% 220%;
+  animation: chat-header-sweep 8s ease-in-out infinite;
+}
+
+/* Slow-floating background orbs inside the chat body. */
+@keyframes chat-orb-float {
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(14px, -18px) scale(1.08);
+  }
+}
+
+.animate-chat-orb {
+  animation: chat-orb-float 9s ease-in-out infinite;
+}
+
+.animate-chat-orb-slow {
+  animation: chat-orb-float 13s ease-in-out infinite reverse;
+}
+
+/* Bubbly, springy entrance for chat messages. */
+@keyframes chat-pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.01);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-chat-pop {
+  animation: chat-pop-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Shimmering sweep used on the send button + starter cards on hover. */
+@keyframes chat-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.animate-chat-shimmer {
+  animation: chat-shimmer 1.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   .animate-chat-float,
-  .animate-chat-caret {
+  .animate-chat-caret,
+  .animate-chat-mesh,
+  .chat-glow-ring::before,
+  .animate-chat-header,
+  .animate-chat-orb,
+  .animate-chat-orb-slow,
+  .animate-chat-pop,
+  .animate-chat-shimmer {
     animation: none !important;
   }
 }

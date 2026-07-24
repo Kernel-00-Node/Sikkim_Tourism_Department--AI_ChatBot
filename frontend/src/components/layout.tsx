@@ -80,10 +80,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isTransparent = isHome && !scrolled;
 
   const headerBg = isTransparent
-    ? "bg-transparent border-transparent"
+    ? "bg-[rgba(8,24,20,0.22)] backdrop-blur-xl backdrop-saturate-150 border-white/10"
     : isHome
-      ? "bg-[rgba(10,28,25,0.72)] backdrop-blur-2xl border-white/10 shadow-[0_18px_40px_rgba(5,20,18,0.28)]"
-      : "bg-white/82 dark:bg-card/82 backdrop-blur-2xl border-border/70 shadow-[0_16px_38px_rgba(15,23,42,0.08)]";
+      ? "bg-[rgba(8,24,20,0.55)] backdrop-blur-2xl backdrop-saturate-150 border-white/12 shadow-[0_18px_45px_rgba(5,20,18,0.32)]"
+      : "bg-white/55 dark:bg-[rgba(15,25,22,0.55)] backdrop-blur-2xl backdrop-saturate-150 border-white/40 dark:border-white/8 shadow-[0_16px_38px_rgba(15,23,42,0.1)]";
 
   const txtMain = isHome ? "text-white" : "text-foreground";
   const txtMuted = isHome ? "text-white/72" : "text-muted-foreground";
@@ -119,9 +119,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       <header
-        className={`fixed top-0 left-0 right-0 z-50 w-full border-b transition-all duration-500 ${headerBg}`}
+        className={`fixed top-0 left-0 right-0 z-50 w-full overflow-hidden border-b transition-all duration-500 ${headerBg}`}
       >
-        <div className="container mx-auto flex h-18 items-center justify-between gap-4 px-4 sm:px-6">
+        {/* Glass sheen + soft colour glow — the depth cues that make the
+            frosted header read as glass instead of a flat translucent bar. */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-70"
+          style={{
+            background:
+              "radial-gradient(60% 140% at 8% 0%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 60%)",
+          }}
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -top-16 right-[12%] h-32 w-32 rounded-full opacity-25 blur-3xl"
+          style={{ background: "#E9A93B" }}
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -top-20 left-[28%] h-28 w-28 rounded-full opacity-20 blur-3xl"
+          style={{ background: "#277A6B" }}
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
+          style={{
+            background:
+              "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
+          }}
+          aria-hidden="true"
+        />
+
+        <div className="container relative mx-auto flex h-18 items-center justify-between gap-4 px-4 sm:px-6">
           <Link href="/" className="group flex shrink-0 items-center gap-3">
             <div className="relative h-12 w-12 shrink-0">
               <span className="absolute inset-0 rounded-full bg-primary/25 blur-[2px] animate-glow-breathe" />
@@ -144,7 +173,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div
-            className={`hidden items-center gap-2 rounded-full border px-3.5 py-1.5 backdrop-blur-sm transition-all duration-300 md:flex ${badgeCls}`}
+            className={`hidden items-center gap-2 rounded-full border px-3.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md backdrop-saturate-150 transition-all duration-300 md:flex ${badgeCls}`}
             aria-hidden="true"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -251,7 +280,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 aria-label="Close menu"
                 className="fixed inset-0 -z-10 cursor-default bg-black/40 backdrop-blur-sm"
               />
-              <nav className="border-t border-border/70 bg-background/95 px-4 py-4 backdrop-blur-xl dark:bg-card/95">
+              <nav className="border-t border-white/10 bg-background/70 px-4 py-4 backdrop-blur-2xl backdrop-saturate-150 dark:bg-[rgba(15,25,22,0.75)]">
                 <ul className="flex flex-col gap-1.5">
                   {navLinks.map(({ href, label, icon: Icon }) => {
                     const active = location === href;

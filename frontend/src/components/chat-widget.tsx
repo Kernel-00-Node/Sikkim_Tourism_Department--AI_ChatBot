@@ -69,7 +69,7 @@ export function ChatWidget() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
-              className="group flex items-center gap-2.5 rounded-full border py-1.5 pl-1.5 pr-4 text-left shadow-[0_10px_28px_-14px_rgba(19,66,56,0.4)] transition-all hover:shadow-[0_14px_36px_-16px_rgba(19,66,56,0.5)]"
+              className="group flex items-center gap-2.5 rounded-full border py-1.5 pl-1.5 pr-4 text-left shadow-[0_10px_28px_-14px_rgba(19,66,56,0.4)] backdrop-blur-xl backdrop-saturate-150 transition-all hover:shadow-[0_14px_36px_-16px_rgba(19,66,56,0.5)]"
               style={{
                 borderColor: theme.border,
                 background: theme.launcherHintBg,
@@ -120,9 +120,12 @@ export function ChatWidget() {
             type="button"
             onClick={() => setIsOpen((v) => !v)}
             whileTap={{ scale: 0.96 }}
-            whileHover={{ scale: 1.02 }}
-            className="focus-ring relative flex h-14 w-14 items-center justify-center rounded-full shadow-[0_14px_30px_-12px_rgba(19,66,56,0.55)] transition-shadow hover:shadow-[0_18px_40px_-14px_rgba(19,66,56,0.6)] sm:h-[60px] sm:w-[60px]"
-            style={{ background: theme.pine, color: theme.launcherFg }}
+            whileHover={{ scale: 1.05 }}
+            className="chat-glow-ring focus-ring relative flex h-14 w-14 items-center justify-center rounded-full shadow-[0_14px_30px_-12px_rgba(19,66,56,0.55)] ring-1 ring-white/15 backdrop-blur-md transition-shadow hover:shadow-[0_18px_40px_-14px_rgba(19,66,56,0.6)] sm:h-[60px] sm:w-[60px]"
+            style={{
+              background: `linear-gradient(145deg, ${theme.pine} 0%, ${theme.pineAlt} 100%)`,
+              color: theme.launcherFg,
+            }}
             aria-label={isOpen ? "Close chat" : "Open Sikkim Tourism Assistant"}
           >
             {/* Single low-key notification halo — far calmer than before. */}
@@ -199,19 +202,34 @@ export function ChatWidget() {
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             className={
               isFullscreen
-                ? "fixed inset-0 z-[70] flex flex-col sm:inset-3 sm:rounded-2xl sm:overflow-hidden sm:shadow-2xl sm:ring-1"
-                : "fixed inset-x-0 bottom-0 z-[70] flex h-[100dvh] flex-col overflow-hidden rounded-t-3xl shadow-2xl sm:inset-auto sm:right-6 sm:bottom-[calc(60px+1.25rem)] sm:h-[78vh] sm:max-h-[680px] sm:w-[404px] sm:rounded-3xl sm:shadow-[0_32px_90px_-28px_rgba(19,66,56,0.5)] sm:ring-1"
+                ? "chat-glow-ring fixed inset-0 z-[70] flex flex-col backdrop-blur-3xl backdrop-saturate-150 sm:inset-3 sm:rounded-2xl sm:overflow-hidden sm:shadow-2xl"
+                : "chat-glow-ring fixed inset-x-0 bottom-0 z-[70] flex h-[100dvh] flex-col overflow-hidden rounded-t-3xl shadow-2xl backdrop-blur-3xl backdrop-saturate-150 sm:inset-auto sm:right-6 sm:bottom-[calc(60px+1.25rem)] sm:h-[78vh] sm:max-h-[680px] sm:w-[404px] sm:rounded-3xl sm:shadow-[0_32px_90px_-28px_rgba(19,66,56,0.5)]"
             }
             style={{
               background: theme.surface,
-              ["--tw-ring-color" as string]: theme.border,
+              boxShadow: `0 32px 90px -28px rgba(19,66,56,0.55), inset 0 1px 0 0 rgba(255,255,255,0.2)`,
             }}
           >
+            {/* Animated colour-mesh layer sitting under the glass — this is
+                what makes the blur actually read as "glass" instead of a
+                flat tint. It drifts slowly, forever, behind every surface. */}
+            <div
+              className="animate-chat-mesh pointer-events-none absolute inset-0 -z-10 opacity-70"
+              style={{
+                background: `
+                  radial-gradient(38% 42% at 12% 18%, ${withAlpha(theme.pine, 0.35)} 0%, transparent 70%),
+                  radial-gradient(34% 40% at 88% 12%, ${withAlpha(theme.accent, 0.32)} 0%, transparent 70%),
+                  radial-gradient(46% 50% at 70% 92%, ${withAlpha(theme.pineAlt, 0.3)} 0%, transparent 70%),
+                  radial-gradient(30% 34% at 10% 90%, ${withAlpha(theme.accent, 0.22)} 0%, transparent 70%)
+                `,
+              }}
+              aria-hidden="true"
+            />
             {/* ── Header band ──────────────────────────────────────────── */}
             <div
-              className="relative shrink-0 overflow-hidden"
+              className="animate-chat-header relative shrink-0 overflow-hidden"
               style={{
-                background: `linear-gradient(135deg, ${theme.pine} 0%, ${theme.pineAlt} 100%)`,
+                background: `linear-gradient(120deg, ${theme.pine} 0%, ${theme.pineAlt} 45%, ${theme.accent} 100%)`,
                 color: theme.pineOn,
               }}
             >
@@ -224,6 +242,28 @@ export function ChatWidget() {
                 style={{
                   background:
                     "radial-gradient(120% 140% at 15% -20%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 55%)",
+                }}
+                aria-hidden="true"
+              />
+
+              {/* Floating, breathing colour orbs — the classic glassmorphism depth cue. */}
+              <div
+                className="animate-chat-orb pointer-events-none absolute -right-6 -top-10 h-32 w-32 rounded-full opacity-45 blur-2xl"
+                style={{ background: theme.accent }}
+                aria-hidden="true"
+              />
+              <div
+                className="animate-chat-orb-slow pointer-events-none absolute -left-10 top-6 h-24 w-24 rounded-full opacity-30 blur-2xl"
+                style={{ background: "#FFFFFF" }}
+                aria-hidden="true"
+              />
+
+              {/* Hairline glass edge under the header. */}
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
+                style={{
+                  background:
+                    "linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)",
                 }}
                 aria-hidden="true"
               />
@@ -327,7 +367,7 @@ export function ChatWidget() {
 
             {/* ── Body ──────────────────────────────────────────────────── */}
             <div
-              className="relative min-h-0 flex-1"
+              className="relative min-h-0 flex-1 backdrop-blur-xl backdrop-saturate-150"
               style={{ background: theme.bg }}
             >
               <Chat compact />

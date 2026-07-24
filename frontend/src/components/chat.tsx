@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -74,14 +74,19 @@ function ThinkingIndicator() {
       aria-label="Assistant is responding"
     >
       {[0, 1, 2].map((i) => (
-        <span
+        <motion.span
           key={i}
-          className="block h-1.5 w-1.5 rounded-full"
+          className="block h-2 w-2 rounded-full"
           style={{
-            backgroundColor: theme.pine,
-            opacity: 0.35,
-            animation: "chat-dot 1.4s ease-in-out infinite",
-            animationDelay: `${i * 160}ms`,
+            background: `linear-gradient(135deg, ${theme.pine}, ${theme.pineAlt})`,
+            boxShadow: `0 0 8px 0 ${theme.pine}`,
+          }}
+          animate={{ y: [0, -5, 0], opacity: [0.4, 1, 0.4] }}
+          transition={{
+            duration: 1.1,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: i * 0.15,
           }}
         />
       ))}
@@ -223,13 +228,19 @@ function EmptyState({
 }) {
   const theme = useChatTheme();
   return (
-    <div
-      className={`flex flex-col items-center text-center mx-auto w-full animate-[chat-fade-up_500ms_ease-out_both] ${
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className={`flex flex-col items-center text-center mx-auto w-full ${
         compact ? "max-w-md py-7 gap-5" : "max-w-xl py-12 gap-7"
       }`}
     >
       {/* Brass seal-style emblem — single accent on the page */}
-      <div
+      <motion.div
+        initial={{ scale: 0.5, opacity: 0, rotate: -8 }}
+        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+        transition={{ type: "spring", stiffness: 260, damping: 18 }}
         className="relative flex items-center justify-center rounded-full shadow-[0_8px_28px_-12px_rgba(19,66,56,0.35)]"
         style={{
           background: "#FFFFFF",
@@ -237,6 +248,11 @@ function EmptyState({
           padding: compact ? 8 : 11,
         }}
       >
+        <span
+          className="animate-chat-orb pointer-events-none absolute -inset-3 -z-10 rounded-full opacity-40 blur-xl"
+          style={{ background: theme.pine }}
+          aria-hidden="true"
+        />
         <img
           src={GOVT_LOGO_SRC}
           alt="Government of Sikkim"
@@ -244,7 +260,7 @@ function EmptyState({
           className={compact ? "h-9 w-9" : "h-12 w-12"}
           style={{ objectFit: "contain" }}
         />
-      </div>
+      </motion.div>
 
       <div className={compact ? "space-y-1.5" : "space-y-2"}>
         <p
@@ -280,23 +296,36 @@ function EmptyState({
         </p>
       </div>
 
-      {/* Suggested questions — clean list, chevron animates on hover. */}
+      {/* Suggested questions — staggered entrance, chevron + shimmer on hover. */}
       <div className="w-full space-y-2">
         {STARTERS.map(({ text, icon: Icon, eyebrow }, i) => (
-          <button
+          <motion.button
             key={i}
             type="button"
             onClick={() => onPick(text)}
-            className="group flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left shadow-[0_1px_0_rgba(19,66,56,0.04)] transition-all duration-200 hover:-translate-y-[1px] hover:shadow-[0_6px_18px_-10px_rgba(19,66,56,0.28)]"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              delay: 0.15 + i * 0.08,
+              duration: 0.35,
+              ease: "easeOut",
+            }}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border px-3.5 py-3 text-left shadow-[0_1px_0_rgba(19,66,56,0.04)] backdrop-blur-md transition-shadow duration-200 hover:shadow-[0_10px_26px_-10px_rgba(19,66,56,0.32)]"
             style={{ borderColor: theme.border, background: theme.surface }}
           >
             <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              className="pointer-events-none absolute inset-y-0 -left-1/3 hidden w-1/3 -skew-x-12 bg-white/25 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-hover:animate-chat-shimmer sm:block"
+              aria-hidden="true"
+            />
+            <span
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105"
               style={{ background: theme.bgDeep, color: theme.pine }}
             >
               <Icon className="h-4 w-4" strokeWidth={1.7} />
             </span>
-            <span className="min-w-0 flex-1">
+            <span className="relative min-w-0 flex-1">
               <span
                 className="block text-[0.6rem] font-semibold uppercase tracking-[0.16em]"
                 style={{ color: theme.accent }}
@@ -311,10 +340,10 @@ function EmptyState({
               </span>
             </span>
             <ChevronRight
-              className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
+              className="relative h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
               style={{ color: theme.borderStrong }}
             />
-          </button>
+          </motion.button>
         ))}
       </div>
 
@@ -325,7 +354,7 @@ function EmptyState({
         Your conversations are private — used only to keep context within this
         session.
       </p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -334,11 +363,23 @@ function Bubble({ msg, showTime }: { msg: Message; showTime: boolean }) {
   const theme = useChatTheme();
   const isUser = msg.role === "user";
   return (
-    <div
-      className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"} animate-[chat-fade-up_280ms_ease-out_both]`}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 14, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 320, damping: 26 }}
+      className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}
     >
       {!isUser && (
-        <div
+        <motion.div
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{
+            type: "spring",
+            stiffness: 300,
+            damping: 20,
+            delay: 0.05,
+          }}
           className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full overflow-hidden"
           style={{ background: "#FFFFFF", border: `1px solid ${theme.border}` }}
         >
@@ -348,7 +389,7 @@ function Bubble({ msg, showTime }: { msg: Message; showTime: boolean }) {
             draggable={false}
             className="h-full w-full object-contain p-0.5"
           />
-        </div>
+        </motion.div>
       )}
 
       <div className={`min-w-0 ${isUser ? "max-w-[78%]" : "max-w-[88%]"}`}>
@@ -366,15 +407,18 @@ function Bubble({ msg, showTime }: { msg: Message; showTime: boolean }) {
           </div>
         )}
         <div
-          className={`rounded-2xl px-3.5 py-2.5 ${
+          className={`rounded-2xl px-3.5 py-2.5 backdrop-blur-md ${
             isUser ? "rounded-tr-md" : "rounded-tl-md"
           }`}
           style={{
-            background: isUser ? theme.pine : theme.assistantBubble,
+            background: isUser
+              ? `linear-gradient(135deg, ${theme.pine} 0%, ${theme.pineAlt} 100%)`
+              : theme.assistantBubble,
             color: isUser ? theme.pineOn : theme.ink,
             border: isUser ? "none" : `1px solid ${theme.border}`,
-            boxShadow:
-              "0 1px 0 rgba(19,66,56,0.04), 0 1px 2px rgba(19,66,56,0.04)",
+            boxShadow: isUser
+              ? "0 8px 20px -10px rgba(19,66,56,0.45)"
+              : "0 1px 0 rgba(19,66,56,0.04), 0 1px 2px rgba(19,66,56,0.04)",
           }}
         >
           {msg.content ? (
@@ -400,7 +444,7 @@ function Bubble({ msg, showTime }: { msg: Message; showTime: boolean }) {
           </p>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -558,10 +602,23 @@ export function Chat({ compact = false }: { compact?: boolean }) {
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col"
+      className="relative flex h-full min-h-0 flex-col backdrop-blur-xl backdrop-saturate-150"
       style={{ background: theme.bg }}
       ref={scrollRef}
     >
+      {/* Floating colour orbs drifting behind the whole conversation —
+          gives the glass surfaces something alive to blur. */}
+      <div
+        className="animate-chat-orb pointer-events-none absolute -top-10 right-[-3rem] -z-10 h-56 w-56 rounded-full opacity-20 blur-3xl"
+        style={{ background: theme.pine }}
+        aria-hidden="true"
+      />
+      <div
+        className="animate-chat-orb-slow pointer-events-none absolute bottom-10 left-[-4rem] -z-10 h-64 w-64 rounded-full opacity-15 blur-3xl"
+        style={{ background: theme.accent }}
+        aria-hidden="true"
+      />
+
       <ScrollArea className="flex-1 min-h-0">
         <div
           className={`mx-auto w-full ${compact ? "max-w-2xl px-3.5 pt-5 pb-4 sm:px-5" : "max-w-2xl px-4 pt-7 pb-6 sm:px-8 sm:pt-10"}`}
@@ -570,13 +627,15 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             <EmptyState onPick={(t) => handleSend(t)} compact={compact} />
           ) : (
             <div className="space-y-5">
-              {messages.map((msg, idx) => {
-                const prev = messages[idx - 1];
-                const showTime =
-                  msg.role === "assistant" &&
-                  (!prev || prev.role !== "assistant" || prev.id !== msg.id);
-                return <Bubble key={msg.id} msg={msg} showTime={showTime} />;
-              })}
+              <AnimatePresence initial={false}>
+                {messages.map((msg, idx) => {
+                  const prev = messages[idx - 1];
+                  const showTime =
+                    msg.role === "assistant" &&
+                    (!prev || prev.role !== "assistant" || prev.id !== msg.id);
+                  return <Bubble key={msg.id} msg={msg} showTime={showTime} />;
+                })}
+              </AnimatePresence>
               <div ref={bottomRef} />
             </div>
           )}
@@ -585,7 +644,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
 
       {/* Compose bar — sticks to the bottom, respects Android safe-areas. */}
       <div
-        className="shrink-0 border-t backdrop-blur"
+        className="shrink-0 border-t backdrop-blur-xl backdrop-saturate-150"
         style={{
           background: theme.bg,
           borderColor: theme.border,
@@ -601,7 +660,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
               handleSend(input);
               requestAnimationFrame(resizeInput);
             }}
-            className="relative flex items-end gap-2 rounded-[1.4rem] border pr-1 shadow-[0_1px_0_rgba(19,66,56,0.04)] transition-colors focus-within:shadow-[0_0_0_3px_rgba(19,66,56,0.12)]"
+            className="relative flex items-end gap-2 rounded-[1.4rem] border pr-1 shadow-[0_1px_0_rgba(19,66,56,0.04)] backdrop-blur-md transition-colors focus-within:shadow-[0_0_0_3px_rgba(19,66,56,0.12)]"
             style={{ borderColor: theme.border, background: theme.surface }}
             onFocus={(e) => {
               e.currentTarget.style.borderColor = theme.pine;
@@ -627,13 +686,16 @@ export function Chat({ compact = false }: { compact?: boolean }) {
               className="max-h-[140px] min-h-0 flex-1 resize-none border-0 bg-transparent py-3.5 pl-4 text-[0.95rem] leading-[1.5] shadow-none outline-none focus-visible:ring-0"
               style={{ color: theme.ink, boxShadow: "none" }}
             />
-            <Button
+            <motion.button
               type="submit"
-              size="icon"
               disabled={!input.trim() || isStreaming}
-              className="mb-1.5 h-9 w-9 shrink-0 rounded-full shadow-[0_6px_14px_-8px_rgba(19,66,56,0.6)] transition-transform disabled:shadow-none enabled:hover:scale-105"
+              whileHover={input.trim() ? { scale: 1.08 } : undefined}
+              whileTap={input.trim() ? { scale: 0.92 } : undefined}
+              className="mb-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-[0_6px_14px_-8px_rgba(19,66,56,0.6)] transition-shadow disabled:cursor-not-allowed disabled:shadow-none"
               style={{
-                background: input.trim() ? theme.pine : theme.borderStrong,
+                background: input.trim()
+                  ? `linear-gradient(135deg, ${theme.pine}, ${theme.pineAlt})`
+                  : theme.borderStrong,
                 color: theme.pineOn,
               }}
               aria-label="Send message"
@@ -643,7 +705,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
               ) : (
                 <Send className="h-4 w-4" strokeWidth={2.2} />
               )}
-            </Button>
+            </motion.button>
           </form>
           <p
             className="mt-1.5 pl-1 text-[0.65rem]"
