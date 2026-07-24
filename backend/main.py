@@ -10,15 +10,18 @@ Or directly:
 """
 
 from __future__ import annotations
-                                
-                                
-import logging        
+
+import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.database.factory import get_repo
@@ -32,8 +35,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 # ── Lifespan (Startup / Shutdown) ──────────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,11 +58,38 @@ async def lifespan(app: FastAPI):
         logger.warning("Falling back to basic keyword search. Fix the error and restart.")
     yield
     # Nothing to Clean Up for `in-memory` Qdrant
-    
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ── App ────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────��───────────────
+
+# ────────────────────────────────────────────────────────────────
+# ── Security Middleware ────────────────────────────────────────────────────────────
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """FIXED: Add security headers to all responses."""
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=()"
+        )
+
+        # HSTS only in production
+        if settings.environment == "production":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+        return response
+
+
+# ────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
+# ── App ─────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="Sikkim Tourism Assistant API",
@@ -73,41 +104,78 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ── CORS_(Cross-Origin-Resource-Sharing ───────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+# ── Security Middleware ────────────────────────────────────────────────────────────
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# ────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
+# ── CORS (Cross-Origin-Resource-Sharing) ────────────────────────────────────────────────
 
 origins = settings.origins_list
+methods = settings.methods_list
+headers = settings.headers_list
 allow_credentials = origins != ["*"]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=allow_credentials,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=methods,  # FIXED: Restricted to necessary methods
+    allow_headers=headers,  # FIXED: Restricted to necessary headers
 )
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ── Routers ────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+# ── Rate Limiting (NEW - SECURITY) ────────────────────────────────────────────────
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exceeded_handler(request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Too many requests. Please wait a moment before trying again."},
+    )
+
+
+# ────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
+# ── Routers ───────────────────────────────────────────────────────────
 
 app.include_router(destinations.router, prefix="/api/destinations", tags=["Destinations"])
 app.include_router(chat.router, prefix="/api/conversations", tags=["Chat"])
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 # ── Global_Error_Handling ────────────────────────────────────────────────────────
 # Any unhandled exception (e.g. a NotImplementedError from a not-yet-wired-up
-# MySQL method, a DB connection error, etc.)  
-# Every error the API returns has the 
+# MySQL method, a DB connection error, etc.)
+# Every error the API returns has the
 # predictable JSON shape: {"detail": "..."}.
+
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc: Exception):
-    logger.exception("Unhandled error on %s %s: %s", request.method, request.url.path, exc)
+    # FIXED: Don't expose stack traces in production
+    if settings.environment == "production":
+        logger.error(
+            f"Unhandled {type(exc).__name__} on {request.method} {request.url.path}"
+        )
+    else:
+        logger.exception(
+            f"Unhandled error on {request.method} {request.url.path}"
+        )
+
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error. Please try again."},
@@ -118,10 +186,12 @@ async def unhandled_exception_handler(request, exc: Exception):
 async def http_exception_handler(request, exc: HTTPException):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ── System_Endpoints ───────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
+# ── System_Endpoints ────────────────────────────────────────────────────────
+
 
 @app.get("/api/health", tags=["System"])
 def health():
@@ -149,14 +219,15 @@ async def sync_vectorstore(repo=Depends(get_repo)):
     """
     return await resync_vectorstore(repo)
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
 app.include_router(admin_router)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-    
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────

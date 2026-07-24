@@ -11,9 +11,12 @@ from __future__ import annotations
 
 import json
 import logging
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from fastapi.responses import StreamingResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.database.base import BaseRepository
 from app.database.factory import get_repo
@@ -23,6 +26,7 @@ from app.services.rag_chain import stream_rag_response
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 def _messages_to_history(messages: list[Message]) -> list[dict]:
@@ -37,6 +41,15 @@ def _messages_to_history(messages: list[Message]) -> list[dict]:
     ]
 
 
+def _is_valid_uuid(val: str) -> bool:
+    """FIXED: Validate UUID format."""
+    try:
+        UUID(val)
+        return True
+    except (ValueError, AttributeError):
+        return False
+
+
 @router.post("/", response_model=ConversationResponse)
 async def create_conversation(repo: BaseRepository = Depends(get_repo)):
     conv = await repo.create_conversation()
@@ -48,6 +61,10 @@ async def get_conversation(
     conversation_id: str,
     repo: BaseRepository = Depends(get_repo),
 ):
+    # FIXED: Validate UUID format
+    if not _is_valid_uuid(conversation_id):
+        raise HTTPException(status_code=400, detail="Invalid conversation ID format.")
+
     conv = await repo.get_conversation(conversation_id)
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found.")
@@ -56,11 +73,17 @@ async def get_conversation(
 
 
 @router.post("/{conversation_id}/chat")
+@limiter.limit("30/minute")  # FIXED: Rate limit to 30 requests per minute per IP
 async def send_message(
     conversation_id: str,
     body: ChatRequest,
+    request: Request,
     repo: BaseRepository = Depends(get_repo),
 ):
+    # FIXED: Validate UUID format
+    if not _is_valid_uuid(conversation_id):
+        raise HTTPException(status_code=400, detail="Invalid conversation ID format.")
+
     conv = await repo.get_conversation(conversation_id)
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found.")

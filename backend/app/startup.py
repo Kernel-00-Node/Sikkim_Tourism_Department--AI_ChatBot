@@ -26,21 +26,27 @@ from langchain_core.documents import Document
 
 from app.config import settings
 from app.database.base import BaseRepository
-from app.services.vectorstore import ensure_collection, get_qdrant_client, get_vectorstore
+from app.models.schemas import Destination
+from app.services.vectorstore import (
+    ensure_collection,
+    get_qdrant_client,
+    get_vectorstore,
+)
 
 logger = logging.getLogger(__name__)
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 """
- Convert a Destination Pydantic model into a rich LangChain Document.
- The page_content is a structured text block that Gemini reads as context.
- All fields are also preserved in metadata for filtering.
+Convert a Destination Pydantic model into a rich LangChain Document.
+The page_content is a structured text block that Gemini reads as context.
+All fields are also preserved in metadata for filtering.
 """
 
-def _destination_to_document(dest) -> Document:
-    
+
+def _destination_to_document(dest: Destination) -> Document:
+    """FIXED: Added type hint for dest parameter."""
     permit_text = ""
     if dest.permit_required and dest.permit_info:
         permit_text = f"\nPERMIT REQUIRED: {dest.permit_info}"
@@ -73,16 +79,19 @@ def _destination_to_document(dest) -> Document:
 
     return Document(page_content=page_content, metadata=metadata)
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
 """
 Load all destinations from `repo`, embed them, and upsert into Qdrant.
 Returns the number of documents indexed.
 Idempotent — safe to call multiple times (upserts, not inserts).
 """
-    
+
+
 async def populate_vectorstore(repo: BaseRepository) -> int:
+    """FIXED: Proper error handling when database is empty."""
     if not settings.gemini_api_key:
         logger.warning(
             "GEMINI_API_KEY is not set... — Skipping Vector Store Population. "
@@ -99,7 +108,21 @@ async def populate_vectorstore(repo: BaseRepository) -> int:
 
     destinations = await repo.list_destinations()
     if not destinations:
-        logger.warning("No destinations found in %s — vector store will be empty.", settings.db_mode)
+        # FIXED: Raise error in production, warn in development
+        error_msg = (
+            f"CRITICAL: No destinations found in {settings.db_mode}. "
+            "Vector store will be EMPTY!"
+        )
+        logger.error(error_msg)
+
+        if settings.db_mode == "mysql":
+            raise RuntimeError(
+                error_msg + " Check MySQL connection and schema."
+            )
+        # For mock mode, it's acceptable but still warn loudly
+        logger.warning(
+            "Running in mock mode with no destinations — RAG will not work."
+        )
         return 0
 
     documents = [_destination_to_document(d) for d in destinations]
@@ -118,13 +141,16 @@ async def populate_vectorstore(repo: BaseRepository) -> int:
         settings.qdrant_mode,
     )
     return len(documents)
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-    """
-    Re-sync the vector store with the current repository state.
-    Called by the /api/admin/sync endpoint.
-    """
+
+# ────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
+"""
+Re-sync the vector store with the current repository state.
+Called by the /api/admin/sync endpoint.
+"""
+
 
 async def resync_vectorstore(repo: BaseRepository) -> dict:
 
@@ -136,7 +162,8 @@ async def resync_vectorstore(repo: BaseRepository) -> dict:
         "qdrant_mode": settings.qdrant_mode,
         "collection": settings.qdrant_collection,
     }
-    
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+# ────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
