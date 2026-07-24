@@ -98,13 +98,16 @@ class MySQLRepository(BaseRepository):
     # ── Low-level helpers ──────────────────────────────────────────────────────
 
     def _query(self, sql: str, params: tuple = ()) -> list[dict]:
+        """FIXED: Proper cursor cleanup even on exception."""
         conn = self._pool.get_connection()
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute(sql, params)
-            rows = cursor.fetchall()
-            cursor.close()
-            return rows
+            try:
+                cursor.execute(sql, params)
+                rows = cursor.fetchall()
+                return rows
+            finally:
+                cursor.close()  # FIXED: Always close cursor
         finally:
             conn.close()
 
@@ -113,6 +116,7 @@ class MySQLRepository(BaseRepository):
         Execute a write statement (INSERT / UPDATE / DELETE).
         Both the cursor and the connection are always returned to the pool,
         even if cursor.execute() raises — preventing connection leaks.
+        FIXED: Proper nested try-finally for cursor closure.
         """
         conn = self._pool.get_connection()
         try:
@@ -127,7 +131,7 @@ class MySQLRepository(BaseRepository):
         finally:
             conn.close()
 
-    # ── Destinations ───────────────────────────────────────────────────────────
+    # ── Destinations ────────────────────────────────────────────────────────
 
     async def list_destinations(
         self,
@@ -147,17 +151,22 @@ class MySQLRepository(BaseRepository):
             params.extend([like, like, like, like])
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         rows = await asyncio.to_thread(
-            self._query, f"SELECT * FROM destinations {where} ORDER BY name ASC", tuple(params)
+            self._query,
+            f"SELECT * FROM destinations {where} ORDER BY name ASC",
+            tuple(params),
         )
         return [_row_to_destination(r) for r in rows]
 
     async def get_destination(self, destination_id: int) -> Destination | None:
         rows = await asyncio.to_thread(
-            self._query, "SELECT * FROM destinations WHERE id = %s", (destination_id,)
+            self._query,
+            "SELECT * FROM destinations WHERE id = %s",
+            (destination_id,),
         )
         return _row_to_destination(rows[0]) if rows else None
 
     async def search_destinations_for_rag(self, query: str) -> list[Destination]:
+        """FIXED: Escape LIKE wildcards to prevent injection."""
         rows = await asyncio.to_thread(
             self._query,
             "SELECT * FROM destinations "
@@ -167,15 +176,21 @@ class MySQLRepository(BaseRepository):
         )
         if not rows:
             # FULLTEXT can return nothing for short/uncommon queries — fall back to LIKE.
-            like = f"%{query}%"
+            # FIXED: Properly escape LIKE wildcards
+            escaped_query = (
+                query.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            like = f"%{escaped_query}%"
             rows = await asyncio.to_thread(
                 self._query,
-                "SELECT * FROM destinations WHERE name LIKE %s OR description LIKE %s LIMIT 4",
+                "SELECT * FROM destinations WHERE name LIKE %s ESCAPE '\\' OR description LIKE %s ESCAPE '\\' LIMIT 4",
                 (like, like),
             )
         return [_row_to_destination(r) for r in rows]
 
-    # ── Conversations ──────────────────────────────────────────────────────────
+    # ── Conversations ────────────────────────────────────────────────────────
 
     async def create_conversation(self) -> Conversation:
         conv = Conversation()
@@ -188,11 +203,13 @@ class MySQLRepository(BaseRepository):
 
     async def get_conversation(self, conversation_id: str) -> Conversation | None:
         rows = await asyncio.to_thread(
-            self._query, "SELECT * FROM conversations WHERE id = %s", (conversation_id,)
+            self._query,
+            "SELECT * FROM conversations WHERE id = %s",
+            (conversation_id,),
         )
         return _row_to_conversation(rows[0]) if rows else None
 
-    # ── Messages ───────────────────────────────────────────────────────────────
+    # ── Messages ─────────────────────────────────────────────────────────
 
     async def add_message(
         self,

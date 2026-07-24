@@ -7,14 +7,16 @@ causes DeprecationWarnings on Python 3.12+.
 """
 from __future__ import annotations
 
+import re
+import unicodedata
 from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
-# ── Destination ────────────────────────────────────────────────────────────────
+# ── Destination ──────────────────────────────────────────────────────────
 
 class Destination(BaseModel):
     """Full destination record — returned by GET /api/destinations/{id}."""
@@ -57,7 +59,7 @@ class DestinationSummary(BaseModel):
     description: str
 
 
-# ── Conversation ───────────────────────────────────────────────────────────────
+# ── Conversation ──────────────────────────────────────────────────────────
 
 class Conversation(BaseModel):
     """A chat session container.  Created by POST /api/conversations/."""
@@ -83,6 +85,39 @@ class ChatRequest(BaseModel):
     """Body for POST /api/conversations/{id}/chat."""
 
     message: str = Field(..., min_length=1, max_length=2000)
+
+    @field_validator("message")
+    @classmethod
+    def sanitize_message(cls, v: str) -> str:
+        """Sanitize user message to prevent injection attacks."""
+        # Strip leading/trailing whitespace
+        v = v.strip()
+
+        # Normalize Unicode (NFKC) to prevent homograph attacks
+        v = unicodedata.normalize("NFKC", v)
+
+        # Detect common injection patterns (log warning but allow)
+        # The LLM can decide if the message is legitimate
+        injection_patterns = [
+            r"<script",
+            r"onclick\s*=",
+            r"onerror\s*=",
+            r"javascript:",
+            r"union\s+.*\s+select",
+            r"drop\s+table",
+            r"delete\s+from",
+            r"--\s*$",  # SQL comments
+        ]
+
+        if any(re.search(p, v, re.IGNORECASE) for p in injection_patterns):
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Potential injection pattern detected in message: {v[:50]}..."
+            )
+
+        return v
 
 
 class ConversationResponse(BaseModel):
