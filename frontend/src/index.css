@@ -523,3 +523,46 @@
     animation: none !important;
   }
 }
+
+/* ── ChatBot redesign — restrained motion ────────────────────────────────── */
+
+@keyframes chat-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes chat-dot {
+
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes chat-launcher-halo {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.18;
+  }
+
+  50% {
+    transform: scale(1.12);
+    opacity: 0.32;
+  }
+}

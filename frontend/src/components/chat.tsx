@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,43 +9,102 @@ import {
   Wind,
   MountainSnow,
   Calendar,
+  ChevronRight,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createConversation, fetchConversation, type Message } from "@/lib/api";
 import { GOVT_LOGO_SRC } from "@/config/brand";
 
-/* ── Prayer flag palette ─────────────────────────────────────────────────── */
-const FLAG_COLORS = [
-  { dot: "#EAB308", label: "yellow" },
-  { dot: "#22C55E", label: "green" },
-  { dot: "#EF4444", label: "red" },
-  { dot: "#F8FAFC", label: "white" },
-  { dot: "#3B82F6", label: "blue" },
+/* ──────────────────────────────────────────────────────────────────────────
+   Editorial Himalayan palette for the ChatBot.
+   Hard-coded here rather than via CSS vars so the widget stays self-contained
+   and matches the brand regardless of theme. These values are the *only*
+   place the chat uses raw hex — every other surface inherits from tokens.
+   ─────────────────────────────────────────────────────────────────────── */
+const CHAT = {
+  // — Surfaces —
+  bg: "#F6F0E3", // warm parchment
+  bgDeep: "#ECDFC8", // a touch darker — used for the input band
+  surface: "#FFFFFF", // assistant / user bubble base
+  border: "#D8CDB1", // sage-faint hairline
+  borderStrong: "#B7A98A",
+
+  // — Sentiment —
+  assistantText: "#1B2A24", // pine ink
+  userText: "#FFFFFF",
+  userBubble: "#134238", // solid pine green (no gradient)
+  assistantBubble: "#FDFAF2", // ivory, never pure white
+
+  // — Interactive —
+  accent: "#B07A1F", // burnt saffron — used sparingly: send icon, active dot
+  accentSoft: "#EBD8B0",
+  ringFocus: "rgba(19, 66, 56, 0.28)",
+
+  // — Decorative prayer-flag strip ——
+  flags: ["#1E5AA8", "#F1ECE0", "#C73E2A", "#3FA45A", "#E2B821"],
+} as const;
+
+const STARTERS = [
+  {
+    text: "What permits do I need for Nathula Pass?",
+    icon: MapPin,
+    eyebrow: "Permits",
+  },
+  {
+    text: "When is the best time to visit Gangtok?",
+    icon: Calendar,
+    eyebrow: "Timing",
+  },
+  {
+    text: "Suggest a peaceful monastery to visit.",
+    icon: Wind,
+    eyebrow: "Culture",
+  },
+  {
+    text: "How do I reach Gurudongmar Lake?",
+    icon: MountainSnow,
+    eyebrow: "Routes",
+  },
 ];
 
-const STARTER_ACCENTS = [
-  { border: "#EAB308", icon: "#A16207", glow: "rgba(234,179,8,0.18)" },
-  { border: "#22C55E", icon: "#166534", glow: "rgba(34,197,94,0.18)" },
-  { border: "#EF4444", icon: "#991B1B", glow: "rgba(239,68,68,0.18)" },
-  { border: "#3B82F6", icon: "#1D4ED8", glow: "rgba(59,130,246,0.18)" },
-];
+/* ── Format a timestamp like "9:42 AM" so threads feel real. ─────────────── */
+function formatTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
 
-/* ── Prayer-flag thinking dots ───────────────────────────────────────────── */
-function ThinkingIndicator({ compact }: { compact: boolean }) {
+/* ── The five prayer-flag colours, used as a single 2px hairline strip. ─── */
+function PrayerFlagBar({ className = "" }: { className?: string }) {
   return (
-    <div className="flex items-center gap-[5px] px-1 py-1.5">
-      {FLAG_COLORS.map((f, i) => (
+    <div className={`flex h-[2px] w-full ${className}`} aria-hidden="true">
+      {CHAT.flags.map((c, i) => (
+        <div key={i} className="flex-1" style={{ background: c }} />
+      ))}
+    </div>
+  );
+}
+
+/* ── Calm three-dot typing indicator. One subtle pulse, not a rainbow. ──── */
+function ThinkingIndicator() {
+  return (
+    <div
+      className="flex items-center gap-1.5 py-0.5"
+      aria-label="Assistant is responding"
+    >
+      {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="inline-block rounded-full animate-bounce"
+          className="block h-1.5 w-1.5 rounded-full"
           style={{
-            width: compact ? 6 : 5,
-            height: compact ? 6 : 5,
-            backgroundColor: f.dot,
-            animationDelay: `${i * 120}ms`,
-            animationDuration: "1.1s",
-            boxShadow: `0 0 4px ${f.dot}88`,
+            backgroundColor: CHAT.userBubble,
+            opacity: 0.35,
+            animation: "chat-dot 1.4s ease-in-out infinite",
+            animationDelay: `${i * 160}ms`,
           }}
         />
       ))}
@@ -53,36 +112,18 @@ function ThinkingIndicator({ compact }: { compact: boolean }) {
   );
 }
 
-/* ── Markdown renderer ───────────────────────────────────────────────────── */
-function AssistantMessage({
-  content,
-  compact,
-}: {
-  content: string;
-  compact: boolean;
-}) {
-  const linkCls = compact
-    ? "text-sky-300 underline underline-offset-2 hover:text-sky-200"
-    : "text-primary underline underline-offset-2 hover:text-primary/80";
-  const strongCls = compact
-    ? "text-white font-semibold"
-    : "text-foreground font-semibold";
-  const codeCls = compact
-    ? "bg-white/10 text-sky-200"
-    : "bg-muted text-foreground";
-  const hrCls = compact ? "border-white/10" : "border-border";
-  const quoteCls = compact
-    ? "border-white/20 text-white/70 italic"
-    : "border-primary/25 text-muted-foreground italic";
-
+/* ── Assistant markdown renderer. Sober, readable, brand-coloured links. ── */
+function AssistantMessage({ content }: { content: string }) {
   return (
-    <div className="text-[0.93rem] leading-relaxed space-y-2.5 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+    <div className="chat-markdown text-[0.95rem] leading-[1.6] space-y-2.5 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          p: ({ children }) => <p className="leading-relaxed">{children}</p>,
+          p: ({ children }) => <p className="leading-[1.6]">{children}</p>,
           strong: ({ children }) => (
-            <strong className={strongCls}>{children}</strong>
+            <strong style={{ color: CHAT.userBubble, fontWeight: 600 }}>
+              {children}
+            </strong>
           ),
           em: ({ children }) => <em className="italic">{children}</em>,
           a: ({ href, children }) => (
@@ -90,52 +131,78 @@ function AssistantMessage({
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className={linkCls}
+              className="underline underline-offset-2 transition-colors hover:opacity-80"
+              style={{ color: CHAT.accent }}
             >
               {children}
             </a>
           ),
           ul: ({ children }) => (
-            <ul className="list-disc pl-5 space-y-1 marker:text-current/60">
+            <ul className="list-disc pl-5 space-y-1 marker:opacity-50">
               {children}
             </ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal pl-5 space-y-1 marker:text-current/60">
+            <ol className="list-decimal pl-5 space-y-1 marker:opacity-50">
               {children}
             </ol>
           ),
-          li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+          li: ({ children }) => <li className="leading-[1.6]">{children}</li>,
           h1: ({ children }) => (
-            <h3 className="text-base font-serif font-semibold mt-3">
+            <h3
+              className="text-[1.02rem] mt-2.5 font-semibold tracking-tight"
+              style={{ fontFamily: "Fraunces, serif" }}
+            >
               {children}
             </h3>
           ),
           h2: ({ children }) => (
-            <h3 className="text-base font-serif font-semibold mt-3">
+            <h3
+              className="text-[1.02rem] mt-2.5 font-semibold tracking-tight"
+              style={{ fontFamily: "Fraunces, serif" }}
+            >
               {children}
             </h3>
           ),
           h3: ({ children }) => (
-            <h4 className="text-sm font-serif font-semibold mt-2">
+            <h4
+              className="text-[0.98rem] mt-2 font-semibold"
+              style={{ fontFamily: "Fraunces, serif" }}
+            >
               {children}
             </h4>
           ),
           blockquote: ({ children }) => (
-            <blockquote className={`border-l-2 pl-3 ${quoteCls}`}>
+            <blockquote
+              className="border-l-2 pl-3 italic text-[0.9rem]"
+              style={{ borderColor: CHAT.accentSoft, color: "#52635C" }}
+            >
               {children}
             </blockquote>
           ),
           code: ({ children }) => (
             <code
-              className={`px-1.5 py-0.5 rounded-md text-[0.84em] font-mono ${codeCls}`}
+              className="px-1.5 py-0.5 rounded text-[0.85em]"
+              style={{
+                background: CHAT.bgDeep,
+                color: CHAT.userBubble,
+                fontFamily: "ui-monospace, Menlo, monospace",
+              }}
             >
               {children}
             </code>
           ),
-          hr: () => <hr className={`my-3 ${hrCls}`} />,
+          hr: () => (
+            <hr
+              className="my-3 border-0 h-px"
+              style={{ background: CHAT.border }}
+            />
+          ),
           table: ({ children }) => (
-            <div className="overflow-x-auto my-2">
+            <div
+              className="overflow-x-auto my-2 rounded-md border"
+              style={{ borderColor: CHAT.border }}
+            >
               <table className="w-full text-sm border-collapse">
                 {children}
               </table>
@@ -143,13 +210,22 @@ function AssistantMessage({
           ),
           th: ({ children }) => (
             <th
-              className={`text-left font-semibold py-1.5 px-2 border-b ${hrCls}`}
+              className="text-left font-semibold py-1.5 px-2 border-b"
+              style={{
+                borderColor: CHAT.border,
+                background: CHAT.bgDeep,
+              }}
             >
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className={`py-1.5 px-2 border-b ${hrCls}`}>{children}</td>
+            <td
+              className="py-1.5 px-2 border-b"
+              style={{ borderColor: CHAT.border }}
+            >
+              {children}
+            </td>
           ),
         }}
       >
@@ -159,83 +235,204 @@ function AssistantMessage({
   );
 }
 
-/* ── Mountain + prayer flag empty-state illustration ─────────────────────── */
-function SikkimIllustration({ compact }: { compact: boolean }) {
-  const size = compact ? 96 : 120;
+/* ── Empty state — landing surface, no gimmicks. ────────────────────────── */
+function EmptyState({
+  onPick,
+  compact,
+}: {
+  onPick: (text: string) => void;
+  compact: boolean;
+}) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 120 120"
-      fill="none"
-      className="drop-shadow-lg mx-auto"
+    <div
+      className={`flex flex-col items-center text-center mx-auto w-full animate-[chat-fade-up_500ms_ease-out_both] ${
+        compact ? "max-w-md py-7 gap-5" : "max-w-xl py-12 gap-7"
+      }`}
     >
-      <circle
-        cx="60"
-        cy="60"
-        r="58"
-        fill="url(#skyGrad)"
-        opacity={compact ? 0 : 0.25}
-      />
-      <circle cx="88" cy="22" r="9" fill="#FEF3C7" opacity={0.9} />
-      <circle cx="91" cy="20" r="7" fill={compact ? "#0d1829" : "#e8f4fd"} />
-      {[
-        [20, 18],
-        [35, 10],
-        [70, 14],
-        [100, 30],
-        [15, 38],
-      ].map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r={1.2} fill="white" opacity={0.7} />
-      ))}
-      <path
-        d="M0,90 L20,50 L40,68 L60,30 L80,55 L100,42 L120,65 L120,120 L0,120Z"
-        fill="#1a3040"
-        opacity={0.7}
-      />
-      <path d="M60,30 L52,52 L68,52Z" fill="white" opacity={0.5} />
-      <path d="M100,42 L94,58 L106,58Z" fill="white" opacity={0.4} />
-      <path
-        d="M0,105 L25,72 L45,85 L65,58 L85,78 L105,65 L120,78 L120,120 L0,120Z"
-        fill="#0f2030"
-        opacity={0.85}
-      />
-      <path d="M65,58 L58,74 L72,74Z" fill="white" opacity={0.6} />
-      <line
-        x1="10"
-        y1="48"
-        x2="110"
-        y2="36"
-        stroke="rgba(255,255,255,0.45)"
-        strokeWidth="0.8"
-      />
-      {[
-        { x: 18, y: 46, c: "#3B82F6" },
-        { x: 33, y: 43, c: "#F8FAFC" },
-        { x: 48, y: 41, c: "#EF4444" },
-        { x: 63, y: 39, c: "#22C55E" },
-        { x: 78, y: 37, c: "#EAB308" },
-        { x: 93, y: 36, c: "#3B82F6" },
-        { x: 108, y: 35, c: "#F8FAFC" },
-      ].map(({ x, y, c }, i) => (
-        <polygon
-          key={i}
-          points={`${x},${y} ${x + 9},${y} ${x + 4.5},${y + 11}`}
-          fill={c}
-          opacity={0.9}
+      {/* Brass seal-style emblem — single accent on the page */}
+      <div
+        className="relative flex items-center justify-center rounded-full shadow-[0_8px_28px_-12px_rgba(19,66,56,0.35)]"
+        style={{
+          background: "#FFFFFF",
+          border: `1px solid ${CHAT.border}`,
+          padding: compact ? 8 : 11,
+        }}
+      >
+        <img
+          src={GOVT_LOGO_SRC}
+          alt="Government of Sikkim"
+          draggable={false}
+          className={compact ? "h-9 w-9" : "h-12 w-12"}
+          style={{ objectFit: "contain" }}
         />
-      ))}
-      <defs>
-        <radialGradient id="skyGrad" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#1a3a5c" />
-          <stop offset="100%" stopColor="#060d18" />
-        </radialGradient>
-      </defs>
-    </svg>
+      </div>
+
+      <div className={compact ? "space-y-1.5" : "space-y-2"}>
+        <p
+          className={`font-semibold uppercase tracking-[0.18em] ${
+            compact ? "text-[0.6rem]" : "text-[0.66rem]"
+          }`}
+          style={{ color: CHAT.accent }}
+        >
+          Sikkim Tourism · Civil Aviation
+        </p>
+        <h1
+          className={
+            compact ? "text-[1.5rem]" : "text-[1.9rem] sm:text-[2.1rem]"
+          }
+          style={{
+            fontFamily: "Fraunces, serif",
+            color: CHAT.assistantText,
+            fontWeight: 600,
+            letterSpacing: "-0.01em",
+            lineHeight: 1.15,
+          }}
+        >
+          Ask me anything about Sikkim
+        </h1>
+        <p
+          className={`mx-auto leading-relaxed ${
+            compact ? "text-[0.83rem] max-w-[260px]" : "text-[0.95rem] max-w-md"
+          }`}
+          style={{ color: "#52635C" }}
+        >
+          Permits, monastery hours, the road to Gurudongmar, what to pack for
+          Yumthang — answered from the Department's own records.
+        </p>
+      </div>
+
+      {/* Suggested questions — clean list, chevron animates on hover. */}
+      <div className="w-full space-y-2">
+        {STARTERS.map(({ text, icon: Icon, eyebrow }, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onPick(text)}
+            className="group flex w-full items-center gap-3 rounded-xl border bg-white px-3.5 py-3 text-left shadow-[0_1px_0_rgba(19,66,56,0.04)] transition-all duration-200 hover:-translate-y-[1px] hover:shadow-[0_6px_18px_-10px_rgba(19,66,56,0.28)]"
+            style={{ borderColor: CHAT.border }}
+          >
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              style={{ background: CHAT.bgDeep, color: CHAT.userBubble }}
+            >
+              <Icon className="h-4 w-4" strokeWidth={1.7} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span
+                className="block text-[0.6rem] font-semibold uppercase tracking-[0.16em]"
+                style={{ color: CHAT.accent }}
+              >
+                {eyebrow}
+              </span>
+              <span
+                className="block text-[0.88rem] font-medium leading-snug mt-0.5"
+                style={{ color: CHAT.assistantText }}
+              >
+                {text}
+              </span>
+            </span>
+            <ChevronRight
+              className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
+              style={{ color: CHAT.borderStrong }}
+            />
+          </button>
+        ))}
+      </div>
+
+      <p
+        className={compact ? "text-[0.7rem]" : "text-[0.74rem]"}
+        style={{ color: "#7C8A83" }}
+      >
+        Your conversations are private — used only to keep context within this
+        session.
+      </p>
+    </div>
   );
 }
 
-/* ── Main chat component ─────────────────────────────────────────────────── */
+/* ── Single chat bubble. Assistant on the left, user on the right. ───────── */
+function Bubble({ msg, showTime }: { msg: Message; showTime: boolean }) {
+  const isUser = msg.role === "user";
+  return (
+    <div
+      className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"} animate-[chat-fade-up_280ms_ease-out_both]`}
+    >
+      {!isUser && (
+        <div
+          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full overflow-hidden"
+          style={{ background: "#FFFFFF", border: `1px solid ${CHAT.border}` }}
+        >
+          <img
+            src={GOVT_LOGO_SRC}
+            alt=""
+            draggable={false}
+            className="h-full w-full object-contain p-0.5"
+          />
+        </div>
+      )}
+
+      <div className={`min-w-0 ${isUser ? "max-w-[78%]" : "max-w-[88%]"}`}>
+        {!isUser && showTime && (
+          <div
+            className="mb-1 flex items-center gap-2 text-[0.66rem] font-medium tracking-wide"
+            style={{ color: "#7C8A83" }}
+          >
+            <span>Sikkim Tourism Assistant</span>
+            <span
+              className="h-0.5 w-0.5 rounded-full"
+              style={{ background: "#7C8A83" }}
+            />
+            <span>{formatTime(msg.createdAt)}</span>
+          </div>
+        )}
+        <div
+          className={`rounded-2xl px-3.5 py-2.5 ${
+            isUser ? "rounded-tr-md" : "rounded-tl-md"
+          }`}
+          style={{
+            background: isUser ? CHAT.userBubble : CHAT.assistantBubble,
+            color: isUser ? CHAT.userText : CHAT.assistantText,
+            border: isUser ? "none" : `1px solid ${CHAT.border}`,
+            boxShadow:
+              "0 1px 0 rgba(19,66,56,0.04), 0 1px 2px rgba(19,66,56,0.04)",
+          }}
+        >
+          {msg.content ? (
+            isUser ? (
+              <div className="whitespace-pre-wrap text-[0.93rem] leading-[1.55]">
+                {msg.content}
+              </div>
+            ) : (
+              <AssistantMessage content={msg.content} />
+            )
+          ) : (
+            <ThinkingIndicator />
+          )}
+        </div>
+        {/* Provenance line — only for longer assistant answers, only on
+            desktop where there's room. Reads like a printed footnote. */}
+        {isUser === false && msg.content && msg.content.length > 180 && (
+          <p
+            className="mt-1.5 text-[0.62rem] tracking-wide"
+            style={{ color: "#9AA59E" }}
+          >
+            Grounded in official Department records.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Main Chat — works in two modes:
+
+   compact=true   → widget body (panel/launcher variant). Background is fixed
+                   parchment; messages fill the available region.
+   compact=false  → standalone full-page chat. Same look, more breathing room.
+
+   Both render identically: same palette, same spacing, same bubble rules.
+   ─────────────────────────────────────────────────────────────────────── */
 export function Chat({ compact = false }: { compact?: boolean }) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -243,22 +440,36 @@ export function Chat({ compact = false }: { compact?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  /* RAF-locked smooth scroll — feels calmer than instant jump on Android. */
+  const scrollToBottom = useCallback(() => {
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    });
+  }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, isStreaming]);
+    scrollToBottom();
+  }, [messages, isStreaming, scrollToBottom]);
 
-  // Auto-focus input after AI finishes responding so users can type immediately
+  /* Auto-focus the input field once a turn ends so users can keep typing. */
   useEffect(() => {
     if (!isStreaming && messages.length > 0) {
-      const t = setTimeout(() => inputRef.current?.focus(), 80);
+      const t = setTimeout(
+        () => inputRef.current?.focus({ preventScroll: true }),
+        120,
+      );
       return () => clearTimeout(t);
     }
-  }, [isStreaming]);
+  }, [isStreaming, messages.length]);
 
   const handleSend = async (text: string) => {
-    if (!text.trim() || isStreaming) return;
-    const userMessageText = text.trim();
+    const trimmed = text.trim();
+    if (!trimmed || isStreaming) return;
     setInput("");
 
     let currentConvId = conversationId;
@@ -278,7 +489,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
       id: `u-${Date.now()}`,
       conversationId: currentConvId,
       role: "user",
-      content: userMessageText,
+      content: trimmed,
       createdAt: now,
     };
     const assistantMsg: Message = {
@@ -296,7 +507,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
       const response = await fetch(`/api/conversations/${currentConvId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessageText }),
+        body: JSON.stringify({ message: trimmed }),
       });
       if (!response.ok)
         throw new Error(
@@ -333,7 +544,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
               });
             }
           } catch {
-            /* non-JSON line */
+            /* non-JSON line — skip */
           }
         }
       }
@@ -352,308 +563,110 @@ export function Chat({ compact = false }: { compact?: boolean }) {
     }
   };
 
-  const starterQuestions = [
-    {
-      text: "What permits do I need for Nathula Pass?",
-      icon: MapPin,
-      accent: STARTER_ACCENTS[0],
-    },
-    {
-      text: "When is the best time to visit Gangtok?",
-      icon: Calendar,
-      accent: STARTER_ACCENTS[1],
-    },
-    {
-      text: "Suggest a peaceful monastery to visit.",
-      icon: Wind,
-      accent: STARTER_ACCENTS[2],
-    },
-    {
-      text: "How do I reach Gurudongmar Lake?",
-      icon: MountainSnow,
-      accent: STARTER_ACCENTS[3],
-    },
-  ];
-
-  /* ── Compact (widget) styles ────────────────────────────────────────── */
-  if (compact) {
-    return (
-      <div className="flex flex-col h-full overflow-hidden bg-transparent">
-        <ScrollArea className="flex-1 p-3 sm:p-4">
+  return (
+    <div
+      className="flex h-full min-h-0 flex-col"
+      style={{ background: CHAT.bg }}
+      ref={scrollRef}
+    >
+      <ScrollArea className="flex-1 min-h-0">
+        <div
+          className={`mx-auto w-full ${compact ? "max-w-2xl px-3.5 pt-5 pb-4 sm:px-5" : "max-w-2xl px-4 pt-7 pb-6 sm:px-8 sm:pt-10"}`}
+        >
           {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center max-w-md mx-auto py-8 text-center space-y-5 animate-in fade-in zoom-in duration-700">
-              <SikkimIllustration compact />
-              <div className="space-y-2">
-                <h2 className="text-2xl font-serif text-white drop-shadow">
-                  Welcome to Sikkim
-                </h2>
-                <p className="text-[0.82rem] leading-relaxed text-white/65 max-w-[220px] mx-auto">
-                  Your local guide for permits, hidden valleys, ancient
-                  monasteries, and alpine lakes.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-2 w-full mt-2">
-                {starterQuestions.map((q, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSend(q.text)}
-                    className="text-left flex items-center gap-3 p-3 rounded-xl transition-all duration-300 group"
-                    style={{
-                      background: "rgba(255,255,255,0.06)",
-                      border: `1px solid rgba(255,255,255,0.08)`,
-                      borderLeft: `3px solid ${q.accent.border}`,
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background =
-                        "rgba(255,255,255,0.11)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background =
-                        "rgba(255,255,255,0.06)")
-                    }
-                  >
-                    <div
-                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ background: `${q.accent.border}22` }}
-                    >
-                      <q.icon
-                        className="w-3.5 h-3.5"
-                        style={{ color: q.accent.border }}
-                      />
-                    </div>
-                    <span className="text-[0.78rem] font-medium text-white/75 group-hover:text-white transition-colors leading-snug">
-                      {q.text}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <EmptyState onPick={(t) => handleSend(t)} compact={compact} />
           ) : (
-            <div className="space-y-4 max-w-3xl mx-auto w-full pb-4">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in slide-in-from-bottom-2 fade-in duration-300`}
-                >
-                  {msg.role === "assistant" && (
-                    <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center mt-1 overflow-hidden p-1 bg-white/90 shadow ring-1 ring-white/20">
-                      <img
-                        src={GOVT_LOGO_SRC}
-                        alt=""
-                        className="w-full h-full object-contain"
-                        draggable={false}
-                      />
-                    </div>
-                  )}
-                  <div
-                    className={`px-4 py-3 rounded-2xl max-w-[85%] shadow-sm text-sm ${
-                      msg.role === "user"
-                        ? "rounded-tr-sm text-gray-900"
-                        : "rounded-tl-sm border border-white/10 text-white"
-                    }`}
-                    style={
-                      msg.role === "user"
-                        ? {
-                            background:
-                              "linear-gradient(135deg, #f5f3f0 0%, #ede8e0 100%)",
-                          }
-                        : {
-                            background: "rgba(255,255,255,0.08)",
-                            backdropFilter: "blur(8px)",
-                          }
-                    }
-                  >
-                    {msg.content ? (
-                      msg.role === "assistant" ? (
-                        <AssistantMessage content={msg.content} compact />
-                      ) : (
-                        <div className="text-[0.93rem] whitespace-pre-wrap leading-relaxed">
-                          {msg.content}
-                        </div>
-                      )
-                    ) : (
-                      <ThinkingIndicator compact />
-                    )}
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-5">
+              {messages.map((msg, idx) => {
+                const prev = messages[idx - 1];
+                const showTime =
+                  msg.role === "assistant" &&
+                  (!prev || prev.role !== "assistant" || prev.id !== msg.id);
+                return <Bubble key={msg.id} msg={msg} showTime={showTime} />;
+              })}
               <div ref={bottomRef} />
             </div>
           )}
-        </ScrollArea>
+        </div>
+      </ScrollArea>
 
-        {/* Input — compact */}
+      {/* Compose bar — sticks to the bottom, respects Android safe-areas. */}
+      <div
+        className="shrink-0 border-t backdrop-blur supports-[backdrop-filter]:bg-[#F6F0E3]/85"
+        style={{
+          background: CHAT.bg,
+          borderColor: CHAT.border,
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
         <div
-          className="p-3 sm:p-4"
-          style={{
-            background: "rgba(0,0,0,0.3)",
-            borderTop: "1px solid rgba(255,255,255,0.08)",
-          }}
+          className={`mx-auto w-full ${compact ? "max-w-2xl px-3.5 py-3 sm:px-5" : "max-w-2xl px-4 py-4 sm:px-8"}`}
         >
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSend(input);
             }}
-            className="relative flex items-center gap-2"
+            className="relative flex items-end gap-2"
           >
             <Input
               ref={inputRef}
+              value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about Sikkim…"
-              className="pr-12 py-5 rounded-full text-sm text-white placeholder:text-white/40 border-white/12 focus-visible:ring-white/20 focus-visible:border-white/25 transition-all"
-              style={{ background: "rgba(255,255,255,0.10)" }}
+              placeholder="Ask about permits, monasteries, routes…"
               disabled={isStreaming}
+              className="rounded-xl border bg-white pr-12 text-[0.95rem] shadow-[0_1px_0_rgba(19,66,56,0.04)] transition-colors focus-visible:ring-2"
+              style={{
+                borderColor: CHAT.border,
+                color: CHAT.assistantText,
+                paddingTop: "0.85rem",
+                paddingBottom: "0.85rem",
+                boxShadow: "none",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = CHAT.userBubble;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = CHAT.border;
+              }}
             />
             <Button
               type="submit"
               size="icon"
-              className="absolute right-1.5 rounded-full w-9 h-9 shadow-lg shrink-0"
-              style={{
-                background: "linear-gradient(135deg, #2563EB, #1D4ED8)",
-              }}
               disabled={!input.trim() || isStreaming}
+              className="absolute right-1.5 bottom-1.5 h-9 w-9 rounded-lg shadow-[0_6px_14px_-8px_rgba(19,66,56,0.6)] disabled:shadow-none"
+              style={{
+                background: input.trim() ? CHAT.userBubble : CHAT.borderStrong,
+                color: "#FFFFFF",
+              }}
+              aria-label="Send message"
             >
               {isStreaming ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Send className="w-4 h-4 ml-0.5" />
+                <Send className="h-4 w-4" strokeWidth={2.2} />
               )}
             </Button>
           </form>
-          {/* Prayer flag accent strip */}
-          <div className="flex gap-0.5 mt-2 mx-auto justify-center">
-            {FLAG_COLORS.map((f, i) => (
-              <div
-                key={i}
-                className="h-0.5 flex-1 rounded-full opacity-50"
-                style={{ background: f.dot }}
+
+          {/* Footer micro-line: brand provenance, like a printed footer. */}
+          <div
+            className="mt-2 flex items-center justify-between gap-3 text-[0.66rem] tracking-wide"
+            style={{ color: "#9AA59E" }}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="inline-block h-1 w-1 rounded-full"
+                style={{
+                  background: "#3FA45A",
+                  boxShadow: "0 0 0 3px rgba(63,164,90,0.18)",
+                }}
               />
-            ))}
+              Connected to official records
+            </span>
+            <PrayerFlagBar className="max-w-[72px] opacity-70" />
           </div>
         </div>
-      </div>
-    );
-  }
-
-  /* ── Full-page (non-compact) styles ─────────────────────────────────── */
-  return (
-    <div className="flex flex-col h-full overflow-hidden bg-card rounded-2xl shadow-sm border">
-      <ScrollArea className="flex-1 p-4 sm:p-6">
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center max-w-lg mx-auto py-12 text-center space-y-8 animate-in fade-in zoom-in duration-700">
-            <div className="space-y-5">
-              <SikkimIllustration compact={false} />
-              <h2 className="text-3xl font-serif text-foreground">
-                Welcome to Sikkim
-              </h2>
-              <p className="text-base leading-relaxed text-muted-foreground">
-                I am your local guide. Ask me about permits, hidden valleys,
-                ancient monasteries, or how to reach the alpine lakes.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full mt-4">
-              {starterQuestions.map((q, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleSend(q.text)}
-                  className="text-left flex items-start gap-3 p-4 rounded-xl border transition-all duration-300 group hover:shadow-md"
-                  style={{
-                    borderLeftColor: q.accent.border,
-                    borderLeftWidth: 3,
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.boxShadow = `0 4px 16px ${q.accent.glow}`)
-                  }
-                  onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "")}
-                >
-                  <div
-                    className="p-2 rounded-lg transition-colors shrink-0"
-                    style={{ background: `${q.accent.border}18` }}
-                  >
-                    <q.icon
-                      className="w-4 h-4"
-                      style={{ color: q.accent.icon }}
-                    />
-                  </div>
-                  <span className="text-sm font-medium mt-0.5 text-foreground/80 group-hover:text-foreground transition-colors">
-                    {q.text}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6 max-w-3xl mx-auto w-full pb-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-4 ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in slide-in-from-bottom-2 fade-in duration-300`}
-              >
-                {msg.role === "assistant" && (
-                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm mt-1 overflow-hidden p-1.5 bg-white ring-1 ring-border">
-                    <img
-                      src={GOVT_LOGO_SRC}
-                      alt=""
-                      className="w-full h-full object-contain"
-                      draggable={false}
-                    />
-                  </div>
-                )}
-                <div
-                  className={`px-5 py-3.5 rounded-2xl max-w-[85%] shadow-sm border ${
-                    msg.role === "user"
-                      ? "bg-foreground text-background rounded-tr-sm"
-                      : "bg-muted/50 text-foreground rounded-tl-sm"
-                  }`}
-                >
-                  {msg.content ? (
-                    msg.role === "assistant" ? (
-                      <AssistantMessage content={msg.content} compact={false} />
-                    ) : (
-                      <div className="text-[0.95rem] whitespace-pre-wrap leading-relaxed">
-                        {msg.content}
-                      </div>
-                    )
-                  ) : (
-                    <ThinkingIndicator compact={false} />
-                  )}
-                </div>
-              </div>
-            ))}
-            <div ref={bottomRef} />
-          </div>
-        )}
-      </ScrollArea>
-
-      <div className="p-4 bg-background border-t">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend(input);
-          }}
-          className="max-w-3xl mx-auto relative flex items-center"
-        >
-          <Input
-            ref={inputRef}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about destinations, permits, or travel tips..."
-            className="pr-12 py-6 rounded-full shadow-inner text-base bg-muted/30 border-muted-foreground/20 focus-visible:ring-primary/30"
-            disabled={isStreaming}
-          />
-          <Button
-            type="submit"
-            size="icon"
-            className="absolute right-2 rounded-full w-10 h-10 shadow-sm"
-            disabled={!input.trim() || isStreaming}
-          >
-            {isStreaming ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Send className="w-5 h-5 ml-0.5" />
-            )}
-          </Button>
-        </form>
       </div>
     </div>
   );
