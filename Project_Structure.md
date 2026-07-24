@@ -12,6 +12,7 @@ ChatBot/
 │   └── 📁 app/
 │       ├── 📄 __init__.py
 │       ├── 📄 config.py
+│       ├── 📄 startup.py
 │       │
 │       ├── 📁 models/
 │       │   ├── 📄 __init__.py

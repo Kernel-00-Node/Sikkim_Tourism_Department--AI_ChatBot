@@ -128,6 +128,27 @@
   --shadow: 0 10px 30px -18px rgb(39 122 107 / 0.16), 0 2px 6px -2px rgb(15 23 42 / 0.08);
   --shadow-md: 0 18px 40px -24px rgb(39 122 107 / 0.18), 0 8px 16px -8px rgb(15 23 42 / 0.08);
   --shadow-lg: 0 26px 60px -30px rgb(39 122 107 / 0.24), 0 14px 24px -14px rgb(15 23 42 / 0.12);
+
+  /* ── Chat surface tokens — read live by useChatTheme() in chat-theme.ts ── */
+  --chat-bg: #F6F0E3;
+  --chat-bg-deep: #ECDFC8;
+  --chat-surface: #FFFFFF;
+  --chat-border: #D8CDB1;
+  --chat-border-strong: #B7A98A;
+  --chat-ink: #1B2A24;
+  --chat-ink-soft: #52635C;
+  --chat-ink-muted: #7C8A83;
+  --chat-ink-faint: #9AA59E;
+  --chat-pine: #134238;
+  --chat-pine-alt: #1E5F52;
+  --chat-pine-on: #FFFFFF;
+  --chat-accent: #B07A1F;
+  --chat-accent-soft: #EBD8B0;
+  --chat-assistant-bubble: #FDFAF2;
+  --chat-launcher-fg: #FFFFFF;
+  --chat-launcher-surface: #FFFFFF;
+  --chat-launcher-hint-bg: #FFFFFF;
+  --chat-launcher-hint-ink: #1B2A24;
 }
 
 .dark {
@@ -160,6 +181,27 @@
   --destructive-foreground: 0 0% 100%;
   --input: 170 20% 18%;
   --ring: 164 47% 48%;
+
+  /* ── Chat surface tokens (dark) — mirrors the DARK palette in chat-theme.ts ── */
+  --chat-bg: #131C19;
+  --chat-bg-deep: #1B2622;
+  --chat-surface: #1B2622;
+  --chat-border: #2A3934;
+  --chat-border-strong: #3D4F48;
+  --chat-ink: #E8EFEB;
+  --chat-ink-soft: #B7C2BD;
+  --chat-ink-muted: #8FA29B;
+  --chat-ink-faint: #6F7E77;
+  --chat-pine: #3FA88F;
+  --chat-pine-alt: #5DBDA4;
+  --chat-pine-on: #07120F;
+  --chat-accent: #E2A948;
+  --chat-accent-soft: #44341D;
+  --chat-assistant-bubble: #1F2C28;
+  --chat-launcher-fg: #07120F;
+  --chat-launcher-surface: #1B2622;
+  --chat-launcher-hint-bg: #1B2622;
+  --chat-launcher-hint-ink: #E8EFEB;
 }
 
 @layer base {

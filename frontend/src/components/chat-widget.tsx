@@ -265,7 +265,3 @@ export function ChatWidget() {
     </>
   );
 }
-
-export function ChatWidgetLauncherIcon() {
-  return null;
-}

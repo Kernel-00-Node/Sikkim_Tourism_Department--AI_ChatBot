@@ -426,21 +426,23 @@ Sikkim_Tourism__AI_ChatBot/
 ├── backend/
 │   ├── app/
 │   │   ├── config.py              # Pydantic settings — reads .env
-│   │   ├── startup.py             # Qdrant auto-population on startup
+│   │   ├── startup.py             # Qdrant auto-population on startup + /api/admin/sync logic
 │   │   ├── database/
 │   │   │   ├── base.py            # Abstract repository interface
+│   │   │   ├── factory.py         # Picks Mock vs MySQL repo based on USE_MOCK_DB
+│   │   │   ├── mock_data.py       # Seeded destination records used in mock mode
 │   │   │   ├── mock_repo.py       # In-memory mock data (dev default)
 │   │   │   └── mysql_repo.py      # MySQL repository (production)
 │   │   ├── models/
 │   │   │   └── schemas.py         # Pydantic request/response models
 │   │   ├── routers/
 │   │   │   ├── chat.py            # Conversation + SSE chat endpoint
-│   │   │   ├── destinations.py    # Destination list/detail endpoints
-│   │   │   └── admin.py           # Admin sync endpoint
+│   │   │   └── destinations.py    # Destination list/detail endpoints
 │   │   └── services/
-│   │       ├── ai_service.py      # LangChain LCEL RAG chain
+│   │       ├── rag_chain.py       # LangChain LCEL RAG chain (Groq LLM + Gemini embeddings)
 │   │       └── vectorstore.py     # Qdrant client + embedding helpers
-│   ├── main.py                    # FastAPI app + middleware + lifespan
+│   ├── main.py                    # FastAPI app + middleware + lifespan + /api/admin/sync route
+│   ├── list_models.py             # Utility: lists Gemini models available to your API key
 │   ├── requirements.txt
 │   ├── .env.example               # Template — copy to .env and fill in keys
 │   └── docs/
@@ -450,6 +452,13 @@ Sikkim_Tourism__AI_ChatBot/
 │   ├── src/
 │   │   ├── main.tsx               # React entry point
 │   │   ├── App.tsx                # Router + layout wrapper
+│   │   ├── config/
+│   │   │   ├── brand.ts           # Government of Sikkim logo path
+│   │   │   ├── chat-theme.ts      # Theme-aware colour tokens for the chat surfaces
+│   │   │   └── hero-media.ts      # Home page hero video/poster paths
+│   │   ├── hooks/
+│   │   │   ├── use-mobile.tsx
+│   │   │   └── use-toast.ts
 │   │   ├── lib/
 │   │   │   ├── api.ts             # Typed API client (fetch wrappers)
 │   │   │   └── utils.ts           # Shared helpers (cn, etc.)
@@ -458,7 +467,8 @@ Sikkim_Tourism__AI_ChatBot/
 │   │   │   ├── destinations.tsx   # Searchable destination grid
 │   │   │   └── not-found.tsx      # 404 page
 │   │   └── components/
-│   │       ├── chat.tsx                        # SSE chat panel
+│   │       ├── chat.tsx                        # Chat panel UI + SSE streaming logic
+│   │       ├── chat-widget.tsx                 # Floating launcher that mounts <Chat/>
 │   │       ├── destination-card.tsx            # Destination summary card
 │   │       ├── destination-details-dialog.tsx  # Full-detail modal
 │   │       ├── layout.tsx                      # Navbar + page shell

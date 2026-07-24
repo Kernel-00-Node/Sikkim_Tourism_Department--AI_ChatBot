@@ -30,7 +30,11 @@ class Settings(BaseSettings):
     groq_model: str = "llama-3.3-70b-versatile"
 
     # ── Embedding_Model ──────────────────────────────────────────────────────────────
-    gemini_embedding_model: str = "models/text-embedding-004"
+    # NOTE: "text-embedding-004" was retired by Google in late 2025. Use
+    # "models/gemini-embedding-001" (3072-dim by default). vectorstore.py
+    # detects the real output dimension at runtime, so this can be changed
+    # freely without touching any other file.
+    gemini_embedding_model: str = "models/gemini-embedding-001"
 
     # ── Qdrant_Vector_Store ────────────────────────────────────────────────────
     qdrant_url: str = ""
@@ -49,7 +53,12 @@ class Settings(BaseSettings):
     def origins_list(self) -> list[str]:
         if self.allowed_origins == "*":
             return ["*"]
-        return [o.strip() for o in self.allowed_origins.split()]
+        # ALLOWED_ORIGINS is a comma-separated list (e.g.
+        # "http://localhost:5173,https://example.gov.in"). Splitting on
+        # whitespace instead of "," silently treated the whole string as one
+        # origin, breaking CORS for every deployment with more than one
+        # allowed origin.
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
     @property
     def qdrant_mode(self) -> str:

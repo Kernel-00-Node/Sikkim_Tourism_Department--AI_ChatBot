@@ -16,9 +16,13 @@ langchain-groq>=0.2.0
 qdrant-client>=1.9.0               
 langchain-qdrant>=0.2.0            
 
-# ── Google_AI_(direct HTTP, used for streaming) ────────────────────────────────
-google-generativeai>=0.8.0
-httpx>=0.27.0
+# ── Google_AI_(used by list_models.py to list available Gemini models) ─────────
+# NOTE: this is the new unified `google-genai` SDK (import path `google.genai`),
+# not the older `google-generativeai` package — they are different packages.
+# langchain-google-genai (above) pulls in its own google-generativeai
+# dependency transitively for embeddings, so it does not need to be listed
+# here separately.
+google-genai>=0.8.0
 
 # ── MySQL ─────────────────────────
 mysql-connector-python>=9.0.0

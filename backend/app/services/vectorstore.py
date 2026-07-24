@@ -23,8 +23,9 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 # NOTE: Gemini embedding models do NOT all share the same vector size.
-# "models/embedding-001" and "models/text-embedding-004" output 768 dims,
-# while the newer "gemini-embedding-001" defaults to 3072 dims (configurable).
+# "text-embedding-004" (retired by Google in late 2025) and the older
+# "models/embedding-001" output 768 dims, while the current
+# "models/gemini-embedding-001" defaults to 3072 dims (configurable).
 # Hardcoding a dimension here caused every Qdrant upsert to fail silently
 # (caught as "non-fatal" at startup), which left the vector store permanently
 # empty — the real reason the bot always answered "I don't have knowledge."

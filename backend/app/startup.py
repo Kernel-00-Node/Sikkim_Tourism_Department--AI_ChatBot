@@ -5,7 +5,7 @@
 Flow:
   1. Fetch all destinations from the repo (mock or MySQL — whichever is active)
   2. Convert each destination into a LangChain Document with rich metadata
-  3. Embed via Gemini text-embedding-004 and upsert into Qdrant
+  3. Embed via Gemini gemini-embedding-001 and upsert into Qdrant
   4. Log summary
 
 This means:
@@ -26,7 +26,7 @@ from langchain_core.documents import Document
 
 from app.config import settings
 from app.database.base import BaseRepository
-from app.services.vectorstore import ensure_collection, get_embeddings, get_qdrant_client, get_vectorstore
+from app.services.vectorstore import ensure_collection, get_qdrant_client, get_vectorstore
 
 logger = logging.getLogger(__name__)
 
@@ -140,4 +140,3 @@ async def resync_vectorstore(repo: BaseRepository) -> dict:
 # ──────────────────────────────────────────────────────────────────────────────────────────────────
 # ──────────────────────────────────────────────────────────────────────────────────────────────────
 # ──────────────────────────────────────────────────────────────────────────────────────────────────
-    

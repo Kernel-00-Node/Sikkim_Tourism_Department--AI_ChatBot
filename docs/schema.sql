@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS destinations (
   highlights      JSON             NOT NULL DEFAULT ('[]'),
   tags            JSON             NOT NULL DEFAULT ('[]'),
   image_placeholder VARCHAR(20)    NOT NULL DEFAULT '#888888',
+  image_url       VARCHAR(300)     NULL,
   created_at      DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
