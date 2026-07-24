@@ -67,13 +67,13 @@ export default function Destinations() {
   return (
     <div className="flex flex-1 flex-col bg-transparent">
       <div className="relative overflow-hidden border-b border-border/50">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(39,122,107,0.10),rgba(39,122,107,0.02)),radial-gradient(circle_at_top_left,rgba(233,169,59,0.16),transparent_26%),radial-gradient(circle_at_top_right,rgba(39,122,107,0.14),transparent_32%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(39,122,107,0.10),rgba(39,122,107,0.02)),radial-gradient(circle_at_top_left,rgba(233,169,59,0.16),transparent_26%),radial-gradient(circle_at_top_right,rgba(39,122,107,0.14),transparent_32%)] dark:bg-[linear-gradient(180deg,rgba(63,168,143,0.10),rgba(63,168,143,0.02)),radial-gradient(circle_at_top_left,rgba(232,169,59,0.12),transparent_28%),radial-gradient(circle_at_top_right,rgba(63,168,143,0.10),transparent_32%)]" />
         <div className="absolute -left-16 top-10 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
         <div className="absolute -right-12 bottom-0 h-56 w-56 rounded-full bg-secondary/12 blur-3xl" />
 
         <div className="relative container mx-auto max-w-6xl px-4 py-14 md:py-18">
           <div className="mx-auto max-w-3xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white/75 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary shadow-sm backdrop-blur-sm animate-rise-fade dark:bg-card/80">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white/75 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary shadow-sm backdrop-blur-sm animate-rise-fade dark:bg-card/80 dark:border-primary/25">
               <MountainSnow className="h-3.5 w-3.5" />
               Official destination guide
             </div>
@@ -92,19 +92,19 @@ export default function Destinations() {
             </p>
           </div>
 
-          <div className="mx-auto mt-10 max-w-5xl rounded-[1.8rem] border border-border/70 bg-white/78 p-4 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/78 sm:p-5">
+          <div className="mx-auto mt-10 max-w-5xl rounded-[1.8rem] border border-border/70 bg-white/78 p-4 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/78 dark:border-border/60 sm:p-5">
             <div className="flex flex-col gap-4 sm:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search places, districts, or experiences..."
-                  className="h-13 rounded-2xl border-border/70 bg-background/70 pl-11 text-base shadow-none"
+                  className="h-13 rounded-2xl border-border/70 bg-background/70 pl-11 text-base shadow-none dark:border-border/60 dark:bg-background/40"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="h-13 w-full rounded-2xl border-border/70 bg-background/70 px-4 shadow-none sm:w-[230px]">
+                <SelectTrigger className="h-13 w-full rounded-2xl border-border/70 bg-background/70 px-4 shadow-none sm:w-[230px] dark:border-border/60 dark:bg-background/40">
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-muted-foreground" />
                     <SelectValue placeholder="All Categories" />
@@ -125,7 +125,7 @@ export default function Destinations() {
       </div>
 
       <div className="container mx-auto flex flex-1 px-4 py-8">
-        <div className="w-full rounded-[1.9rem] border border-border/70 bg-white/72 p-6 shadow-[0_22px_56px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:bg-card/72 sm:p-8">
+        <div className="w-full rounded-[1.9rem] border border-border/70 bg-white/72 p-6 shadow-[0_22px_56px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:bg-card/72 dark:border-border/60 sm:p-8">
           {!isLoading && (
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">

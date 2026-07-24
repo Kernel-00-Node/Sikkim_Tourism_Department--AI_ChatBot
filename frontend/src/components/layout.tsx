@@ -1,6 +1,13 @@
-import { useState, useEffect } from "react";
+/**
+ * Top-level layout: nav shell + footer + ChatWidget.
+ * Honours the active theme for the sticky header, mobile drawer, and the
+ * theme toggle button itself. Dark mode is persisted to localStorage and
+ * respects `prefers-color-scheme` on first load.
+ */
+import { useState, useEffect, useCallback } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Link, useLocation } from "wouter";
-import { Map, MessageSquare, Sun, Moon } from "lucide-react";
+import { Map, MessageSquare, Sun, Moon, Menu, X } from "lucide-react";
 import { ChatWidget } from "@/components/chat-widget";
 import { GOVT_LOGO_SRC } from "@/config/brand";
 
@@ -15,32 +22,59 @@ function SikkimLogo({ className = "" }: { className?: string }) {
   );
 }
 
+type Theme = "light" | "dark";
+
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+  const saved = localStorage.getItem("theme");
+  if (saved === "dark" || saved === "light") return saved;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [scrolled, setScrolled] = useState(false);
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const saved = localStorage.getItem("theme");
-    if (saved) return saved === "dark";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
+  /* Apply theme class + persist. Brief body-level transition keeps the
+     cross-fade gentle while 30 surfaces re-paint. */
   useEffect(() => {
     const root = document.documentElement;
-    if (isDark) {
-      root.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      root.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  }, [isDark]);
+    if (theme === "dark") root.classList.add("dark");
+    else root.classList.remove("dark");
+    localStorage.setItem("theme", theme);
+    document.body.classList.add("theme-transition");
+    const t = setTimeout(
+      () => document.body.classList.remove("theme-transition"),
+      360,
+    );
+    return () => clearTimeout(t);
+  }, [theme]);
+
+  /* React to OS theme changes only when the user has never toggled. */
+  useEffect(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved) return;
+    const mql = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (e: MediaQueryListEvent) =>
+      setTheme(e.matches ? "dark" : "light");
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 30);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  /* Close the mobile drawer whenever the route changes. */
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location]);
 
   const isHome = location === "/";
   const isTransparent = isHome && !scrolled;
@@ -49,13 +83,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ? "bg-transparent border-transparent"
     : isHome
       ? "bg-[rgba(10,28,25,0.72)] backdrop-blur-2xl border-white/10 shadow-[0_18px_40px_rgba(5,20,18,0.28)]"
-      : "bg-background/82 backdrop-blur-2xl border-border/70 shadow-[0_16px_38px_rgba(15,23,42,0.08)]";
+      : "bg-white/82 dark:bg-card/82 backdrop-blur-2xl border-border/70 shadow-[0_16px_38px_rgba(15,23,42,0.08)]";
 
   const txtMain = isHome ? "text-white" : "text-foreground";
   const txtMuted = isHome ? "text-white/72" : "text-muted-foreground";
   const badgeCls = isHome
     ? "bg-white/10 border-white/15 text-white/80"
-    : "bg-white/70 border-border/70 text-muted-foreground shadow-sm";
+    : "bg-white/70 dark:bg-card/70 border-border/70 text-muted-foreground shadow-sm";
   const linkActive = isHome ? "text-white" : "text-foreground";
   const linkInactive = isHome
     ? "text-white/70 hover:text-white"
@@ -65,7 +99,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
     : "bg-primary/10 border-primary/20 shadow-sm";
   const linkHoverBg = isHome
     ? "group-hover:bg-white/8 group-hover:border-white/12"
-    : "group-hover:bg-white/70 group-hover:border-border/80";
+    : "group-hover:bg-white/70 dark:group-hover:bg-card/70 group-hover:border-border/80";
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }, []);
 
   const navLinks = [
     { href: "/", label: "Home", icon: MessageSquare },
@@ -107,6 +145,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           <div
             className={`hidden items-center gap-2 rounded-full border px-3.5 py-1.5 backdrop-blur-sm transition-all duration-300 md:flex ${badgeCls}`}
+            aria-hidden="true"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[0.65rem] font-semibold uppercase tracking-[0.22em]">
@@ -114,7 +153,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </span>
           </div>
 
-          <nav className="flex items-center gap-1.5 rounded-full border border-transparent bg-transparent p-1">
+          <nav className="hidden items-center gap-1.5 rounded-full border border-transparent bg-transparent p-1 md:flex">
             {navLinks.map(({ href, label, icon: Icon }) => {
               const active = location === href;
               return (
@@ -127,31 +166,116 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     className={`absolute inset-0 rounded-full border transition-all duration-200 ${active ? linkActiveBg : `bg-transparent border-transparent ${linkHoverBg}`}`}
                   />
                   <Icon className="relative h-3.5 w-3.5" />
-                  <span className="relative hidden sm:inline">{label}</span>
+                  <span className="relative">{label}</span>
                 </Link>
               );
             })}
 
             <button
               type="button"
-              onClick={() => setIsDark((v) => !v)}
+              onClick={toggleTheme}
               aria-label={
-                isDark ? "Switch to light mode" : "Switch to dark mode"
+                theme === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+              }
+              title={
+                theme === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
               }
               className={`group relative ml-1 flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-200 ${
                 isHome
                   ? "border-white/10 text-white/75 hover:border-white/20 hover:bg-white/10 hover:text-white"
-                  : "border-border/70 bg-white/70 text-muted-foreground hover:border-border hover:bg-white hover:text-foreground"
+                  : "border-border/70 bg-white/70 text-muted-foreground hover:border-border hover:bg-white hover:text-foreground dark:bg-card/70 dark:hover:bg-card"
               }`}
             >
-              {isDark ? (
+              {theme === "dark" ? (
                 <Sun className="relative h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
               ) : (
                 <Moon className="relative h-4 w-4 transition-transform duration-300 group-hover:-rotate-12" />
               )}
             </button>
           </nav>
+
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+              className={`flex h-9 w-9 items-center justify-center rounded-full border ${
+                isHome
+                  ? "border-white/15 text-white/75 hover:bg-white/10"
+                  : "border-border/70 bg-white/70 text-muted-foreground hover:bg-white dark:bg-card/70 dark:hover:bg-card"
+              }`}
+            >
+              {theme === "dark" ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileOpen((v) => !v)}
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              className={`flex h-9 w-9 items-center justify-center rounded-full border ${
+                isHome
+                  ? "border-white/15 text-white/85 hover:bg-white/10"
+                  : "border-border/70 bg-white/70 text-foreground hover:bg-white dark:bg-card/70 dark:hover:bg-card"
+              }`}
+            >
+              {mobileOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile drawer */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              key="mobile-nav"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="md:hidden"
+            >
+              <button
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close menu"
+                className="fixed inset-0 -z-10 cursor-default bg-black/40 backdrop-blur-sm"
+              />
+              <nav className="border-t border-border/70 bg-background/95 px-4 py-4 backdrop-blur-xl dark:bg-card/95">
+                <ul className="flex flex-col gap-1.5">
+                  {navLinks.map(({ href, label, icon: Icon }) => {
+                    const active = location === href;
+                    return (
+                      <li key={href}>
+                        <Link
+                          href={href}
+                          className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
+                            active
+                              ? "bg-primary/10 text-foreground"
+                              : "text-muted-foreground hover:bg-white/70 hover:text-foreground dark:hover:bg-card/60"
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       <main
