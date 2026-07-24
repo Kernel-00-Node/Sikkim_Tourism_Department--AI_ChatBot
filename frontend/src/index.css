@@ -659,3 +659,51 @@
     opacity: 0.32;
   }
 }
+
+/* Gentle infinite up/down loop for the floating launcher — a slow, calm
+   hover rather than a bounce. */
+@keyframes chat-float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.animate-chat-float {
+  animation: chat-float 3.6s ease-in-out infinite;
+}
+
+/* Soft blinking caret for the typewriter greeting. */
+@keyframes chat-caret {
+
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  50%,
+  95% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-chat-caret {
+  animation: chat-caret 1s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .animate-chat-float,
+  .animate-chat-caret {
+    animation: none !important;
+  }
+}
