@@ -72,11 +72,7 @@ export function DestinationCard({
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <p className="mb-5 text-sm leading-relaxed text-muted-foreground line-clamp-3">
-          {dest.description}
-        </p>
-
-        <div className="mt-auto grid gap-2 rounded-[var(--radius-card)] border border-border/60 bg-background/70 p-3 text-sm dark:bg-muted/30">
+        <div className="mb-4 grid gap-2 rounded-[var(--radius-card)] border border-border/60 bg-background/70 p-3 text-sm dark:bg-muted/30">
           <div className="flex items-start gap-2 text-muted-foreground">
             <Clock className="mt-0.5 h-4 w-4 shrink-0 text-primary/80" />
             <span className="line-clamp-2">
@@ -96,6 +92,10 @@ export function DestinationCard({
             </span>
           </div>
         </div>
+
+        <p className="text-sm leading-relaxed text-muted-foreground line-clamp-3">
+          {dest.description}
+        </p>
       </div>
     </div>
   );

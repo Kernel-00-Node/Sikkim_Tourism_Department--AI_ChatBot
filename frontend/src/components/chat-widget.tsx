@@ -3,25 +3,23 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X, Maximize2, Minimize2, MessageCircle } from "lucide-react";
 import { Chat } from "@/components/chat";
 import { GOVT_LOGO_SRC } from "@/config/brand";
+import { useChatTheme, PRAYER_FLAGS } from "@/config/chat-theme";
 
-/* Hard-coded ChatBot palette (mirrors chat.tsx). Kept centralised here so the
-   launcher, header band, and body use the same HSL-faithful hexes. */
-const CHAT = {
-  parchment: "#F6F0E3",
-  surface: "#FFFFFF",
-  border: "#D8CDB1",
-  ink: "#1B2A24",
-  pine: "#134238",
-  pineAlt: "#1E5F52",
-  accent: "#B07A1F",
-  flags: ["#1E5AA8", "#F1ECE0", "#C73E2A", "#3FA45A", "#E2B821"],
-} as const;
+/* Adds alpha to a "#rrggbb" token so translucent text/hover states stay
+   theme-aware instead of being hardcoded to white. */
+function withAlpha(hex: string, alpha: number) {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 /* Five-flag hairline that signals the Department brand without narrating it. */
 function PrayerFlagBar({ className = "" }: { className?: string }) {
   return (
     <div className={`flex h-[3px] w-full ${className}`} aria-hidden="true">
-      {CHAT.flags.map((c, i) => (
+      {PRAYER_FLAGS.map((c, i) => (
         <div key={i} className="flex-1" style={{ background: c }} />
       ))}
     </div>
@@ -30,6 +28,7 @@ function PrayerFlagBar({ className = "" }: { className?: string }) {
 
 /* ── Main widget ─────────────────────────────────────────────────────────── */
 export function ChatWidget() {
+  const theme = useChatTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -59,14 +58,17 @@ export function ChatWidget() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
-              className="group flex items-center gap-2.5 rounded-full border bg-white py-1.5 pl-1.5 pr-4 text-left shadow-[0_10px_28px_-14px_rgba(19,66,56,0.4)] transition-all hover:shadow-[0_14px_36px_-16px_rgba(19,66,56,0.5)]"
-              style={{ borderColor: CHAT.border }}
+              className="group flex items-center gap-2.5 rounded-full border py-1.5 pl-1.5 pr-4 text-left shadow-[0_10px_28px_-14px_rgba(19,66,56,0.4)] transition-all hover:shadow-[0_14px_36px_-16px_rgba(19,66,56,0.5)]"
+              style={{
+                borderColor: theme.border,
+                background: theme.launcherHintBg,
+              }}
             >
               <span
                 className="flex h-9 w-9 items-center justify-center rounded-full overflow-hidden"
                 style={{
                   background: "#FFFFFF",
-                  border: `1px solid ${CHAT.border}`,
+                  border: `1px solid ${theme.border}`,
                 }}
               >
                 <img
@@ -80,7 +82,7 @@ export function ChatWidget() {
                 <span
                   className="text-[0.82rem] font-semibold"
                   style={{
-                    color: CHAT.ink,
+                    color: theme.launcherHintInk,
                     fontFamily: "Fraunces, serif",
                   }}
                 >
@@ -88,7 +90,7 @@ export function ChatWidget() {
                 </span>
                 <span
                   className="text-[0.62rem] uppercase tracking-[0.18em]"
-                  style={{ color: CHAT.accent }}
+                  style={{ color: theme.accent }}
                 >
                   Tourism · Civil Aviation
                 </span>
@@ -102,8 +104,8 @@ export function ChatWidget() {
           onClick={() => setIsOpen((v) => !v)}
           whileTap={{ scale: 0.96 }}
           whileHover={{ scale: 1.02 }}
-          className="focus-ring relative flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_14px_30px_-12px_rgba(19,66,56,0.55)] transition-shadow hover:shadow-[0_18px_40px_-14px_rgba(19,66,56,0.6)] sm:h-[60px] sm:w-[60px]"
-          style={{ background: CHAT.pine }}
+          className="focus-ring relative flex h-14 w-14 items-center justify-center rounded-full shadow-[0_14px_30px_-12px_rgba(19,66,56,0.55)] transition-shadow hover:shadow-[0_18px_40px_-14px_rgba(19,66,56,0.6)] sm:h-[60px] sm:w-[60px]"
+          style={{ background: theme.pine, color: theme.launcherFg }}
           aria-label={isOpen ? "Close chat" : "Open Sikkim Tourism Assistant"}
         >
           {/* Single low-key notification halo — far calmer than before. */}
@@ -140,8 +142,8 @@ export function ChatWidget() {
                 <span
                   className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full border-2"
                   style={{
-                    background: CHAT.accent,
-                    borderColor: CHAT.pine,
+                    background: theme.accent,
+                    borderColor: theme.pine,
                   }}
                   aria-hidden
                 >
@@ -156,7 +158,10 @@ export function ChatWidget() {
                   draggable={false}
                   className="h-9 w-9 rounded-full object-contain"
                   style={{
-                    filter: "brightness(0) invert(1)",
+                    filter:
+                      theme.launcherFg === "#FFFFFF"
+                        ? "brightness(0) invert(1)"
+                        : "brightness(0)",
                   }}
                 />
               </motion.span>
@@ -176,15 +181,17 @@ export function ChatWidget() {
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             className={
               isFullscreen
-                ? "fixed inset-0 z-[70] flex flex-col bg-white sm:inset-3 sm:rounded-2xl sm:overflow-hidden sm:shadow-2xl"
-                : "fixed inset-x-0 bottom-0 z-[70] flex h-[100dvh] flex-col rounded-t-2xl bg-white shadow-2xl sm:inset-auto sm:right-6 sm:bottom-[calc(60px+1.25rem)] sm:h-[78vh] sm:max-h-[680px] sm:w-[400px] sm:rounded-2xl sm:shadow-[0_30px_80px_-30px_rgba(19,66,56,0.45)]"
+                ? "fixed inset-0 z-[70] flex flex-col sm:inset-3 sm:rounded-2xl sm:overflow-hidden sm:shadow-2xl"
+                : "fixed inset-x-0 bottom-0 z-[70] flex h-[100dvh] flex-col rounded-t-2xl shadow-2xl sm:inset-auto sm:right-6 sm:bottom-[calc(60px+1.25rem)] sm:h-[78vh] sm:max-h-[680px] sm:w-[400px] sm:rounded-2xl sm:shadow-[0_30px_80px_-30px_rgba(19,66,56,0.45)]"
             }
+            style={{ background: theme.surface }}
           >
             {/* ── Header band ──────────────────────────────────────────── */}
             <div
-              className="relative shrink-0 overflow-hidden text-white"
+              className="relative shrink-0 overflow-hidden"
               style={{
-                background: `linear-gradient(135deg, ${CHAT.pine} 0%, ${CHAT.pineAlt} 100%)`,
+                background: `linear-gradient(135deg, ${theme.pine} 0%, ${theme.pineAlt} 100%)`,
+                color: theme.pineOn,
               }}
             >
               {/* Prayer flag strip — the only visible "flash" of colour. */}
@@ -210,7 +217,10 @@ export function ChatWidget() {
                     >
                       Sikkim Tourism Assistant
                     </p>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-[0.7rem] text-white/75">
+                    <div
+                      className="mt-0.5 flex items-center gap-1.5 text-[0.7rem]"
+                      style={{ color: withAlpha(theme.pineOn, 0.75) }}
+                    >
                       <span
                         className="h-1.5 w-1.5 rounded-full"
                         style={{
@@ -219,7 +229,9 @@ export function ChatWidget() {
                         }}
                       />
                       <span>Online</span>
-                      <span className="text-white/40">·</span>
+                      <span style={{ color: withAlpha(theme.pineOn, 0.4) }}>
+                        ·
+                      </span>
                       <span>Dept. of Tourism &amp; Civil Aviation</span>
                     </div>
                   </div>
@@ -229,7 +241,17 @@ export function ChatWidget() {
                   <button
                     type="button"
                     onClick={() => setIsFullscreen((v) => !v)}
-                    className="hidden h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-white/15 sm:flex"
+                    className="hidden h-9 w-9 items-center justify-center rounded-full transition-colors sm:flex"
+                    style={{ color: theme.pineOn }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = withAlpha(
+                        theme.pineOn,
+                        0.15,
+                      );
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                    }}
                     aria-label={
                       isFullscreen ? "Exit full screen" : "Full screen"
                     }
@@ -243,7 +265,17 @@ export function ChatWidget() {
                   <button
                     type="button"
                     onClick={close}
-                    className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-white/15"
+                    className="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+                    style={{ color: theme.pineOn }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = withAlpha(
+                        theme.pineOn,
+                        0.15,
+                      );
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                    }}
                     aria-label="Close chat"
                   >
                     <X className="h-4 w-4" />
@@ -255,7 +287,7 @@ export function ChatWidget() {
             {/* ── Body ──────────────────────────────────────────────────── */}
             <div
               className="relative min-h-0 flex-1"
-              style={{ background: CHAT.parchment }}
+              style={{ background: theme.bg }}
             >
               <Chat compact />
             </div>

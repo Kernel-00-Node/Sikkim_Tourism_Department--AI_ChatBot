@@ -8,6 +8,8 @@ import {
   ShieldCheck,
   Compass,
   Sparkles,
+  Leaf,
+  Landmark,
 } from "lucide-react";
 import { fetchDestinations, type DestinationSummary } from "@/lib/api";
 import { heroVideo } from "@/config/hero-media";
@@ -66,9 +68,21 @@ export default function Home() {
   ];
 
   const highlights = [
-    { value: "India's First", label: "Fully Organic State" },
-    { value: "Kanchenjunga", label: "World's 3rd Highest Peak" },
-    { value: "200+", label: "Monasteries & Sacred Sites" },
+    {
+      icon: Leaf,
+      value: "India's First",
+      label: "Fully Organic State",
+    },
+    {
+      icon: MountainSnow,
+      value: "Kanchenjunga",
+      label: "World's 3rd Highest Peak",
+    },
+    {
+      icon: Landmark,
+      value: "200+",
+      label: "Monasteries & Sacred Sites",
+    },
   ];
 
   return (
@@ -142,12 +156,15 @@ export default function Home() {
             {highlights.map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-2xl border border-white/10 bg-white/8 px-5 py-4 backdrop-blur-sm"
+                className="flex flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-white/8 px-5 py-5 text-center backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/12"
               >
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/15">
+                  <stat.icon className="h-4.5 w-4.5" />
+                </span>
                 <span className="block font-serif text-xl font-bold sm:text-2xl">
                   {stat.value}
                 </span>
-                <span className="mt-1 block text-[0.72rem] uppercase tracking-[0.22em] text-white/65">
+                <span className="block text-[0.72rem] uppercase tracking-[0.22em] text-white/65">
                   {stat.label}
                 </span>
               </div>
