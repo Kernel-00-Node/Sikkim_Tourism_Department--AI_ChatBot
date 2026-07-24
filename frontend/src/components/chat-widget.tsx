@@ -202,175 +202,195 @@ export function ChatWidget() {
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             className={
               isFullscreen
-                ? "chat-glow-ring fixed inset-0 z-[70] flex flex-col backdrop-blur-3xl backdrop-saturate-150 sm:inset-3 sm:rounded-2xl sm:overflow-hidden sm:shadow-2xl"
-                : "chat-glow-ring fixed inset-x-0 bottom-0 z-[70] flex h-[100dvh] flex-col overflow-hidden rounded-t-3xl shadow-2xl backdrop-blur-3xl backdrop-saturate-150 sm:inset-auto sm:right-6 sm:bottom-[calc(60px+1.25rem)] sm:h-[78vh] sm:max-h-[680px] sm:w-[404px] sm:rounded-3xl sm:shadow-[0_32px_90px_-28px_rgba(19,66,56,0.5)]"
+                ? "fixed inset-0 z-[70] sm:inset-3"
+                : "fixed inset-x-0 bottom-0 z-[70] h-[100dvh] sm:inset-auto sm:right-6 sm:bottom-[calc(60px+1.25rem)] sm:h-[78vh] sm:max-h-[680px] sm:w-[404px]"
             }
-            style={{
-              background: theme.surface,
-              boxShadow: `0 32px 90px -28px rgba(19,66,56,0.55), inset 0 1px 0 0 rgba(255,255,255,0.2)`,
-            }}
           >
-            {/* Animated colour-mesh layer sitting under the glass — this is
-                what makes the blur actually read as "glass" instead of a
-                flat tint. It drifts slowly, forever, behind every surface. */}
+            {/* Glowing rotating ring lives on its own layer, one level up
+                from the panel's own overflow-hidden box. If it sat inside
+                that box (like before), the panel's rounded corners would
+                clip it to nothing — which is exactly why it never showed. */}
             <div
-              className="animate-chat-mesh pointer-events-none absolute inset-0 -z-10 opacity-70"
-              style={{
-                background: `
-                  radial-gradient(38% 42% at 12% 18%, ${withAlpha(theme.pine, 0.35)} 0%, transparent 70%),
-                  radial-gradient(34% 40% at 88% 12%, ${withAlpha(theme.accent, 0.32)} 0%, transparent 70%),
-                  radial-gradient(46% 50% at 70% 92%, ${withAlpha(theme.pineAlt, 0.3)} 0%, transparent 70%),
-                  radial-gradient(30% 34% at 10% 90%, ${withAlpha(theme.accent, 0.22)} 0%, transparent 70%)
-                `,
-              }}
+              className={
+                isFullscreen
+                  ? "chat-glow-ring pointer-events-none absolute inset-0 sm:rounded-2xl"
+                  : "chat-glow-ring pointer-events-none absolute inset-0 rounded-t-3xl sm:rounded-3xl"
+              }
               aria-hidden="true"
             />
-            {/* ── Header band ──────────────────────────────────────────── */}
+
             <div
-              className="animate-chat-header relative shrink-0 overflow-hidden"
+              className={
+                isFullscreen
+                  ? "relative flex h-full w-full flex-col overflow-hidden backdrop-blur-3xl backdrop-saturate-150 sm:rounded-2xl sm:shadow-2xl"
+                  : "relative flex h-full w-full flex-col overflow-hidden rounded-t-3xl shadow-2xl backdrop-blur-3xl backdrop-saturate-150 sm:rounded-3xl sm:shadow-[0_32px_90px_-28px_rgba(19,66,56,0.5)]"
+              }
               style={{
-                background: `linear-gradient(120deg, ${theme.pine} 0%, ${theme.pineAlt} 45%, ${theme.accent} 100%)`,
-                color: theme.pineOn,
+                backgroundColor: theme.surface,
+                /* The colour mesh is painted directly into this element's
+                   own background — not a separate absolutely-positioned
+                   child — so there's no stacking-context ambiguity about
+                   whether it's visible. It just is, because it's part of
+                   the same paint as the glass tint itself. Teal family only
+                   (pine/pineAlt) so the large drifting areas stay coherent;
+                   the gold accent appears once, small, low-opacity, tucked
+                   in a corner rather than blended through the middle. */
+                backgroundImage: `
+                  radial-gradient(38% 42% at 14% 16%, ${withAlpha(theme.pine, 0.3)} 0%, transparent 70%),
+                  radial-gradient(34% 40% at 88% 10%, ${withAlpha(theme.pineAlt, 0.26)} 0%, transparent 70%),
+                  radial-gradient(46% 50% at 72% 96%, ${withAlpha(theme.pineAlt, 0.2)} 0%, transparent 70%),
+                  radial-gradient(24% 26% at 6% 94%, ${withAlpha(theme.accent, 0.12)} 0%, transparent 70%)
+                `,
+                boxShadow: `0 32px 90px -28px rgba(19,66,56,0.55), inset 0 1px 0 0 rgba(255,255,255,0.2)`,
               }}
             >
-              {/* Prayer flag strip — the only visible "flash" of colour. */}
-              <PrayerFlagBar />
-
-              {/* Soft diagonal sheen — depth without noise or texture. */}
+              {/* ── Header band ──────────────────────────────────────────── */}
               <div
-                className="pointer-events-none absolute inset-0 opacity-60"
+                className="relative shrink-0 overflow-hidden"
                 style={{
-                  background:
-                    "radial-gradient(120% 140% at 15% -20%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 55%)",
+                  background: `linear-gradient(120deg, ${theme.pine} 0%, ${theme.pineAlt} 100%)`,
+                  color: theme.pineOn,
                 }}
-                aria-hidden="true"
-              />
+              >
+                {/* Prayer flag strip — the only visible "flash" of colour. */}
+                <PrayerFlagBar />
 
-              {/* Floating, breathing colour orbs — the classic glassmorphism depth cue. */}
-              <div
-                className="animate-chat-orb pointer-events-none absolute -right-6 -top-10 h-32 w-32 rounded-full opacity-45 blur-2xl"
-                style={{ background: theme.accent }}
-                aria-hidden="true"
-              />
-              <div
-                className="animate-chat-orb-slow pointer-events-none absolute -left-10 top-6 h-24 w-24 rounded-full opacity-30 blur-2xl"
-                style={{ background: "#FFFFFF" }}
-                aria-hidden="true"
-              />
+                {/* Soft diagonal sheen — depth without noise or texture. */}
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-60"
+                  style={{
+                    background:
+                      "radial-gradient(120% 140% at 15% -20%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 55%)",
+                  }}
+                  aria-hidden="true"
+                />
 
-              {/* Hairline glass edge under the header. */}
-              <div
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
-                style={{
-                  background:
-                    "linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)",
-                }}
-                aria-hidden="true"
-              />
+                {/* Floating, breathing colour orbs — the classic glassmorphism depth cue. */}
+                <div
+                  className="pointer-events-none absolute -right-6 -top-10 h-32 w-32 rounded-full opacity-30 blur-2xl"
+                  style={{ background: theme.accent }}
+                  aria-hidden="true"
+                />
+                <div
+                  className="pointer-events-none absolute -left-10 top-6 h-24 w-24 rounded-full opacity-30 blur-2xl"
+                  style={{ background: "#FFFFFF" }}
+                  aria-hidden="true"
+                />
 
-              <div className="relative flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-3.5">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden shadow-md"
-                    style={{ background: "#FFFFFF" }}
-                  >
-                    <img
-                      src={GOVT_LOGO_SRC}
-                      alt=""
-                      draggable={false}
-                      className="h-full w-full object-contain p-1.5"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p
-                      className="text-[0.98rem] font-semibold leading-tight truncate"
-                      style={{ fontFamily: "Fraunces, serif" }}
-                    >
-                      Sikkim Tourism Assistant
-                    </p>
+                {/* Hairline glass edge under the header. */}
+                <div
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)",
+                  }}
+                  aria-hidden="true"
+                />
+
+                <div className="relative flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div
-                      className="mt-0.5 flex items-center gap-1.5 text-[0.7rem]"
-                      style={{ color: withAlpha(theme.pineOn, 0.75) }}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden shadow-md"
+                      style={{ background: "#FFFFFF" }}
                     >
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span
-                          className="absolute inline-flex h-full w-full rounded-full"
-                          style={{
-                            background: "#7DD3A0",
-                            animation:
-                              "chat-launcher-halo 2.4s ease-in-out infinite",
-                          }}
-                        />
-                        <span
-                          className="relative inline-flex h-1.5 w-1.5 rounded-full"
-                          style={{
-                            background: "#7DD3A0",
-                            boxShadow: "0 0 0 2px rgba(125,211,160,0.25)",
-                          }}
-                        />
-                      </span>
-                      <span>Online</span>
-                      <span style={{ color: withAlpha(theme.pineOn, 0.4) }}>
-                        ·
-                      </span>
-                      <span>Dept. of Tourism &amp; Civil Aviation</span>
+                      <img
+                        src={GOVT_LOGO_SRC}
+                        alt=""
+                        draggable={false}
+                        className="h-full w-full object-contain p-1.5"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p
+                        className="text-[0.98rem] font-semibold leading-tight truncate"
+                        style={{ fontFamily: "Fraunces, serif" }}
+                      >
+                        Sikkim Tourism Assistant
+                      </p>
+                      <div
+                        className="mt-0.5 flex items-center gap-1.5 text-[0.7rem]"
+                        style={{ color: withAlpha(theme.pineOn, 0.75) }}
+                      >
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span
+                            className="absolute inline-flex h-full w-full rounded-full"
+                            style={{
+                              background: "#7DD3A0",
+                              animation:
+                                "chat-launcher-halo 2.4s ease-in-out infinite",
+                            }}
+                          />
+                          <span
+                            className="relative inline-flex h-1.5 w-1.5 rounded-full"
+                            style={{
+                              background: "#7DD3A0",
+                              boxShadow: "0 0 0 2px rgba(125,211,160,0.25)",
+                            }}
+                          />
+                        </span>
+                        <span>Online</span>
+                        <span style={{ color: withAlpha(theme.pineOn, 0.4) }}>
+                          ·
+                        </span>
+                        <span>Dept. of Tourism &amp; Civil Aviation</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsFullscreen((v) => !v)}
-                    className="hidden h-9 w-9 items-center justify-center rounded-full transition-colors sm:flex"
-                    style={{ color: theme.pineOn }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = withAlpha(
-                        theme.pineOn,
-                        0.15,
-                      );
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                    aria-label={
-                      isFullscreen ? "Exit full screen" : "Full screen"
-                    }
-                  >
-                    {isFullscreen ? (
-                      <Minimize2 className="h-4 w-4" />
-                    ) : (
-                      <Maximize2 className="h-4 w-4" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={close}
-                    className="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
-                    style={{ color: theme.pineOn }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = withAlpha(
-                        theme.pineOn,
-                        0.15,
-                      );
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                    aria-label="Close chat"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsFullscreen((v) => !v)}
+                      className="hidden h-9 w-9 items-center justify-center rounded-full transition-colors sm:flex"
+                      style={{ color: theme.pineOn }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = withAlpha(
+                          theme.pineOn,
+                          0.15,
+                        );
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                      }}
+                      aria-label={
+                        isFullscreen ? "Exit full screen" : "Full screen"
+                      }
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="h-4 w-4" />
+                      ) : (
+                        <Maximize2 className="h-4 w-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={close}
+                      className="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+                      style={{ color: theme.pineOn }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = withAlpha(
+                          theme.pineOn,
+                          0.15,
+                        );
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                      }}
+                      aria-label="Close chat"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* ── Body ──────────────────────────────────────────────────── */}
-            <div
-              className="relative min-h-0 flex-1 backdrop-blur-xl backdrop-saturate-150"
-              style={{ background: theme.bg }}
-            >
-              <Chat compact />
+              {/* ── Body ──────────────────────────────────────────────────── */}
+              <div
+                className="relative min-h-0 flex-1 backdrop-blur-xl backdrop-saturate-150"
+                style={{ background: theme.bg }}
+              >
+                <Chat compact />
+              </div>
             </div>
           </motion.div>
         )}

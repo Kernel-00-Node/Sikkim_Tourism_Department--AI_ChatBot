@@ -702,39 +702,23 @@
   animation: chat-caret 1s steps(1) infinite;
 }
 
-/* ── Glassmorphism v2 — animated mesh background, glowing rotating border,
-     bouncy message entrance. ─────────────────────────────────────────── */
+/* ── Chat surfaces — static glass panel, glow edge, springy message
+     entrance. Deliberately no continuously-drifting motion in the panel
+     itself (mesh/header sweep/floating orbs were removed): for a
+     government service people are reading permit and route details on,
+     a still background reads calmer and more official than a moving one. ── */
 
-/* Slow-drifting multi-colour mesh used behind the glass chat panel. */
-@keyframes chat-mesh-drift {
-  0% {
-    background-position: 0% 0%, 100% 0%, 50% 100%, 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%, 0% 100%, 100% 0%, 50% 0%;
-  }
-
-  100% {
-    background-position: 0% 0%, 100% 0%, 50% 100%, 0% 50%;
-  }
-}
-
-.animate-chat-mesh {
-  background-size: 180% 180%;
-  animation: chat-mesh-drift 18s ease-in-out infinite;
-}
-
-/* Rotating conic-gradient ring — painted on a ::before pseudo layer that
-   sits just behind the glass panel, giving it a glowing animated edge. */
-@keyframes chat-ring-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
+/* Static glow edge — painted on a ::before pseudo layer that sits just
+   behind the glass panel, giving it a soft defined border. */
 .chat-glow-ring {
-  position: relative;
+  /* No `position` here on purpose — this class is combined with Tailwind
+     position utilities (fixed/absolute/relative) at each call site. Both
+     rules have equal specificity, and because this stylesheet loads after
+     Tailwind's utilities, this rule would otherwise always win the cascade
+     and silently overwrite e.g. `fixed` with `relative` — which is exactly
+     what was knocking the whole chat panel out of the viewport and making
+     it look like it "wasn't showing up." The ::before below only needs its
+     nearest ancestor to be non-static, which every caller already ensures. */
   isolation: isolate;
 }
 
@@ -744,53 +728,11 @@
   inset: -1.5px;
   z-index: -1;
   border-radius: inherit;
-  background: conic-gradient(from 0deg,
+  background: linear-gradient(135deg,
       var(--chat-pine, #0e6e5c),
-      var(--chat-accent, #c6892a),
-      var(--chat-pine-alt, #0ea5a3),
-      var(--chat-pine, #0e6e5c));
+      var(--chat-pine-alt, #0ea5a3));
   filter: blur(9px);
-  opacity: 0.55;
-  animation: chat-ring-spin 6s linear infinite;
-}
-
-/* Header gradient — slow colour sweep instead of a static fill. */
-@keyframes chat-header-sweep {
-
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.animate-chat-header {
-  background-size: 220% 220%;
-  animation: chat-header-sweep 8s ease-in-out infinite;
-}
-
-/* Slow-floating background orbs inside the chat body. */
-@keyframes chat-orb-float {
-
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-
-  50% {
-    transform: translate(14px, -18px) scale(1.08);
-  }
-}
-
-.animate-chat-orb {
-  animation: chat-orb-float 9s ease-in-out infinite;
-}
-
-.animate-chat-orb-slow {
-  animation: chat-orb-float 13s ease-in-out infinite reverse;
+  opacity: 0.45;
 }
 
 /* Bubbly, springy entrance for chat messages. */
@@ -834,11 +776,6 @@
 
   .animate-chat-float,
   .animate-chat-caret,
-  .animate-chat-mesh,
-  .chat-glow-ring::before,
-  .animate-chat-header,
-  .animate-chat-orb,
-  .animate-chat-orb-slow,
   .animate-chat-pop,
   .animate-chat-shimmer {
     animation: none !important;

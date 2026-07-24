@@ -21,6 +21,17 @@ import {
   type ChatTheme,
 } from "@/config/chat-theme";
 
+/* Adds alpha to a "#rrggbb" token so translucent tints stay theme-aware
+   instead of being hardcoded. Local copy — same helper also lives in
+   chat-widget.tsx; not worth a shared module for six lines. */
+function withAlpha(hex: string, alpha: number) {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 const STARTERS = [
   {
     text: "What permits do I need for Nathula Pass?",
@@ -249,7 +260,7 @@ function EmptyState({
         }}
       >
         <span
-          className="animate-chat-orb pointer-events-none absolute -inset-3 -z-10 rounded-full opacity-40 blur-xl"
+          className="pointer-events-none absolute -inset-3 -z-10 rounded-full opacity-40 blur-xl"
           style={{ background: theme.pine }}
           aria-hidden="true"
         />
@@ -606,16 +617,20 @@ export function Chat({ compact = false }: { compact?: boolean }) {
       style={{ background: theme.bg }}
       ref={scrollRef}
     >
-      {/* Floating colour orbs drifting behind the whole conversation —
-          gives the glass surfaces something alive to blur. */}
+      {/* A fixed colour wash behind the conversation — no motion, but with
+          enough presence for the bubbles' backdrop-blur to actually have
+          something to blur. Too faint here and the "glass" bubbles just
+          look like flat translucent boxes, which is what happened when
+          this got dialled all the way down along with the moving orbs. */}
       <div
-        className="animate-chat-orb pointer-events-none absolute -top-10 right-[-3rem] -z-10 h-56 w-56 rounded-full opacity-20 blur-3xl"
-        style={{ background: theme.pine }}
-        aria-hidden="true"
-      />
-      <div
-        className="animate-chat-orb-slow pointer-events-none absolute bottom-10 left-[-4rem] -z-10 h-64 w-64 rounded-full opacity-15 blur-3xl"
-        style={{ background: theme.accent }}
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          background: `
+            radial-gradient(65% 50% at 100% 0%, ${withAlpha(theme.pine, 0.16)} 0%, transparent 72%),
+            radial-gradient(60% 45% at 0% 100%, ${withAlpha(theme.accent, 0.11)} 0%, transparent 72%),
+            radial-gradient(50% 40% at 100% 100%, ${withAlpha(theme.pineAlt, 0.1)} 0%, transparent 72%)
+          `,
+        }}
         aria-hidden="true"
       />
 
