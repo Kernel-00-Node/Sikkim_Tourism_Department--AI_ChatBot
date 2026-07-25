@@ -76,7 +76,7 @@ export function ChatWidget() {
               }}
             >
               <span
-                className="flex h-9 w-9 items-center justify-center rounded-full overflow-hidden"
+                className="flex h-10 w-10 items-center justify-center rounded-full overflow-hidden"
                 style={{
                   background: "#FFFFFF",
                   border: `1px solid ${theme.border}`,
@@ -86,7 +86,7 @@ export function ChatWidget() {
                   src={GOVT_LOGO_SRC}
                   alt=""
                   draggable={false}
-                  className="h-full w-full object-contain p-1"
+                  className="h-full w-full object-contain p-0.5"
                 />
               </span>
               <span className="flex flex-col leading-tight">
@@ -108,7 +108,7 @@ export function ChatWidget() {
                   className="text-[0.62rem] uppercase tracking-[0.18em]"
                   style={{ color: theme.accent }}
                 >
-                  Tourism · Civil Aviation
+                  Tourism & Civil Aviation
                 </span>
               </span>
             </motion.button>
@@ -172,18 +172,14 @@ export function ChatWidget() {
                       strokeWidth={3}
                     />
                   </span>
-                  <img
-                    src={GOVT_LOGO_SRC}
-                    alt=""
-                    draggable={false}
-                    className="h-9 w-9 rounded-full object-contain"
-                    style={{
-                      filter:
-                        theme.launcherFg === "#FFFFFF"
-                          ? "brightness(0) invert(1)"
-                          : "brightness(0)",
-                    }}
-                  />
+                  <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm sm:h-15 sm:w-15">
+                    <img
+                      src={GOVT_LOGO_SRC}
+                      alt=""
+                      draggable={false}
+                      className="h-full w-full object-contain p-1"
+                    />
+                  </span>
                 </motion.span>
               )}
             </AnimatePresence>
@@ -297,7 +293,7 @@ export function ChatWidget() {
                         src={GOVT_LOGO_SRC}
                         alt=""
                         draggable={false}
-                        className="h-full w-full object-contain p-1.5"
+                        className="h-full w-full object-contain p-0.5"
                       />
                     </div>
                     <div className="min-w-0">

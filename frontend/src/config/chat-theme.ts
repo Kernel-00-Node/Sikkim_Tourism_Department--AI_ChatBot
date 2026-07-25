@@ -37,49 +37,49 @@ export type ChatTheme = {
 /* ── Fallback palettes — mirror the values in :root / .dark. They are only
      used during the very first render before CSS has parsed. ──────────── */
 const LIGHT: ChatTheme = {
-  bg: "rgba(244, 247, 250, 0.55)",
-  bgDeep: "rgba(224, 230, 238, 0.65)",
+  bg: "rgba(244, 248, 246, 0.55)",
+  bgDeep: "rgba(224, 234, 230, 0.65)",
   surface: "rgba(255, 255, 255, 0.6)",
-  border: "rgba(20, 40, 65, 0.1)",
-  borderStrong: "rgba(20, 40, 65, 0.18)",
-  ink: "#16233A",
-  inkSoft: "#435066",
-  inkMuted: "#6E7A8C",
-  inkFaint: "#93A0B0",
-  pine: "#1E3A5F",
-  pineAlt: "#2F7D5B",
+  border: "rgba(20, 60, 50, 0.1)",
+  borderStrong: "rgba(20, 60, 50, 0.18)",
+  ink: "#142622",
+  inkSoft: "#435650",
+  inkMuted: "#6E7F78",
+  inkFaint: "#93A29B",
+  pine: "#1E3A66",
+  pineAlt: "#33508F",
   pineOn: "#FFFFFF",
   accent: "#C6892A",
   accentSoft: "rgba(198, 137, 42, 0.18)",
   assistantBubble: "rgba(255, 255, 255, 0.55)",
-  flags: ["#1E5AA8", "#F1ECE0", "#C73E2A", "#3FA45A", "#E2B821"],
+  flags: ["#E2B821", "#3FA45A", "#C73E2A", "#F1ECE0","#1E5AA8"],
   launcherFg: "#FFFFFF",
   launcherSurface: "rgba(255, 255, 255, 0.7)",
   launcherHintBg: "rgba(255, 255, 255, 0.72)",
-  launcherHintInk: "#16233A",
+  launcherHintInk: "#142622",
 };
 
 const DARK: ChatTheme = {
-  bg: "rgba(10, 16, 24, 0.55)",
-  bgDeep: "rgba(20, 28, 40, 0.65)",
-  surface: "rgba(22, 30, 42, 0.55)",
+  bg: "rgba(9, 14, 13, 0.55)",
+  bgDeep: "rgba(20, 28, 26, 0.65)",
+  surface: "rgba(22, 31, 29, 0.55)",
   border: "rgba(255, 255, 255, 0.08)",
   borderStrong: "rgba(255, 255, 255, 0.16)",
-  ink: "#E9EEF5",
-  inkSoft: "#AEB9C9",
-  inkMuted: "#86909F",
-  inkFaint: "#626C79",
-  pine: "#4A90D9",
-  pineAlt: "#34D399",
-  pineOn: "#05100D",
+  ink: "#E8F0EC",
+  inkSoft: "#AFC0B9",
+  inkMuted: "#86988F",
+  inkFaint: "#62726B",
+  pine: "#5472D3",
+  pineAlt: "#7C93E8",
+  pineOn: "#0A0F1F",
   accent: "#F2B84B",
   accentSoft: "rgba(242, 184, 75, 0.16)",
   assistantBubble: "rgba(255, 255, 255, 0.06)",
-  flags: ["#1E5AA8", "#F1ECE0", "#C73E2A", "#3FA45A", "#E2B821"],
+  flags: ["#E2B821", "#3FA45A", "#C73E2A", "#F1ECE0","#1E5AA8"],
   launcherFg: "#05100D",
-  launcherSurface: "rgba(22, 30, 42, 0.7)",
-  launcherHintBg: "rgba(22, 30, 42, 0.72)",
-  launcherHintInk: "#E9EEF5",
+  launcherSurface: "rgba(22, 31, 29, 0.7)",
+  launcherHintBg: "rgba(22, 31, 29, 0.72)",
+  launcherHintInk: "#E8F0EC",
 };
 
 /* Names of the CSS variables that drive the styled surfaces, in the order */
@@ -166,4 +166,4 @@ export function getChatThemeCached(isDark: boolean): ChatTheme {
 }
 
 /** Five prayer-flag colours used in the header band hairline. */
-export const PRAYER_FLAGS = ["#1E5AA8", "#F1ECE0", "#C73E2A", "#3FA45A", "#E2B821"];
+export const PRAYER_FLAGS = ["#E2B821", "#3FA45A", "#C73E2A", "#F1ECE0","#1E5AA8"];

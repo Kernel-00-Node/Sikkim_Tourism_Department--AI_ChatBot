@@ -105,52 +105,54 @@ export default function Home() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(233,169,59,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(39,122,107,0.28),transparent_34%)]" />
         </div>
 
-        <div className="relative container mx-auto flex min-h-[78vh] flex-1 flex-col items-center justify-center px-4 py-18 text-center sm:min-h-screen">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/90 backdrop-blur-md animate-rise-fade">
-            <MountainSnow className="h-3.5 w-3.5" />
-            Government of Sikkim · Tourism &amp; Civil Aviation Dept.
-          </div>
+        <div className="relative container mx-auto flex min-h-[78vh] flex-1 flex-col items-center justify-between px-4 pb-6 pt-24 text-center sm:min-h-screen sm:pb-10 sm:pt-28">
+          <div className="flex w-full flex-1 flex-col items-center justify-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/90 backdrop-blur-md animate-rise-fade">
+              <MountainSnow className="h-3.5 w-3.5" />
+              Government of Sikkim · Tourism &amp; Civil Aviation Dept.
+            </div>
 
-          <div className="mt-6 max-w-5xl px-4 sm:px-6">
-            <h1
-              key={taglineIndex}
-              className={`mx-auto max-w-4xl font-serif text-4xl font-bold leading-[1.05] tracking-tight text-white [text-shadow:0_4px_28px_rgba(0,0,0,0.45)] sm:text-6xl ${
-                taglineVisible ? "animate-rise-fade" : "animate-fade-out-rise"
-              }`}
-              style={
-                taglineIndex === 0 ? { animationDelay: "100ms" } : undefined
-              }
-            >
-              {heroTaglines[taglineIndex]}
-            </h1>
-
-            <p
-              className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/90 [text-shadow:0_2px_16px_rgba(0,0,0,0.4)] animate-rise-fade sm:text-xl"
-              style={{ animationDelay: "220ms" }}
-            >
-              Where snow peaks meet prayer flags, monasteries keep centuries of
-              silence, and every valley has a story. Ask our assistant about
-              permits, routes, and the best time to visit — anytime.
-            </p>
-
-            <div
-              className="mt-8 flex flex-wrap items-center justify-center gap-3 animate-rise-fade"
-              style={{ animationDelay: "340ms" }}
-            >
-              <Link
-                href="/destinations"
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_16px_40px_rgba(39,122,107,0.32)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_46px_rgba(39,122,107,0.38)]"
+            <div className="mt-6 max-w-5xl px-4 sm:px-6">
+              <h1
+                key={taglineIndex}
+                className={`mx-auto max-w-4xl font-serif text-4xl font-bold leading-[1.05] tracking-tight text-white [text-shadow:0_4px_28px_rgba(0,0,0,0.45)] sm:text-6xl ${
+                  taglineVisible ? "animate-rise-fade" : "animate-fade-out-rise"
+                }`}
+                style={
+                  taglineIndex === 0 ? { animationDelay: "100ms" } : undefined
+                }
               >
-                Explore destinations <ArrowRight className="h-4 w-4" />
-              </Link>
-              <span className="inline-flex items-center rounded-full border border-white/20 px-4 py-3 text-sm text-white/90 [text-shadow:0_2px_10px_rgba(0,0,0,0.4)]">
-                Or click the chat icon to ask a question
-              </span>
+                {heroTaglines[taglineIndex]}
+              </h1>
+
+              <p
+                className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/90 [text-shadow:0_2px_16px_rgba(0,0,0,0.4)] animate-rise-fade sm:text-xl"
+                style={{ animationDelay: "220ms" }}
+              >
+                Where snow peaks meet prayer flags, monasteries keep centuries
+                of silence, and every valley has a story. Ask our assistant
+                about permits, routes, and the best time to visit — anytime.
+              </p>
+
+              <div
+                className="mt-8 flex flex-wrap items-center justify-center gap-3 animate-rise-fade"
+                style={{ animationDelay: "340ms" }}
+              >
+                <Link
+                  href="/destinations"
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_16px_40px_rgba(39,122,107,0.32)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_46px_rgba(39,122,107,0.38)]"
+                >
+                  Explore destinations <ArrowRight className="h-4 w-4" />
+                </Link>
+                <span className="inline-flex items-center rounded-full border border-white/20 px-4 py-3 text-sm text-white/90 [text-shadow:0_2px_10px_rgba(0,0,0,0.4)]">
+                  Or click the chat icon to ask a question
+                </span>
+              </div>
             </div>
           </div>
 
           <div
-            className="mt-12 flex w-full max-w-4xl flex-col items-center gap-6 border-t border-white/12 pt-8 text-white animate-rise-fade sm:flex-row sm:justify-center sm:gap-0 sm:divide-x sm:divide-white/12"
+            className="flex w-full max-w-4xl flex-col items-center gap-5 border-t border-white/12 pt-6 text-white animate-rise-fade sm:flex-row sm:justify-center sm:gap-0 sm:pt-8 sm:divide-x sm:divide-white/12"
             style={{ animationDelay: "440ms" }}
           >
             {highlights.map((stat) => (
