@@ -667,7 +667,21 @@ export function Chat({ compact = false }: { compact?: boolean }) {
       if (currentConvId) {
         try {
           const res = await fetchConversation(currentConvId);
-          setMessages(res.messages);
+          // The backend never persists `suggestions` (they're streamed once,
+          // live, via SSE) — so a plain overwrite here would wipe out any
+          // suggestion chips that just rendered. Re-attach them by message id.
+          setMessages((prev) => {
+            const suggestionsById = new Map(
+                prev
+                    .filter((m) => m.suggestions && m.suggestions.length)
+                    .map((m) => [m.id, m.suggestions]),
+            );
+            return res.messages.map((m) =>
+                suggestionsById.has(m.id)
+                    ? { ...m, suggestions: suggestionsById.get(m.id) }
+                    : m,
+            );
+          });
         } catch {
           /* keep optimistic state */
         }
