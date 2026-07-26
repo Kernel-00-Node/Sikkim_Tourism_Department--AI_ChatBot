@@ -30,6 +30,9 @@ mysql-connector-python>=9.0.0
 # ── Rate Limiting (NEW - SECURITY) ─────────────────────────────────
 slowapi>=0.1.9
 
+# ── Web_Search_(Hybrid_RAG) ─────────────────────────
+tavily-python>=0.5.0
+
 # ── Development_or_Testing ────────────────────────────────────────────────────────
 pytest>=8.3.0
 pytest-asyncio>=0.24.0
