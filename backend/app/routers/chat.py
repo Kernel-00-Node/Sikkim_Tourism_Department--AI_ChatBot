@@ -2,10 +2,15 @@
 Chat router — manages conversations and SSE-streamed AI responses.
 
 Now powered by LangChain + Qdrant RAG (see app/services/rag_chain.py).
-The SSE API contract is unchanged — the frontend works without any modification.
 
 SSE endpoint: POST /api/conversations/{id}/chat
 The client reads chunks with EventSource or fetch + ReadableStream.
+Each event is `data: <json>\n\n`:
+  - {"text": "..."}        — a chunk of the assistant's streamed reply
+  - {"suggestions": [...]} — up to 3 follow-up-question chips, sent once
+                             right after the reply finishes (best-effort;
+                             may be omitted entirely if generation fails)
+  - "[DONE]"                — end of stream
 """
 from __future__ import annotations
 
@@ -21,7 +26,7 @@ from slowapi.util import get_remote_address
 from app.database.base import BaseRepository
 from app.database.factory import get_repo
 from app.models.schemas import ChatRequest, ConversationResponse, Message
-from app.services.rag_chain import stream_rag_response
+from app.services.rag_chain import stream_rag_response, generate_followups
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +63,8 @@ async def create_conversation(repo: BaseRepository = Depends(get_repo)):
 
 @router.get("/{conversation_id}", response_model=ConversationResponse)
 async def get_conversation(
-    conversation_id: str,
-    repo: BaseRepository = Depends(get_repo),
+        conversation_id: str,
+        repo: BaseRepository = Depends(get_repo),
 ):
     # FIXED: Validate UUID format
     if not _is_valid_uuid(conversation_id):
@@ -75,10 +80,10 @@ async def get_conversation(
 @router.post("/{conversation_id}/chat")
 @limiter.limit("30/minute")  # FIXED: Rate limit to 30 requests per minute per IP
 async def send_message(
-    conversation_id: str,
-    body: ChatRequest,
-    request: Request,
-    repo: BaseRepository = Depends(get_repo),
+        conversation_id: str,
+        body: ChatRequest,
+        request: Request,
+        repo: BaseRepository = Depends(get_repo),
 ):
     # FIXED: Validate UUID format
     if not _is_valid_uuid(conversation_id):
@@ -124,6 +129,11 @@ async def send_message(
             full_response = "".join(assistant_chunks)
             if full_response:
                 await repo.add_message(conversation_id, "assistant", full_response)
+                # Best-effort — generate_followups never raises, so this can't
+                # break the response if it fails; it just yields nothing.
+                suggestions = await generate_followups(body.message, full_response)
+                if suggestions:
+                    yield f"data: {json.dumps({'suggestions': suggestions})}\n\n"
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(

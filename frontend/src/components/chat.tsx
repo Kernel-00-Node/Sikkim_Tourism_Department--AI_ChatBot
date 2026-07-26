@@ -15,22 +15,13 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createConversation, fetchConversation, type Message } from "@/lib/api";
 import { GOVT_LOGO_SRC } from "@/config/brand";
+import { withAlpha } from "@/lib/utils";          // ← NEW
 import {
   useChatTheme,
   PRAYER_FLAGS,
   type ChatTheme,
 } from "@/config/chat-theme";
 
-/* Adds alpha to a "#rrggbb" token so translucent tints stay theme-aware
-   instead of being hardcoded. Local copy — same helper also lives in
-   chat-widget.tsx; not worth a shared module for six lines. */
-function withAlpha(hex: string, alpha: number) {
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.slice(0, 2), 16);
-  const g = parseInt(clean.slice(2, 4), 16);
-  const b = parseInt(clean.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
 
 const STARTERS = [
   {
@@ -106,10 +97,20 @@ function ThinkingIndicator() {
 }
 
 /* ── Assistant markdown renderer. Sober, readable, brand-coloured links. ── */
-function AssistantMessage({ content }: { content: string }) {
+function AssistantMessage({
+                            content,
+                            streaming,
+                          }: {
+  content: string;
+  streaming?: boolean;
+}) {
   const theme = useChatTheme();
   return (
-    <div className="chat-markdown text-[0.95rem] leading-[1.6] space-y-2.5 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+      <div
+          className={`chat-markdown text-[0.95rem] leading-[1.6] space-y-2.5 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 ${
+              streaming ? "chat-streaming-cursor" : ""
+          }`}
+      >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -370,27 +371,34 @@ function EmptyState({
 }
 
 /* ── Single chat bubble. Assistant on the left, user on the right. ───────── */
-function Bubble({ msg, showTime }: { msg: Message; showTime: boolean }) {
+function Bubble({
+                  msg,
+                  showTime,
+                  streaming,
+                  isLast,
+                  onSuggestionClick,
+                }: {
+  msg: Message;
+  showTime: boolean;
+  streaming?: boolean;
+  isLast?: boolean;
+  onSuggestionClick?: (text: string) => void;
+}) {
   const theme = useChatTheme();
   const isUser = msg.role === "user";
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 14, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: "spring", stiffness: 320, damping: 26 }}
-      className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}
-    >
-      {!isUser && (
-        <motion.div
-          initial={{ scale: 0.6, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{
-            type: "spring",
-            stiffness: 300,
-            damping: 20,
-            delay: 0.05,
-          }}
+      <motion.div
+          layout="position"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.32, ease: [0.34, 1.56, 0.64, 1] }}
+          className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}
+      >
+        {!isUser && (
+            <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.26, delay: 0.06, ease: [0.34, 1.56, 0.64, 1] }}
           className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full overflow-hidden"
           style={{ background: "#FFFFFF", border: `1px solid ${theme.border}` }}
         >
@@ -438,7 +446,7 @@ function Bubble({ msg, showTime }: { msg: Message; showTime: boolean }) {
                 {msg.content}
               </div>
             ) : (
-              <AssistantMessage content={msg.content} />
+                <AssistantMessage content={msg.content} streaming={streaming} />
             )
           ) : (
             <ThinkingIndicator />
@@ -454,6 +462,34 @@ function Bubble({ msg, showTime }: { msg: Message; showTime: boolean }) {
             Grounded in official Department records.
           </p>
         )}
+        {!isUser &&
+            isLast &&
+            !streaming &&
+            msg.suggestions &&
+            msg.suggestions.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.24, ease: "easeOut" }}
+                    className="mt-2 flex flex-wrap gap-1.5"
+                >
+                  {msg.suggestions.map((text, i) => (
+                      <button
+                          key={i}
+                          type="button"
+                          onClick={() => onSuggestionClick?.(text)}
+                          className="rounded-full border px-3 py-1.5 text-[0.78rem] font-medium transition-colors hover:opacity-80"
+                          style={{
+                            borderColor: withAlpha(theme.pine, 0.4),
+                            color: theme.pine,
+                            background: withAlpha(theme.pine, 0.06),
+                          }}
+                      >
+                        {text}
+                      </button>
+                  ))}
+                </motion.div>
+            )}
       </div>
     </motion.div>
   );
@@ -477,6 +513,13 @@ export function Chat({ compact = false }: { compact?: boolean }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);   // ← NEW
+
+  useEffect(() => {                                                   // ← NEW
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   /* Grow the textarea with content, capped so it never eats the thread. */
   const resizeInput = useCallback(() => {
@@ -551,11 +594,18 @@ export function Chat({ compact = false }: { compact?: boolean }) {
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setIsStreaming(true);
 
+    // ← NEW: cancel any previous in-flight stream first
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+
     try {
       const response = await fetch(`/api/conversations/${currentConvId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: trimmed }),
+        signal: abortController.signal,          // ← NEW
       });
       if (!response.ok)
         throw new Error(
@@ -591,15 +641,29 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                 return updated;
               });
             }
+            if (Array.isArray(data.suggestions) && data.suggestions.length) {
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  ...updated[updated.length - 1],
+                  suggestions: data.suggestions,
+                };
+                return updated;
+              });
+            }
           } catch {
             /* non-JSON line — skip */
           }
         }
       }
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {   // ← NEW
+        return;
+      }
       console.error("Chat error:", error);
     } finally {
       setIsStreaming(false);
+      abortControllerRef.current = null;         // ← NEW
       if (currentConvId) {
         try {
           const res = await fetchConversation(currentConvId);
@@ -646,9 +710,18 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                 {messages.map((msg, idx) => {
                   const prev = messages[idx - 1];
                   const showTime =
-                    msg.role === "assistant" &&
-                    (!prev || prev.role !== "assistant" || prev.id !== msg.id);
-                  return <Bubble key={msg.id} msg={msg} showTime={showTime} />;
+                      msg.role === "assistant" &&
+                      (!prev || prev.role !== "assistant" || prev.id !== msg.id);
+                  return (
+                      <Bubble
+                          key={msg.id}
+                          msg={msg}
+                          showTime={showTime}
+                          streaming={isStreaming && idx === messages.length - 1}
+                          isLast={idx === messages.length - 1}
+                          onSuggestionClick={(text) => handleSend(text)}
+                      />
+                  );
                 })}
               </AnimatePresence>
               <div ref={bottomRef} />

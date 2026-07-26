@@ -15,7 +15,7 @@ import { fetchDestinations, type DestinationSummary } from "@/lib/api";
 import { heroVideo } from "@/config/hero-media";
 
 const heroTaglines = [
-  "Sikkim — Land of Mystic Splendour",
+  "Welcome to Sikkim",
   "Sikkim — Where Every Peak Tells a Story",
   "Sikkim — India's First Fully Organic State",
 ];
@@ -49,24 +49,6 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  const pillars = [
-    {
-      icon: Compass,
-      title: "Local, ground-level knowledge",
-      body: "Trained on official destination records, permits, and district-level travel advisories.",
-    },
-    {
-      icon: ShieldCheck,
-      title: "Permit & route clarity",
-      body: "Ask about Nathula, Gurudongmar, or restricted-area passes and get the exact requirements.",
-    },
-    {
-      icon: Sparkles,
-      title: "Always at your side",
-      body: "Tap the mountain icon in the corner, anytime, on any page — it opens instantly.",
-    },
-  ];
-
   const highlights = [
     {
       icon: Leaf,
@@ -82,6 +64,24 @@ export default function Home() {
       icon: Landmark,
       value: "200+",
       label: "Monasteries & Sacred Sites",
+    },
+  ];
+
+  const pillars = [
+    {
+      icon: Compass,
+      title: "Local, ground-level knowledge",
+      body: "Trained on official destination records, permits, and district-level travel advisories.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Permit & route clarity",
+      body: "Ask about Nathula, Gurudongmar, or restricted-area passes and get the exact requirements.",
+    },
+    {
+      icon: Sparkles,
+      title: "Always at your side",
+      body: "Tap the mountain icon in the corner, anytime, on any page — it opens instantly.",
     },
   ];
 

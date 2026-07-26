@@ -141,8 +141,8 @@
   --chat-ink-soft: #435650;
   --chat-ink-muted: #6E7F78;
   --chat-ink-faint: #93A29B;
-  --chat-pine: #1E3A66;
-  --chat-pine-alt: #33508F;
+  --chat-pine: #0F6B3F;
+  --chat-pine-alt: #3FA45A;
   --chat-pine-on: #FFFFFF;
   --chat-accent: #C6892A;
   --chat-accent-soft: rgba(198, 137, 42, 0.18);
@@ -194,13 +194,13 @@
   --chat-ink-soft: #AFC0B9;
   --chat-ink-muted: #86988F;
   --chat-ink-faint: #62726B;
-  --chat-pine: #5472D3;
-  --chat-pine-alt: #7C93E8;
-  --chat-pine-on: #0A0F1F;
+  --chat-pine: #3D4D2F;
+  --chat-pine-alt: #78A550;
+  --chat-pine-on: #FFFFFF;
   --chat-accent: #F2B84B;
   --chat-accent-soft: rgba(242, 184, 75, 0.16);
   --chat-assistant-bubble: rgba(255, 255, 255, 0.06);
-  --chat-launcher-fg: #05100D;
+  --chat-launcher-fg: #FFFFFF;
   --chat-launcher-surface: rgba(22, 31, 29, 0.7);
   --chat-launcher-hint-bg: rgba(22, 31, 29, 0.72);
   --chat-launcher-hint-ink: #E8F0EC;
@@ -702,6 +702,21 @@
   animation: chat-caret 1s steps(1) infinite;
 }
 
+/* Blinking caret after the last line of an assistant reply while it is
+   still streaming in — mirrors the greeting caret above, but attached via
+   ::after to whatever element markdown rendered last (p, li, etc.) so it
+   sits right after the last visible character rather than on its own line. */
+.chat-streaming-cursor > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 0.9em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: chat-caret 1s steps(1) infinite;
+}
+
 /* ── Chat surfaces — static glass panel, glow edge, springy message
      entrance. Deliberately no continuously-drifting motion in the panel
      itself (mesh/header sweep/floating orbs were removed): for a
@@ -729,8 +744,8 @@
   z-index: -1;
   border-radius: inherit;
   background: linear-gradient(135deg,
-      var(--chat-pine, #1e3a66),
-      var(--chat-pine-alt, #33508f));
+  var(--chat-pine, #0f6b3f),
+  var(--chat-pine-alt, #3fa45a));
   filter: blur(9px);
   opacity: 0.45;
 }

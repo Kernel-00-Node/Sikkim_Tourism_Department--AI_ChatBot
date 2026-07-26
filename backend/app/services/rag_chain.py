@@ -4,6 +4,7 @@ Pure LCEL — works with LangChain 0.2+ and 0.3+.
 """
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import AsyncGenerator
 from functools import lru_cache
@@ -27,7 +28,7 @@ _SYSTEM_PROMPT = (
     "You are the Sikkim Tourism Assistant, the official virtual guide of the Tourism and Civil "
     "Aviation Department, Government of Sikkim. Speak in first person as this assistant — never "
     "say you are a generic AI or language model.\n\n"
-    
+
 
     # FIX 1 & 2: explicit scope rules — replaces the old "Use ONLY retrieved info" restriction
     "SCOPE — what you answer:\n"
@@ -66,6 +67,20 @@ _REPHRASE_SYSTEM = (
     "(keep it short; include key place/topic names). "
     "Do NOT answer — only rewrite. "
     "If it is already self-contained, return it unchanged."
+)
+
+_FOLLOWUP_SYSTEM = (
+    "You just answered a tourist's question about Sikkim. Suggest exactly 3 short, "
+    "natural follow-up questions this same tourist might reasonably ask next.\n\n"
+    "Rules:\n"
+    "- Each suggestion under 6 words.\n"
+    "- Phrase them as the TOURIST would ask them (first person / direct question), "
+    "not as the assistant.\n"
+    "- Make them genuinely relevant to what was just discussed — not generic.\n"
+    "- Respond with ONLY a JSON array of exactly 3 strings. No markdown, no code "
+    "fences, no explanation, nothing else.\n\n"
+    "User's question: {question}\n"
+    "Your answer: {answer}"
 )
 
 # ---------------------------------------------------------------------------
@@ -182,3 +197,39 @@ async def stream_rag_response(
             "I'm sorry, I ran into a problem processing your request. "
             "Please try again in a moment."
         )
+
+
+async def generate_followups(question: str, answer: str) -> list[str]:
+    """
+    Ask the LLM for 3 short, contextual follow-up questions a tourist might
+    ask next, based on the exchange that just happened. Used to render
+    clickable suggestion chips under the assistant's reply.
+
+    Best-effort only: on any failure (missing key, bad JSON, model hiccup)
+    this returns an empty list rather than raising, since suggestion chips
+    are a nice-to-have and must never break the main chat response.
+    """
+    if not settings.groq_api_key or not answer:
+        return []
+
+    try:
+        prompt = ChatPromptTemplate.from_messages([("system", _FOLLOWUP_SYSTEM)])
+        chain = prompt | _get_llm(streaming=False) | StrOutputParser()
+        # Trim the answer fed into the prompt — we only need enough of it to
+        # judge topic/context, not the full text (keeps this call fast).
+        raw = await chain.ainvoke({"question": question, "answer": answer[:800]})
+
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`")
+            if cleaned.lower().startswith("json"):
+                cleaned = cleaned[4:]
+            cleaned = cleaned.strip()
+
+        parsed = json.loads(cleaned)
+        if not isinstance(parsed, list):
+            return []
+        return [str(item).strip() for item in parsed if str(item).strip()][:3]
+    except Exception as exc:
+        logger.warning("Follow-up suggestion generation failed (non-fatal): %s", exc)
+        return []

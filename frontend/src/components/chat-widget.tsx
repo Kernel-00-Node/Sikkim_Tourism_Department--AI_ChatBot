@@ -5,6 +5,7 @@ import { Chat } from "@/components/chat";
 import { GOVT_LOGO_SRC } from "@/config/brand";
 import { useChatTheme, PRAYER_FLAGS } from "@/config/chat-theme";
 import { useTypewriter } from "@/hooks/use-typewriter";
+import { withAlpha } from "@/lib/utils";          // ← NEW
 
 /* Bilingual greeting rotation for the launcher hint chip — English and
    Hindi, alternating, so the nudge reads naturally to both audiences. */
@@ -15,15 +16,7 @@ const GREETINGS = [
   "यात्रा की योजना बनानी है?",
 ];
 
-/* Adds alpha to a "#rrggbb" token so translucent text/hover states stay
-   theme-aware instead of being hardcoded to white. */
-function withAlpha(hex: string, alpha: number) {
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.slice(0, 2), 16);
-  const g = parseInt(clean.slice(2, 4), 16);
-  const b = parseInt(clean.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+
 
 /* Five-flag hairline that signals the Department brand without narrating it. */
 function PrayerFlagBar({ className = "" }: { className?: string }) {
