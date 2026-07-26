@@ -205,7 +205,7 @@ export async function fetchDestinations(
   if (category && category !== "all") params.set("category", category);
   const q = params.toString();
   const res = await apiFetch<{ destinations: RawDestinationSummary[]; total: number }>(
-    `/destinations/${q ? "?" + q : ""}`,
+      `/destinations${q ? "?" + q : ""}`,
     { signal },
   );
   // Guard against a missing or malformed destinations array
@@ -231,7 +231,7 @@ export async function createConversation(): Promise<{
   const res = await apiFetch<{
     conversation: RawConversation;
     messages: RawMessage[];
-  }>("/conversations/", { method: "POST" });
+  }>("/conversations", { method: "POST" });
   return {
     conversation: mapConversation(res.conversation),
     messages: (res.messages ?? []).map(mapMessage),
