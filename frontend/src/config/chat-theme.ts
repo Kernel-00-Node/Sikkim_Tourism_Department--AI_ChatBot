@@ -118,7 +118,7 @@ function readTheme(isDark: boolean): ChatTheme {
   for (const key of VAR_NAMES) {
     const cssName = `--chat-${kebab(key)}`;
     const val = computed.getPropertyValue(cssName).trim();
-    resolved[key] = val || base[key as keyof ChatTheme];
+    resolved[key] = val || (base[key as keyof ChatTheme] as string);
   }
   /* Flags don't change with the theme — keep them stable across both. */
   return { ...base, ...resolved } as ChatTheme;
