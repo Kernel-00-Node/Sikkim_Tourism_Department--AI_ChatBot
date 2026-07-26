@@ -14,10 +14,11 @@ from app.database.base import BaseRepository
 
 @lru_cache(maxsize=1)
 def get_repo() -> BaseRepository:
-    if settings.use_mock_db:
+    if settings.db_mode == "mock":
         from app.database.mock_repo import MockRepository
         return MockRepository()
-    else:
+
+    if settings.db_mode == "mysql":
         from app.database.mysql_repo import MySQLRepository
         return MySQLRepository(
             host=settings.mysql_host,
@@ -26,3 +27,5 @@ def get_repo() -> BaseRepository:
             password=settings.mysql_password,
             database=settings.mysql_database,
         )
+
+    raise ValueError(f"Unknown db_mode: {settings.db_mode!r}")

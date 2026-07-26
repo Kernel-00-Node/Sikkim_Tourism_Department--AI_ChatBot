@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
 
+    # ── Tavily_Web_Search_(Hybrid_RAG) ──────────────────────────────────────
+    tavily_api_key: str = ""
+
     # ── Embedding_Model ───────────────────────────────────────────────────────
     # NOTE: "text-embedding-004" was retired by Google in late 2025. Use
     # "models/gemini-embedding-001" (3072-dim by default). vectorstore.py
