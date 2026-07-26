@@ -620,41 +620,43 @@ export function Chat({ compact = false }: { compact?: boolean }) {
 
       while (true) {
         const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() ?? "";
-        for (const part of parts) {
-          if (!part.startsWith("data: ")) continue;
-          const dataStr = part.slice(6).trim();
-          if (!dataStr || dataStr === "[DONE]") continue;
-          try {
-            const data = JSON.parse(dataStr);
-            if (data.text) {
-              assistantContent += data.text;
-              setMessages((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = {
-                  ...updated[updated.length - 1],
-                  content: assistantContent,
-                };
-                return updated;
-              });
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() ?? "";
+          for (const part of parts) {
+            if (!part.startsWith("data: ")) continue;
+            const dataStr = part.slice(6).trim();
+            if (!dataStr || dataStr === "[DONE]") continue;
+            try {
+              const data = JSON.parse(dataStr);
+              if (data.text) {
+                assistantContent += data.text;
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    ...updated[updated.length - 1],
+                    content: assistantContent,
+                  };
+                  return updated;
+                });
+              }
+              if (Array.isArray(data.suggestions) && data.suggestions.length) {
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    ...updated[updated.length - 1],
+                    suggestions: data.suggestions,
+                  };
+                  return updated;
+                });
+              }
+            } catch {
+              /* non-JSON line — skip */
             }
-            if (Array.isArray(data.suggestions) && data.suggestions.length) {
-              setMessages((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = {
-                  ...updated[updated.length - 1],
-                  suggestions: data.suggestions,
-                };
-                return updated;
-              });
-            }
-          } catch {
-            /* non-JSON line — skip */
           }
         }
+        if (done) break;
       }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {   // ← NEW
