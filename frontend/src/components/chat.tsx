@@ -671,18 +671,28 @@ export function Chat({ compact = false }: { compact?: boolean }) {
           const res = await fetchConversation(currentConvId);
           // The backend never persists `suggestions` (they're streamed once,
           // live, via SSE) — so a plain overwrite here would wipe out any
-          // suggestion chips that just rendered. Re-attach them by message id.
+          // suggestion chips that just rendered. The optimistic message uses
+          // a temp local id (`a-${Date.now()}`) that never matches the real
+          // backend UUID, so match by position instead: whatever suggestions
+          // were on our last (optimistic) assistant message belong to
+          // whatever is now the last assistant message in the fresh list.
           setMessages((prev) => {
-            const suggestionsById = new Map(
-                prev
-                    .filter((m) => m.suggestions && m.suggestions.length)
-                    .map((m) => [m.id, m.suggestions]),
-            );
-            return res.messages.map((m) =>
-                suggestionsById.has(m.id)
-                    ? { ...m, suggestions: suggestionsById.get(m.id) }
-                    : m,
-            );
+            const lastOptimistic = [...prev]
+                .reverse()
+                .find((m) => m.role === "assistant" && m.suggestions?.length);
+            if (!lastOptimistic) return res.messages;
+
+            const lastIndex = res.messages
+                .map((m) => m.role)
+                .lastIndexOf("assistant");
+            if (lastIndex === -1) return res.messages;
+
+            const merged = [...res.messages];
+            merged[lastIndex] = {
+              ...merged[lastIndex],
+              suggestions: lastOptimistic.suggestions,
+            };
+            return merged;
           });
         } catch {
           /* keep optimistic state */
