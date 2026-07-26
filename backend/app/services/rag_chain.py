@@ -226,7 +226,7 @@ async def generate_followups(question: str, answer: str) -> list[str]:
                 cleaned = cleaned[4:]
             cleaned = cleaned.strip()
 
-        parsed = json.loads(cleaned)
+        parsed, _ = json.JSONDecoder().raw_decode(cleaned)
         if not isinstance(parsed, list):
             return []
         return [str(item).strip() for item in parsed if str(item).strip()][:3]
