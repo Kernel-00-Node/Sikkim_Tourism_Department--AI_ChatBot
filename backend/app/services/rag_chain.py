@@ -4,7 +4,6 @@ Pure LCEL — works with LangChain 0.2+ and 0.3+.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -18,7 +17,6 @@ from langchain_groq import ChatGroq
 
 from app.config import settings
 from app.services.vectorstore import get_vectorstore
-from app.services.web_search import search_sikkim_web
 
 logger = logging.getLogger(__name__)
 
@@ -85,22 +83,6 @@ _FOLLOWUP_SYSTEM = (
     "Your answer: {answer}"
 )
 
-# HYBRID_RAG: shared text so the topic gate and the main system prompt refuse
-# off-topic questions with the exact same wording.
-_OFF_TOPIC_REPLY = (
-    "I am the Sikkim Tourism Assistant and can only help with questions about Sikkim "
-    "and your trip here. Is there something about Sikkim I can help you with?"
-)
-
-_TOPIC_GATE_SYSTEM = (
-    "You are a strict topic classifier for a Sikkim tourism chatbot. "
-    "Given a user question, answer with exactly one word: "
-    "YES if the question is about Sikkim, travel/tourism to Sikkim, or is a "
-    "greeting/small-talk directed at a travel assistant (e.g. 'hi', 'thanks'). "
-    "NO if it is about anything else (math, science, coding, unrelated general "
-    "knowledge, other places, etc.). Answer with only YES or NO, nothing else."
-)
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -125,32 +107,6 @@ def _get_llm(streaming: bool = True) -> ChatGroq:
         max_tokens=1024,
         streaming=streaming,
     )
-
-async def _is_on_topic(standalone_question: str) -> bool:
-    """
-    HYBRID_RAG: fast pre-filter that runs BEFORE any retrieval (vector DB or
-    web search). An off-topic question should never spend a Tavily credit,
-    an embedding call, or a full generation call — it should be rejected
-    immediately and cheaply. This is a second, deterministic line of
-    defence on top of the SCOPE rules already in _SYSTEM_PROMPT, which
-    alone depends on the main LLM choosing to follow instructions.
-
-    Fails OPEN (returns True) on any classifier error, so a transient
-    Groq hiccup degrades to "answer normally" rather than wrongly
-    blocking a legitimate question.
-    """
-    try:
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", _TOPIC_GATE_SYSTEM),
-            ("human", "{input}"),
-        ])
-        chain = prompt | _get_llm(streaming=False) | StrOutputParser()
-        verdict = await chain.ainvoke({"input": standalone_question})
-        return "no" not in verdict.strip().lower()
-    except Exception as exc:
-        logger.warning("Topic gate failed open (treating as on-topic): %s", exc)
-        return True
-
 
 async def _contextualise_question(inputs: dict) -> str:
     chat_history = inputs.get("chat_history", [])
@@ -183,18 +139,12 @@ async def _retrieve_context(standalone_question: str) -> str:
 
 
 # FIX 3: merges injected extra_context (e.g. full destinations list) with RAG results
-# HYBRID_RAG: also merges live web search results (Sikkim-scoped), run concurrently
-# with the database lookup so the two independent I/O calls don't add up their
-# latencies — the user waits for max(db, web), not db + web.
 async def _retrieve_context_step(inputs: dict) -> str:
-    question = inputs["standalone_question"]
-    rag, web = await asyncio.gather(
-        _retrieve_context(question),
-        search_sikkim_web(question),
-    )
+    rag = await _retrieve_context(inputs["standalone_question"])
     extra = inputs.get("extra_context", "")
-    parts = [p for p in (extra, rag, web) if p]
-    return "\n\n".join(parts)
+    if extra and rag:
+        return f"{extra}\n\n{rag}"
+    return extra or rag
 
 
 def _build_chain():
@@ -231,19 +181,6 @@ async def stream_rag_response(
         return
 
     chat_history = _build_chat_history(history_messages)
-
-    # HYBRID_RAG: topic gate — reject off-topic questions before spending
-    # anything on retrieval (Qdrant, Tavily) or the main generation call.
-    try:
-        standalone_question = await _contextualise_question(
-            {"input": user_message, "chat_history": chat_history}
-        )
-        if not await _is_on_topic(standalone_question):
-            yield _OFF_TOPIC_REPLY
-            return
-    except Exception as exc:
-        logger.warning("Topic gate step failed (continuing normally): %s", exc)
-
     chain = _build_chain()
 
     try:
