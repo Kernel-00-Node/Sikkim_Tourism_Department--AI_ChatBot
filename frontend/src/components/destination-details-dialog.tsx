@@ -104,7 +104,7 @@ export function DestinationDetailsDialog({
                 <div className="mb-3 flex flex-wrap items-center gap-3">
                   <Badge
                     variant="secondary"
-                    className="rounded-full border-0 bg-white/92 px-3 py-1 text-[0.72rem] font-semibold capitalize text-foreground shadow-sm backdrop-blur"
+                    className="rounded-full border-0 bg-white/92 px-3 py-1 text-[0.72rem] font-semibold capitalize text-slate-900 shadow-sm backdrop-blur"
                   >
                     {dest.category}
                   </Badge>

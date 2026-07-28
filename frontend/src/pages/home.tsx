@@ -152,7 +152,7 @@ export default function Home() {
           </div>
 
           <div
-            className="flex w-full max-w-4xl flex-col items-center gap-5 border-t border-white/12 pt-6 text-white animate-rise-fade sm:flex-row sm:justify-center sm:gap-0 sm:pt-8 sm:divide-x sm:divide-white/12"
+              className="flex w-full max-w-4xl flex-col items-center gap-5 border-t border-white/12 pt-6 text-white animate-rise-fade sm:flex-row sm:items-start sm:justify-center sm:gap-0 sm:pt-8 sm:divide-x sm:divide-white/12"
             style={{ animationDelay: "440ms" }}
           >
             {highlights.map((stat) => (

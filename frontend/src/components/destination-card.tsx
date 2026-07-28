@@ -48,7 +48,7 @@ export function DestinationCard({
         <div className="absolute left-4 top-4 flex items-center gap-2">
           <Badge
             variant="secondary"
-            className="rounded-full border-0 bg-white/92 px-3 py-1 text-[0.7rem] font-semibold capitalize text-foreground shadow-sm backdrop-blur"
+            className="rounded-full border-0 bg-white/92 px-3 py-1 text-[0.7rem] font-semibold capitalize text-slate-900 shadow-sm backdrop-blur"
           >
             {dest.category}
           </Badge>
