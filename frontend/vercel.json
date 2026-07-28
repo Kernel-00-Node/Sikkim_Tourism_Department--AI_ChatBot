@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://sikkim-tourism-department-ai-chatbot.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
