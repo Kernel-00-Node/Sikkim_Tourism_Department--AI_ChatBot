@@ -19,18 +19,46 @@ const gridContainerVariants: Variants = {
   hidden: {},
   show: {
     transition: {
-      staggerChildren: 0.12,
+      staggerChildren: 0.25,
     },
   },
 };
 
 const gridItemVariants: Variants = {
-  hidden: { opacity: 0, y: 28, scale: 0.96 },
+  hidden: { opacity: 0, y: 60, scale: 0.94 },
   show: {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { type: "spring", stiffness: 260, damping: 24 },
+    transition: { duration: 0.9, ease: [0.16, 1, 0.3, 1] },
+  },
+};
+
+const sectionHeaderVariants: Variants = {
+  hidden: { opacity: 0, y: 48 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 1, ease: [0.16, 1, 0.3, 1] },
+  },
+};
+
+const pillarContainerVariants: Variants = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.28,
+    },
+  },
+};
+
+const pillarItemVariants: Variants = {
+  hidden: { opacity: 0, y: 60, scale: 0.94 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.9, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
@@ -198,7 +226,13 @@ export default function Home() {
 
         <section className="container mx-auto px-4 py-14 sm:py-20">
           <div className="rounded-[2rem] border border-border/70 bg-white/72 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/72 sm:p-8 lg:p-10">
-            <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <motion.div
+                className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+                variants={sectionHeaderVariants}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, amount: 0.3 }}
+            >
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary/80">
                   Why this assistant feels official
@@ -212,14 +246,20 @@ export default function Home() {
                 giving the site a cleaner tourism-focused identity with better
                 depth, spacing, and color harmony.
               </p>
-            </div>
+            </motion.div>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-              {pillars.map((p, i) => (
-                  <div
+            <motion.div
+                className="grid grid-cols-1 gap-6 sm:grid-cols-3"
+                variants={pillarContainerVariants}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, amount: 0.2 }}
+            >
+              {pillars.map((p) => (
+                  <motion.div
                       key={p.title}
-                      className="animate-rise-fade rounded-[1.6rem] border border-border/70 bg-gradient-to-b from-white to-white/70 p-6 shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(39,122,107,0.12)] dark:from-card dark:to-card/80"
-                      style={{ animationDelay: `${180 + i * 100}ms` }}
+                      variants={pillarItemVariants}
+                      className="rounded-[1.6rem] border border-border/70 bg-gradient-to-b from-white to-white/70 p-6 shadow-[0_12px_32px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_42px_rgba(39,122,107,0.12)] dark:from-card dark:to-card/80"
                   >
                     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/10">
                       <p.icon className="h-5.5 w-5.5" />
@@ -230,15 +270,21 @@ export default function Home() {
                     <p className="text-sm leading-relaxed text-muted-foreground">
                       {p.body}
                     </p>
-                  </div>
+                  </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </section>
 
         <section className="container mx-auto px-4 pb-20">
           <div className="rounded-[2rem] border border-border/70 bg-white/72 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-card/72 sm:p-8">
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <motion.div
+                className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+                variants={sectionHeaderVariants}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, amount: 0.3 }}
+            >
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-primary/80">
                   Curated inspiration
@@ -257,7 +303,7 @@ export default function Home() {
               >
                 View all <ArrowRight className="h-3.5 w-3.5" />
               </Link>
-            </div>
+            </motion.div>
 
             {loadError && (
                 <p className="mb-4 text-sm text-destructive">{loadError}</p>

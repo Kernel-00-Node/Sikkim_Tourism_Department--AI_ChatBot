@@ -331,8 +331,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <footer className="border-t border-border/70 bg-white/72 py-6 backdrop-blur-xl dark:bg-card/70">
         <div className="container mx-auto flex flex-col items-center justify-between gap-3 px-4 text-[0.72rem] tracking-wide text-muted-foreground sm:flex-row">
           <span>
-            © {new Date().getFullYear()} Department of Tourism &amp; Civil
-            Aviation, Government of Sikkim
+            © {new Date().getFullYear()} Tourism &amp; Civil
+            Aviation Department, Government of Sikkim
           </span>
           <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/15 bg-emerald-500/8 px-3 py-1 text-[0.68rem] font-medium text-emerald-700 dark:text-emerald-300">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
