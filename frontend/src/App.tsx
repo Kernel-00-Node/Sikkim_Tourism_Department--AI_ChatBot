@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Destinations from "@/pages/destinations";
+import Demo from "@/pages/demo";
 import { Layout } from "@/components/layout";
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/destinations" component={Destinations} />
+            <Route path="/demo" component={Demo} />
           <Route component={NotFound} />
         </Switch>
       </Layout>

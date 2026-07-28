@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useLocation } from "wouter";
-import { Map, MessageSquare, Sun, Moon, Menu, X } from "lucide-react";
+import { Map, MessageSquare, Sun, Moon, Menu, X, Sparkles } from "lucide-react";
 import { ChatWidget } from "@/components/chat-widget";
 import { GOVT_LOGO_SRC } from "@/config/brand";
 
@@ -77,6 +77,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [location]);
 
   const isHome = location === "/";
+  const isDemo = location === "/demo";
   const isTransparent = isHome && !scrolled;
 
   const headerBg = isTransparent
@@ -108,7 +109,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navLinks = [
     { href: "/", label: "Home", icon: MessageSquare },
     { href: "/destinations", label: "Destinations", icon: Map },
+    { href: "/demo", label: "Demo", icon: Sparkles },
   ];
+
+    // The /demo page recreates the official Dept. site's own header/hero as
+        // a static mock, so our normal chrome would double up with it. Render
+            // just the page content plus the real, functional ChatWidget on top.
+                if (isDemo) {
+        return (
+              <>
+                  {children}
+                  <ChatWidget />
+                </>
+           );
+      }
+
 
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden">
