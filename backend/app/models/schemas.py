@@ -86,10 +86,21 @@ class ChatRequest(BaseModel):
 
     message: str = Field(..., min_length=1, max_length=2000)
 
-    @field_validator("message")
+    @field_validator("message", mode="before")
     @classmethod
-    def sanitize_message(cls, v: str) -> str:
-        """Sanitize user message to prevent injection attacks."""
+    def sanitize_message(cls, v):
+        """Sanitize user message to prevent injection attacks.
+
+        Runs in mode="before" — i.e. BEFORE Pydantic checks min_length/
+        max_length — so a message of pure whitespace gets stripped down
+        to "" first and then correctly fails min_length=1. Previously
+        this validator ran "after" the length check, so "   " (length 3)
+        passed validation and only became empty afterward, silently
+        bypassing the empty-message guard.
+        """
+        if not isinstance(v, str):
+            return v  # let Pydantic's normal type validation raise the error
+
         # Strip leading/trailing whitespace
         v = v.strip()
 

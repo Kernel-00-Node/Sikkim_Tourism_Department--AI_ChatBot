@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     allowed_methods: str = "GET,POST,OPTIONS"  # FIXED: Only necessary methods
     allowed_headers: str = "Content-Type,Authorization"  # FIXED: Restrict headers
 
+    # ── Admin_Auth (NEW - SECURITY) ─────────────────────────────────────────
+    # Required to call POST /api/admin/sync. Left empty by default so the
+    # endpoint FAILS CLOSED (rejects every request) until an operator sets
+    # a real key — an unset secret must never mean "no auth required".
+    # Generate one with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    admin_api_key: str = ""
+
     # ── Environment ───────────────────────────────────────────────────────────
     environment: str = "development"  # 'development' or 'production'
 

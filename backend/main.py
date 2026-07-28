@@ -25,6 +25,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.database.factory import get_repo
+from app.dependencies import verify_admin_key
 from app.routers import chat, destinations
 from app.startup import resync_vectorstore, populate_vectorstore
 
@@ -60,7 +61,7 @@ async def lifespan(app: FastAPI):
     # Nothing to Clean Up for `in-memory` Qdrant
 
 
-# ────────────────────────────────────────────────��───────────────
+# ────────────────────────────────────────────────────────────────
 
 # ────────────────────────────────────────────────────────────────
 # ── Security Middleware ────────────────────────────────────────────────────────────
@@ -208,7 +209,11 @@ def health():
     }
 
 
-admin_router = APIRouter(prefix="/api/admin", tags=["Admin"])
+admin_router = APIRouter(
+    prefix="/api/admin",
+    tags=["Admin"],
+    dependencies=[Depends(verify_admin_key)],  # FIXED: require X-Admin-Key on every route below
+)
 
 
 @admin_router.post("/sync")
