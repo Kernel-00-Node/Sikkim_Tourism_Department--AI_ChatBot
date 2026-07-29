@@ -69,7 +69,7 @@ export function ChatWidget() {
               }}
             >
               <span
-                className="flex h-10 w-10 items-center justify-center rounded-full overflow-hidden"
+                className="flex h-11 w-11 items-center justify-center rounded-full overflow-hidden"
                 style={{
                   background: "#FFFFFF",
                   border: `1px solid ${theme.border}`,
@@ -79,7 +79,7 @@ export function ChatWidget() {
                   src={GOVT_LOGO_SRC}
                   alt=""
                   draggable={false}
-                  className="h-full w-full object-contain p-0.5"
+                  className="h-full w-full object-contain"
                 />
               </span>
               <span className="flex flex-col leading-tight">
@@ -168,12 +168,12 @@ export function ChatWidget() {
                       strokeWidth={3}
                     />
                   </span>
-                  <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm sm:h-15 sm:w-15">
+                  <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm sm:h-16 sm:w-16">
                     <img
                       src={GOVT_LOGO_SRC}
                       alt=""
                       draggable={false}
-                      className="h-full w-full object-contain p-1"
+                      className="h-full w-full object-contain p-0.5"
                     />
                   </span>
                 </motion.span>
@@ -283,14 +283,14 @@ export function ChatWidget() {
                 <div className="relative flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-3.5">
                   <div className="flex min-w-0 items-center gap-3">
                     <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden shadow-md"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full overflow-hidden shadow-md"
                       style={{ background: "#FFFFFF" }}
                     >
                       <img
                         src={GOVT_LOGO_SRC}
                         alt=""
                         draggable={false}
-                        className="h-full w-full object-contain p-0.5"
+                        className="h-full w-full object-contain"
                       />
                     </div>
                     <div className="min-w-0">

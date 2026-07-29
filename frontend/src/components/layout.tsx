@@ -167,9 +167,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="container relative mx-auto flex h-18 items-center justify-between gap-4 px-4 sm:px-6">
           <Link href="/" className="group flex shrink-0 items-center gap-3">
-            <div className="relative h-12 w-12 shrink-0">
+            <div className="relative h-14 w-14 shrink-0">
               <span className="absolute inset-0 rounded-full bg-primary/25 blur-[2px] animate-glow-breathe" />
-              <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-white p-1.5 shadow-lg ring-1 ring-black/5 transition-transform duration-300 group-hover:scale-105">
+              <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white p-1 shadow-lg ring-1 ring-black/5 transition-transform duration-300 group-hover:scale-105">
                 <SikkimLogo className="h-full w-full object-contain" />
               </div>
             </div>
