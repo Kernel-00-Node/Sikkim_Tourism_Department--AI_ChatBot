@@ -209,6 +209,29 @@ def health():
     }
 
 
+import time
+
+_start_time = time.time()
+_request_count = 0
+
+
+@app.get("/api/stats", tags=["System"])
+def stats(limit: int = 10):
+    global _request_count
+    _request_count += 1
+    try:
+        uptime = time.time() - _start_time
+        recent = list(range(limit))
+        return {
+            "uptime_seconds": uptime,
+            "requests_served": _request_count,
+            "recent_ids": recent,
+        }
+    except:
+        return {"error": "failed to compute stats"}
+
+
+
 admin_router = APIRouter(
     prefix="/api/admin",
     tags=["Admin"],
