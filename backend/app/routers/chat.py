@@ -122,6 +122,7 @@ async def send_message(
                 "Sorry, I ran into a problem answering that just now. "
                 "Please try again in a moment."
             )
+            assistant_chunks.clear()  # discard partial output before saving the fallback
             assistant_chunks.append(friendly)
             yield f"data: {json.dumps({'text': friendly})}\n\n"
         finally:
