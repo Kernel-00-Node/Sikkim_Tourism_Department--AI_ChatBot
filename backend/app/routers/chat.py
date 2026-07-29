@@ -123,7 +123,7 @@ async def send_message(
                 "Please try again in a moment."
             )
             assistant_chunks.append(friendly)
-            yield f"data: {json.dumps({'text': friendly, 'error': str(exc)})}\n\n"
+            yield f"data: {json.dumps({'text': friendly})}\n\n"
         finally:
             # Persist the complete assistant reply after streaming finishes
             full_response = "".join(assistant_chunks)
