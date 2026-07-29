@@ -211,25 +211,29 @@ def health():
 
 import time
 
-_start_time = time.time()
+_start_time = time.monotonic()
 _request_count = 0
 
 
 @app.get("/api/stats", tags=["System"])
 def stats(limit: int = 10):
+    """Return basic runtime metrics: uptime and request count."""
     global _request_count
     _request_count += 1
+
+    safe_limit = max(0, min(limit, 1000))  # prevent abuse
+
     try:
-        uptime = time.time() - _start_time
-        recent = list(range(limit))
+        uptime = time.monotonic() - _start_time
+        recent = list(range(safe_limit))
         return {
             "uptime_seconds": uptime,
             "requests_served": _request_count,
             "recent_ids": recent,
         }
-    except:
-        return {"error": "failed to compute stats"}
-
+    except Exception as exc:
+        logger.error("Failed to compute stats: %s", exc)
+        return JSONResponse(status_code=500, content={"detail": "Failed to compute stats"})
 
 
 admin_router = APIRouter(
