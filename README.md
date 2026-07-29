@@ -1,7 +1,7 @@
-# Sikkim Tourism and Civil Aviation Department Assistant 
+# Sikkim Tourism and Civil Aviation Department Assistant
 
 > **AI-Powered Travel Chatbot for the Tourism & Civil Aviation Department, Government of Sikkim.**
-> 
+>
 > Built with LangChain · Qdrant · Google Gemini · FastAPI · React 18
 
 ---
@@ -21,6 +21,7 @@
   - [Manual Setup (All Platforms)](#manual-setup-all-platforms)
     - [Backend](#backend)
     - [Frontend](#frontend)
+    - [Running Tests](#running-tests)
   - [Environment Variables](#environment-variables)
     - [Core (required)](#core-required)
     - [AI / Model](#ai--model)
@@ -28,6 +29,8 @@
     - [MySQL (only when `USE_MOCK_DB=false`)](#mysql-only-when-use_mock_dbfalse)
     - [Vector Store (Qdrant)](#vector-store-qdrant)
     - [Server](#server)
+    - [Admin / Security](#admin--security)
+  - [Security Features](#security-features)
   - [API Reference](#api-reference)
     - [Chat endpoint — SSE format](#chat-endpoint--sse-format)
   - [RAG Pipeline](#rag-pipeline)
@@ -47,38 +50,38 @@ The Sikkim Tourism Assistant is a production-grade Retrieval-Augmented Generatio
 
 ## What's New in v2.0
 
-| Area | v1 | v2 (this version) |
-|---|---|---|
-| RAG retrieval | Keyword scoring | **Vector similarity search via Qdrant** |
-| Orchestration | Manual API calls | **LangChain LCEL pipeline** |
-| Conversation memory | Manual dict | **History-aware retriever** (rephrases follow-ups) |
-| Vector store | None | **Qdrant in-memory** (zero setup) or remote |
-| Embeddings | None | **Gemini `text-embedding-004`** (768-dim) or Gemini `text-embedding-001` (3072-dim) |
-| Auto-sync | N/A | Qdrant **auto-populated on startup** from DB |
-| Live re-sync | N/A | `POST /api/admin/sync` — no restart needed |
-| LLM provider | Gemini only | **Gemini + Groq** (configurable) |
+
+| Area                | v1               | v2 (this version)                                                      |
+| ------------------- | ---------------- | ---------------------------------------------------------------------- |
+| RAG retrieval       | Keyword scoring  | **Vector similarity search via Qdrant**                                |
+| Orchestration       | Manual API calls | **LangChain LCEL pipeline**                                            |
+| Conversation memory | Manual dict      | **History-aware retriever** (rephrases follow-ups)                     |
+| Vector store        | None             | **Qdrant in-memory** (zero setup) or remote                            |
+| Embeddings          | None             | **Gemini `gemini-embedding-001`** (3072-dim, auto-detected at runtime) |
+| Auto-sync           | N/A              | Qdrant**auto-populated on startup** from DB                            |
+| Live re-sync        | N/A              | `POST /api/admin/sync` — **key-protected**, no restart needed         |
+| LLM provider        | Gemini only      | **Gemini + Groq** (configurable)                                       |
+| API hardening       | None             | **Rate limiting, admin auth, security headers, locked-down CORS**      |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| **Backend** | Python 3.11 · FastAPI · Uvicorn |
-| **AI / LLM** | LangChain LCEL · Google Gemini (`gemini-1.5-flash`) · Groq (`llama-3.3-70b-versatile`) |
-| **Embeddings** | Gemini `text-embedding-004` — 768-dim, API-based |
-| **RAG** | History-aware retriever + stuff-documents chain (LangChain) |
-| **Vector Store** | Qdrant — in-memory by default, remote optional |
-| **Database (dev)** | Mock in-memory (Python dicts, no server needed) |
-| **Database (prod)** | MySQL — auto-syncs to Qdrant on startup |
-| **Frontend** | React 18 · Vite · TypeScript · Tailwind CSS v4 |
-| **Animations** | Framer Motion |
-| **Routing** | Wouter |
-| **UI Components** | Radix UI primitives |
-| **Validation** | Zod · Pydantic v2 |
 
-
-
+| Layer               | Technology                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| **Backend**         | Python 3.11 · FastAPI · Uvicorn                                                        |
+| **AI / LLM**        | LangChain LCEL · Google Gemini (`gemini-1.5-flash`) · Groq (`llama-3.3-70b-versatile`) |
+| **Embeddings**      | Gemini`gemini-embedding-001` — 3072-dim (auto-detected), API-based                      |
+| **RAG**             | History-aware retriever + stuff-documents chain (LangChain)                              |
+| **Vector Store**    | Qdrant — in-memory by default, remote optional                                          |
+| **Database (dev)**  | Mock in-memory (Python dicts, no server needed)                                          |
+| **Database (prod)** | MySQL — auto-syncs to Qdrant on startup                                                 |
+| **Frontend**        | React 18 · Vite · TypeScript · Tailwind CSS v4                                        |
+| **Animations**      | Framer Motion                                                                            |
+| **Routing**         | Wouter                                                                                   |
+| **UI Components**   | Radix UI primitives                                                                      |
+| **Validation**      | Zod · Pydantic v2                                                                       |
 
 ---
 
@@ -102,7 +105,7 @@ FastAPI  (uvicorn, async)
                 │
                 ▼
         [Qdrant vector similarity search]
-          Embeds the query with Gemini text-embedding-004
+          Embeds the query with Gemini gemini-embedding-001
           Returns top-4 most relevant destination documents
                 │
                 ▼
@@ -122,8 +125,8 @@ FastAPI  (uvicorn, async)
 
 ## Quick Start
 
-> **One-command setup scripts** are provided for each OS.  
-> They create the Python virtual environment, install all dependencies,  
+> **One-command setup scripts** are provided for each OS.
+> They create the Python virtual environment, install all dependencies,
 > and copy `.env.example` → `.env` automatically.
 
 ### macOS
@@ -183,11 +186,12 @@ cd frontend && npm run dev
 
 **Prerequisites** — install these first if not already present:
 
-| Tool | Download |
-|---|---|
-| Python 3.11 | https://www.python.org/downloads/release/python-3119/ — ⚠ tick **"Add Python to PATH"** |
-| Node.js 20 | https://nodejs.org/en/download |
-| Git | https://git-scm.com/download/win |
+
+| Tool        | Download                                                                                 |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| Python 3.11 | https://www.python.org/downloads/release/python-3119/ — ⚠ tick**"Add Python to PATH"** |
+| Node.js 20  | https://nodejs.org/en/download                                                           |
+| Git         | https://git-scm.com/download/win                                                         |
 
 ```bat
 REM Clone the repo (Git Bash or Command Prompt)
@@ -259,6 +263,16 @@ npm run dev          # → http://localhost:5173
 
 Vite automatically proxies every `/api/*` request to `http://localhost:8000` — no CORS or port changes needed in dev.
 
+### Running Tests
+
+The backend ships with a `pytest` suite covering health checks, chat, destinations, and admin auth — fully offline, no real Gemini/Groq/MySQL calls required:
+
+```bash
+cd backend
+source v_env/bin/activate     # v_env\Scripts\activate.bat on Windows
+pytest
+```
+
 ---
 
 ## Environment Variables
@@ -267,48 +281,78 @@ Copy `backend/.env.example` to `backend/.env` and fill in the values below.
 
 ### Core (required)
 
-| Variable | Default | Description |
-|---|---|---|
-| `GEMINI_API_KEY` | _(required)_ | [Get one free at Google AI Studio](https://aistudio.google.com/app/apikey) |
-| `GROQ_API_KEY` | _(optional)_ | [Get one free at console.groq.com](https://console.groq.com) — enables Groq LLM |
+
+| Variable         | Default      | Description                                                                      |
+| ---------------- | ------------ | -------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY` | _(required)_ | [Get one free at Google AI Studio](https://aistudio.google.com/app/apikey)       |
+| `GROQ_API_KEY`   | _(optional)_ | [Get one free at console.groq.com](https://console.groq.com) — enables Groq LLM |
 
 ### AI / Model
 
-| Variable | Default | Description |
-|---|---|---|
-| `GEMINI_MODEL` | `gemini-1.5-flash` | Gemini Chat Model |
-| `GEMINI_EMBEDDING_MODEL` | `models/text-embedding-004` | Embedding model (768-dim) |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq LLM model |
+
+| Variable                 | Default                       | Description                                          |
+| ------------------------ | ----------------------------- | ---------------------------------------------------- |
+| `GEMINI_MODEL`           | `gemini-1.5-flash`            | Gemini Chat Model                                    |
+| `GEMINI_EMBEDDING_MODEL` | `models/gemini-embedding-001` | Embedding model (3072-dim, auto-detected at runtime) |
+| `GROQ_MODEL`             | `llama-3.3-70b-versatile`     | Groq LLM model                                       |
 
 ### Database
 
-| Variable | Default | Description |
-|---|---|---|
-| `USE_MOCK_DB` | `true` | `true` = in-memory mock data (no MySQL needed) |
+
+| Variable      | Default | Description                                    |
+| ------------- | ------- | ---------------------------------------------- |
+| `USE_MOCK_DB` | `true`  | `true` = in-memory mock data (no MySQL needed) |
 
 ### MySQL (only when `USE_MOCK_DB=false`)
 
-| Variable | Default |
-|---|---|
-| `MYSQL_HOST` | `localhost` |
-| `MYSQL_PORT` | `3306` |
-| `MYSQL_USER` | `root` |
-| `MYSQL_PASSWORD` | _(empty)_ |
+
+| Variable         | Default          |
+| ---------------- | ---------------- |
+| `MYSQL_HOST`     | `localhost`      |
+| `MYSQL_PORT`     | `3306`           |
+| `MYSQL_USER`     | `root`           |
+| `MYSQL_PASSWORD` | _(empty)_        |
 | `MYSQL_DATABASE` | `sikkim_tourism` |
 
 ### Vector Store (Qdrant)
 
-| Variable | Default | Description |
-|---|---|---|
-| `QDRANT_URL` | _(empty)_ | Leave empty for in-memory mode. Set to connect to a server. |
-| `QDRANT_API_KEY` | _(empty)_ | Only needed for Qdrant Cloud |
-| `QDRANT_COLLECTION` | `sikkim_destinations` | Qdrant collection name |
+
+| Variable            | Default               | Description                                                 |
+| ------------------- | --------------------- | ----------------------------------------------------------- |
+| `QDRANT_URL`        | _(empty)_             | Leave empty for in-memory mode. Set to connect to a server. |
+| `QDRANT_API_KEY`    | _(empty)_             | Only needed for Qdrant Cloud                                |
+| `QDRANT_COLLECTION` | `sikkim_destinations` | Qdrant collection name                                      |
 
 ### Server
 
-| Variable | Default | Description |
-|---|---|---|
-| `ALLOWED_ORIGINS` | `*` | CORS allowed origins. In production, set to your exact frontend URL. |
+
+| Variable          | Default                      | Description                                                                      |
+| ----------------- | ---------------------------- | -------------------------------------------------------------------------------- |
+| `ALLOWED_ORIGINS` | `http://localhost:5173`      | CORS allowed origins. In production, set to your exact frontend URL — never`*`. |
+| `ALLOWED_METHODS` | `GET,POST,OPTIONS`           | CORS allowed HTTP methods.                                                       |
+| `ALLOWED_HEADERS` | `Content-Type,Authorization` | CORS allowed request headers.                                                    |
+| `ENVIRONMENT`     | `development`                | Set to`production` to enable HSTS and other production-only behavior.            |
+
+### Admin / Security
+
+
+| Variable        | Default   | Description                                                                                                                                                                                                                                       |
+| --------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ADMIN_API_KEY` | _(empty)_ | Required to call`POST /api/admin/sync`. If unset, admin endpoints are **disabled (fail-closed)** rather than left open. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"` and send it as the `X-Admin-Key` header. |
+
+---
+
+## Security Features
+
+The API ships with several hardening measures on by default:
+
+
+| Feature              | Detail                                                                                                                                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Rate limiting**    | `POST /api/conversations/{id}/chat` is capped at 30 requests/minute per IP (`slowapi`).                                                                                                                                              |
+| **Admin auth**       | `/api/admin/sync` requires an `X-Admin-Key` header matching `ADMIN_API_KEY`, compared using a constant-time check (`hmac.compare_digest`) to avoid timing attacks. The endpoint fails closed (503) if no key is configured.          |
+| **Security headers** | Every response includes`X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, and a restrictive `Permissions-Policy`. `Strict-Transport-Security` is added automatically when `ENVIRONMENT=production`. |
+| **Locked-down CORS** | Allowed origins, methods, and headers are all explicitly configurable — no wildcard`*` origin by default.                                                                                                                           |
 
 ---
 
@@ -316,16 +360,17 @@ Copy `backend/.env.example` to `backend/.env` and fill in the values below.
 
 Interactive docs available at **http://localhost:8000/api/docs** (Swagger UI) after starting the backend.
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/health` | Health check — returns `db_mode`, `qdrant_mode`, `ai_configured` |
-| `GET` | `/api/destinations/` | List destinations — supports `?search=` and `?category=` |
-| `GET` | `/api/destinations/categories` | All available category slugs |
-| `GET` | `/api/destinations/{id}` | Full destination detail |
-| `POST` | `/api/conversations/` | Create a new conversation |
-| `GET` | `/api/conversations/{id}` | Fetch conversation + message history |
-| `POST` | `/api/conversations/{id}/chat` | Send a message → **SSE stream** of AI tokens |
-| `POST` | `/api/admin/sync` | Re-index Qdrant from the current database without restarting |
+
+| Method | Path                           | Description                                                                                                                             |
+| ------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/health`                  | Health check — returns`db_mode`, `qdrant_mode`, `ai_configured`                                                                        |
+| `GET`  | `/api/destinations/`           | List destinations — supports`?search=` and `?category=`                                                                                |
+| `GET`  | `/api/destinations/categories` | All available category slugs                                                                                                            |
+| `GET`  | `/api/destinations/{id}`       | Full destination detail                                                                                                                 |
+| `POST` | `/api/conversations/`          | Create a new conversation                                                                                                               |
+| `GET`  | `/api/conversations/{id}`      | Fetch conversation + message history                                                                                                    |
+| `POST` | `/api/conversations/{id}/chat` | Send a message →**SSE stream** of AI tokens                                                                                            |
+| `POST` | `/api/admin/sync`              | Re-index Qdrant from the current database without restarting — requires`X-Admin-Key` header (see [Admin / Security](#admin--security)) |
 
 ### Chat endpoint — SSE format
 
@@ -360,7 +405,7 @@ User message
     │
     ▼
 [2] Qdrant vector similarity search
-    The standalone query is embedded with Gemini text-embedding-004
+    The standalone query is embedded with Gemini gemini-embedding-001
     The top-4 closest destination documents are retrieved
     │
     ▼
@@ -380,11 +425,12 @@ User message
 
 ## Vector Store Modes
 
-| Mode | Configuration | Best for |
-|---|---|---|
-| **In-memory** _(default)_ | `QDRANT_URL=` _(empty)_ | Dev, testing, mock DB mode |
-| **Local server** | `QDRANT_URL=http://localhost:6333` | Persistent local dev (requires Docker) |
-| **Qdrant Cloud** | `QDRANT_URL=https://xyz.cloud.qdrant.io` + `QDRANT_API_KEY=...` | Production |
+
+| Mode                      | Configuration                                                   | Best for                               |
+| ------------------------- | --------------------------------------------------------------- | -------------------------------------- |
+| **In-memory** _(default)_ | `QDRANT_URL=` _(empty)_                                         | Dev, testing, mock DB mode             |
+| **Local server**          | `QDRANT_URL=http://localhost:6333`                              | Persistent local dev (requires Docker) |
+| **Qdrant Cloud**          | `QDRANT_URL=https://xyz.cloud.qdrant.io` + `QDRANT_API_KEY=...` | Production                             |
 
 To run a local Qdrant server with Docker:
 
@@ -401,7 +447,6 @@ docker run -p 6333:6333 qdrant/qdrant
    ```bash
    mysql -u root -p < docs/schema.sql
    ```
-
 2. Update `backend/.env`:
 
    ```ini
@@ -411,7 +456,6 @@ docker run -p 6333:6333 qdrant/qdrant
    MYSQL_PASSWORD=yourpassword
    MYSQL_DATABASE=sikkim_tourism
    ```
-
 3. Restart the backend — Qdrant is **automatically re-populated** from MySQL on startup.
 
 No other changes are needed. The vector store, RAG chain, and frontend all work identically in both modes.
@@ -427,6 +471,7 @@ Sikkim_Tourism__AI_ChatBot/
 │   ├── app/
 │   │   ├── config.py              # Pydantic settings — reads .env
 │   │   ├── startup.py             # Qdrant auto-population on startup + /api/admin/sync logic
+│   │   ├── dependencies.py        # Admin-key auth guard (constant-time check, fail-closed)
 │   │   ├── database/
 │   │   │   ├── base.py            # Abstract repository interface
 │   │   │   ├── factory.py         # Picks Mock vs MySQL repo based on USE_MOCK_DB
@@ -441,12 +486,14 @@ Sikkim_Tourism__AI_ChatBot/
 │   │   └── services/
 │   │       ├── rag_chain.py       # LangChain LCEL RAG chain (Groq LLM + Gemini embeddings)
 │   │       └── vectorstore.py     # Qdrant client + embedding helpers
-│   ├── main.py                    # FastAPI app + middleware + lifespan + /api/admin/sync route
+│   ├── main.py                    # FastAPI app + security middleware + CORS + rate limiting + lifespan
 │   ├── list_models.py             # Utility: lists Gemini models available to your API key
 │   ├── requirements.txt
 │   ├── .env.example               # Template — copy to .env and fill in keys
-│   └── docs/
-│       └── schema.sql             # MySQL schema for production
+│   └── tests/                     # Pytest suite (health, chat, destinations, admin auth)
+│
+├── docs/
+│   └── schema.sql                 # MySQL schema for production (repo root, not backend/)
 │
 ├── frontend/
 │   ├── src/
@@ -486,7 +533,5 @@ Sikkim_Tourism__AI_ChatBot/
 ```
 
 ---
-
-
 
 *Built as part of an Summer Internship Project for the `Tourism & Civil Aviation Department, Government of Sikkim.`*
