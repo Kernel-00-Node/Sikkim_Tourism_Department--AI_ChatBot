@@ -15,6 +15,7 @@ import logging
 from collections.abc import AsyncGenerator
 from functools import lru_cache
 
+import httpx
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -61,6 +62,15 @@ _SYSTEM_PROMPT = (
     "If the context is empty or does not cover the question but the question is still about Sikkim, "
     "answer from your general knowledge about Sikkim. "
     "If you genuinely do not know, say so honestly.\n\n"
+
+    "LIVE WEB RESULTS:\n"
+    "The context may include a section labelled '--- LIVE WEB SEARCH RESULTS ---'. This holds "
+    "current, real-time information (weather, festivals happening now, road/landslide status, "
+    "permit updates, prices, opening status, news) fetched just now from the internet, specifically "
+    "searched for Sikkim. When present, prioritise it for anything time-sensitive and mention that "
+    "it reflects the latest information found. STRICTLY ignore and never mention any part of the "
+    "web results that is not about Sikkim or Sikkim-related travel — discard irrelevant results "
+    "silently rather than including them. Never surface information about places outside Sikkim.\n\n"
 
     "--- CONTEXT ---\n"
     "{context}\n"
@@ -170,15 +180,101 @@ async def _retrieve_context(standalone_question: str) -> str:
     except Exception as exc:
         logger.warning("Qdrant retrieval failed (empty context): %s", exc)
         return ""
+# ---------------------------------------------------------------------------
+# Live web search (Tavily) — only fired for questions that plausibly need
+# current/real-time info, and always scoped to Sikkim.
+# ---------------------------------------------------------------------------
+
+_LIVE_INFO_KEYWORDS = (
+    "today", "now", "currently", "current", "latest", "recent", "recently",
+    "this week", "this weekend", "this month", "right now", "at present",
+    "weather", "temperature", "forecast", "rain", "rainfall", "snow", "snowfall",
+    "climate today",
+    "open now", "open today", "closed", "closed today", "opening hours",
+    "timing", "timings",
+    "price", "prices", "cost", "fare", "fares", "ticket price", "entry fee",
+    "entry fees", "toll",
+    "festival", "event", "events", "happening", "celebration",
+    "news", "update", "updates", "alert", "alerts",
+    "road condition", "road status", "road closure", "landslide", "blocked",
+    "permit status", "permit availability", "inner line permit status",
+    "nathula", "flight status", "train status", "traffic",
+    "live", "real-time", "real time", "is it safe", "is it open",
+)
+
+
+def _needs_live_search(question: str) -> bool:
+    q = question.lower()
+    return any(kw in q for kw in _LIVE_INFO_KEYWORDS)
+
+
+async def _tavily_search(query: str) -> str:
+    """Query Tavily for current info, forcibly scoped to Sikkim.
+
+    Best-effort: returns "" on any failure (missing key, timeout, bad
+    response) so a flaky/slow search never breaks the chat response.
+    """
+    if not settings.tavily_api_key:
+        return ""
+
+    scoped_query = f"{query} Sikkim India"
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.post(
+                "https://api.tavily.com/search",
+                json={
+                    "api_key": settings.tavily_api_key,
+                    "query": scoped_query,
+                    "search_depth": "basic",
+                    "max_results": 5,
+                    "include_answer": True,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as exc:
+        logger.warning("Tavily search failed (non-fatal): %s", exc)
+        return ""
+
+    parts: list[str] = []
+    answer = (data or {}).get("answer")
+    if answer:
+        parts.append(f"Quick summary: {answer}")
+
+    for r in (data or {}).get("results", [])[:5]:
+        title = (r.get("title") or "").strip()
+        content = (r.get("content") or "").strip()
+        url = (r.get("url") or "").strip()
+        if not content:
+            continue
+        snippet = content[:500]
+        line = f"- {title}: {snippet}"
+        if url:
+            line += f" (Source: {url})"
+        parts.append(line)
+
+    return "\n".join(parts)
 
 
 # FIX 3: merges injected extra_context (e.g. full destinations list) with RAG results
+# FIX 3: merges injected extra_context (e.g. full destinations list) with RAG results
+# FIX 7: also folds in live Tavily web search results (Sikkim-scoped only)
+# whenever the question looks time-sensitive.
 async def _retrieve_context_step(inputs: dict) -> str:
-    rag = await _retrieve_context(inputs["standalone_question"])
+    question = inputs["standalone_question"]
+    rag = await _retrieve_context(question)
     extra = inputs.get("extra_context", "")
-    if extra and rag:
-        return f"{extra}\n\n{rag}"
-    return extra or rag
+
+    web = ""
+    if settings.tavily_api_key and _needs_live_search(question):
+        web = await _tavily_search(question)
+
+    combined = "\n\n".join(p for p in (extra, rag) if p)
+    if web:
+        web_block = f"--- LIVE WEB SEARCH RESULTS ---\n{web}"
+        combined = f"{combined}\n\n{web_block}" if combined else web_block
+
+    return combined
 
 
 def _build_chain():

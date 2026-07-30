@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     # freely without touching any other file.
     gemini_embedding_model: str = "models/gemini-embedding-001"
 
+
+    # ── Tavily_Web_Search (live/real-time info: weather, festivals, permit
+    # updates, road/landslide status, prices, "is X open today", etc.)
+    # Leave empty to disable — chatbot silently falls back to RAG-only answers.
+    tavily_api_key: str = ""
+
+    # ── Qdrant_Vector_Store ────────────────────────────────────────────────────
+
     # ── Qdrant_Vector_Store ────────────────────────────────────────────────────
     qdrant_url: str = ""
     qdrant_api_key: str = ""  # Only Needed for Qdrant Cloud
