@@ -154,10 +154,10 @@
 }
 
 .dark {
-  --background: 170 32% 6%;   /* was 8% */
+  --background: 170 32% 8%;
   --foreground: 155 22% 92%;
   --border: 170 20% 18%;
-  --card: 170 30% 8%;         /* was 10% */
+  --card: 170 30% 10%;
   --card-foreground: 155 22% 92%;
   --card-border: 170 20% 18%;
   --sidebar: 170 30% 10%;
