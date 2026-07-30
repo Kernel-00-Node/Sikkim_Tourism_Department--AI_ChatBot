@@ -55,7 +55,7 @@ def _is_valid_uuid(val: str) -> bool:
         return False
 
 
-@router.post("/", response_model=ConversationResponse)
+@router.post("", response_model=ConversationResponse)
 async def create_conversation(repo: BaseRepository = Depends(get_repo)):
     conv = await repo.create_conversation()
     return ConversationResponse(conversation=conv, messages=[])

@@ -27,7 +27,7 @@ def _to_summary(d: Destination) -> DestinationSummary:
         description=d.description[:160] + ("…" if len(d.description) > 160 else ""),
     )
 
-@router.get("/", response_model=DestinationsListResponse)
+@router.get("", response_model=DestinationsListResponse)
 async def list_destinations(
     search: str | None = Query(None, max_length=100),
     category: str | None = Query(None),

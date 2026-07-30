@@ -155,7 +155,7 @@ export default function Home() {
             <div className="flex w-full flex-1 flex-col items-center justify-center">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/90 backdrop-blur-md animate-rise-fade">
                 <MountainSnow className="h-3.5 w-3.5" />
-                Government of Sikkim · Tourism &amp; Civil Aviation Dept.
+                Government of Sikkim &middot; Tourism &amp; Civil Aviation Dept.
               </div>
 
               <div className="mt-6 max-w-5xl px-4 sm:px-6">
@@ -313,8 +313,7 @@ export default function Home() {
                 className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
                 variants={gridContainerVariants}
                 initial="hidden"
-                whileInView="show"
-                viewport={{ once: true, amount: 0.2 }}
+                animate="show"
             >
               {popularDestinations.map((dest) => (
                   <motion.div key={dest.id} variants={gridItemVariants}>
