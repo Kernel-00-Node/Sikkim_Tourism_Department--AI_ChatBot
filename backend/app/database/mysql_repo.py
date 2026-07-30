@@ -98,7 +98,7 @@ class MySQLRepository(BaseRepository):
     # ── Low-level helpers ──────────────────────────────────────────────────────
 
     def _query(self, sql: str, params: tuple = ()) -> list[dict]:
-        """FIXED: Proper cursor cleanup even on exception."""
+        """Run a read query and always return the connection to the pool."""
         conn = self._pool.get_connection()
         try:
             cursor = conn.cursor(dictionary=True)
@@ -107,7 +107,7 @@ class MySQLRepository(BaseRepository):
                 rows = cursor.fetchall()
                 return rows
             finally:
-                cursor.close()  # FIXED: Always close cursor
+                cursor.close()
         finally:
             conn.close()
 
@@ -116,7 +116,8 @@ class MySQLRepository(BaseRepository):
         Execute a write statement (INSERT / UPDATE / DELETE).
         Both the cursor and the connection are always returned to the pool,
         even if cursor.execute() raises — preventing connection leaks.
-        FIXED: Proper nested try-finally for cursor closure.
+        The nested cleanup keeps a failed query from leaking a pooled
+        connection.
         """
         conn = self._pool.get_connection()
         try:
@@ -166,7 +167,7 @@ class MySQLRepository(BaseRepository):
         return _row_to_destination(rows[0]) if rows else None
 
     async def search_destinations_for_rag(self, query: str) -> list[Destination]:
-        """FIXED: Escape LIKE wildcards to prevent injection."""
+        """Search the full-text index, then fall back to a literal LIKE query."""
         rows = await asyncio.to_thread(
             self._query,
             "SELECT * FROM destinations "
@@ -175,8 +176,8 @@ class MySQLRepository(BaseRepository):
             (query,),
         )
         if not rows:
-            # FULLTEXT can return nothing for short/uncommon queries — fall back to LIKE.
-            # FIXED: Properly escape LIKE wildcards
+            # FULLTEXT can miss short or uncommon queries; escape wildcard
+            # characters before using the literal fallback.
             escaped_query = (
                 query.replace("\\", "\\\\")
                 .replace("%", "\\%")

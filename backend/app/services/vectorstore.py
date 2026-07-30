@@ -16,7 +16,7 @@ from functools import lru_cache
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
+from qdrant_client.models import Distance, Filter, FilterSelector, VectorParams
 
 from app.config import settings
 
@@ -130,6 +130,22 @@ def ensure_collection(client: QdrantClient) -> None:
         "Created collection '%s' with vector size %d",
         settings.qdrant_collection,
         dim,
+    )
+
+
+def clear_collection(client: QdrantClient) -> None:
+    """Remove every point from the active collection without recreating it.
+
+    A sync must be a true snapshot of the source repository.  Merely upserting
+    current records leaves points for destinations deleted from MySQL, causing
+    the assistant to cite stale information.  Keeping the collection itself
+    avoids another embedding-dimension probe and works for both local and
+    remote Qdrant instances.
+    """
+    ensure_collection(client)
+    client.delete(
+        collection_name=settings.qdrant_collection,
+        points_selector=FilterSelector(filter=Filter(must=[])),
     )
 
 def get_vectorstore() -> QdrantVectorStore:

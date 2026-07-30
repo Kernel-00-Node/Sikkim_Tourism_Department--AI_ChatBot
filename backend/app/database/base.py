@@ -14,24 +14,10 @@ from typing import Literal
 
 from app.models.schemas import Conversation, Destination, Message
 
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ── Role_Type_Alias ────────────────────────────────────────────────────────────────────────
-
 MessageRole = Literal["user", "assistant"]
-
- #──────────────────────────────────────────────────────────────────────────────────────────────────
- 
- #──────────────────────────────────────────────────────────────────────────────────────────────────
- # ── Class_Creation_For_Principles_To_Be_Followed ─────────────────────────────────────────────────────────────────────
-
 
 class BaseRepository(ABC):
     """Common interface for all data storage backends (mock in-memory, MySQL, …)."""
-    
-    #──────────────────────────────────────────────────────────────────────────────────────────────────
-    # ── Destinations_Management_[list, get, search] ───────────────────────────────────────────────────────────
 
     @abstractmethod
     async def list_destinations(
@@ -54,11 +40,6 @@ class BaseRepository(ABC):
         Returns up to 4 most-relevant Destination objects.
         """
         ...
-    #──────────────────────────────────────────────────────────────────────────────────────────────────
-    
-    #──────────────────────────────────────────────────────────────────────────────────────────────────
-    # ── Conversations_Management ──────────────────────────────────────────────────────────
-
     @abstractmethod
     async def create_conversation(self) -> Conversation:
         """Create and persist a new empty conversation, then return it."""
@@ -68,11 +49,6 @@ class BaseRepository(ABC):
     async def get_conversation(self, conversation_id: str) -> Conversation | None:
         """Return the conversation with the given UUID, or None if not found."""
         ...
-    #──────────────────────────────────────────────────────────────────────────────────────────────────
-    
-    #──────────────────────────────────────────────────────────────────────────────────────────────────
-    # ── Messages_Management ───────────────────────────────────────────────────────────────
-
     @abstractmethod
     async def add_message(
         self,
@@ -87,7 +63,3 @@ class BaseRepository(ABC):
     async def list_messages(self, conversation_id: str) -> list[Message]:
         """Return all messages for `conversation_id`, ordered oldest → newest."""
         ...
-
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ──────────────────────────────────────────────────────────────────────────────────────────────────
-# ──────────────────────────────────────────────────────────────────────────────────────────────────

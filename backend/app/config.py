@@ -3,33 +3,29 @@
 No Hardcoding Credentials within this File ...
 """
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-# ─────────────────────────────────────────────────────────────────
-# ── Globally_Accessibile_Object_Instantiation ────────────────────────────────────────────────
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # ── Database_Mode ────────────────────────────────────────────────────────
+    # Storage
     use_mock_db: bool = True
 
-    # ── MySQL (used only when use_mock_db: bool = False) ───────────────────────────────
+    # MySQL (used only when use_mock_db is false)
     mysql_host: str = "localhost"
     mysql_port: int = 3306
     mysql_user: str = "root"
     mysql_password: str = ""
     mysql_database: str = "sikkim_tourism"
 
-    # ── Gemini_AI ─────────────────────────────────────────────────────────
+    # AI providers
     gemini_api_key: str = ""
     gemini_model: str = "gemini-1.5-flash"
 
-    # ── Groq_AI ──────────────────────────────────────────────────────────
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
 
-    # ── Embedding_Model ───────────────────────────────────────────────────────
     # NOTE: "text-embedding-004" was retired by Google in late 2025. Use
     # "models/gemini-embedding-001" (3072-dim by default). vectorstore.py
     # detects the real output dimension at runtime, so this can be changed
@@ -42,29 +38,26 @@ class Settings(BaseSettings):
     # Leave empty to disable — chatbot silently falls back to RAG-only answers.
     tavily_api_key: str = ""
 
-    # ── Qdrant_Vector_Store ────────────────────────────────────────────────────
-
-    # ── Qdrant_Vector_Store ────────────────────────────────────────────────────
+    # Vector store
     qdrant_url: str = ""
     qdrant_api_key: str = ""  # Only Needed for Qdrant Cloud
     qdrant_collection: str = "sikkim_destinations"
 
-    # ── CORS (security-hardened defaults) ───────────────────────────────────
-    allowed_origins: str = "http://localhost:5173"  # FIXED: Explicit default for dev
-    allowed_methods: str = "GET,POST,OPTIONS"  # FIXED: Only necessary methods
-    allowed_headers: str = "Content-Type,Authorization"  # FIXED: Restrict headers
+    # Browser access
+    allowed_origins: str = "http://localhost:5173"
+    allowed_methods: str = "GET,POST,OPTIONS"
+    allowed_headers: str = "Content-Type,Authorization,X-Admin-Key"
 
-    # ── Admin_Auth (NEW - SECURITY) ─────────────────────────────────────────
+    # Admin access
     # Required to call POST /api/admin/sync. Left empty by default so the
     # endpoint FAILS CLOSED (rejects every request) until an operator sets
     # a real key — an unset secret must never mean "no auth required".
     # Generate one with: python -c "import secrets; print(secrets.token_urlsafe(32))"
     admin_api_key: str = ""
 
-    # ── Environment ───────────────────────────────────────────────────────────
+    # Runtime
     environment: str = "development"  # 'development' or 'production'
 
-    # ── Derived_Helpers ───────────────────────────────────────────────────────
     @property
     def db_mode(self) -> str:
         return "mock" if self.use_mock_db else "mysql"
@@ -103,11 +96,12 @@ class Settings(BaseSettings):
     def qdrant_mode(self) -> str:
         return "remote" if self.qdrant_url else "in-memory"
 
+    @model_validator(mode="after")
+    def validate_production_security(self):
+        """Reject the unsafe CORS shortcut before a production server starts."""
+        if self.environment.lower() == "production" and self.allowed_origins == "*":
+            raise ValueError("ALLOWED_ORIGINS cannot be '*' in production.")
+        return self
 
-# ────────────────────────────────────────────────────────────────
-# ── Object_Instantiation_Initialied_From_Here ────────────────────────────────────────────────
+
 settings = Settings()
-
-# ────────────────────────────────────────────────────────────────
-# ────────────────────────────────────────────────────────────────
-# ────────────────────────────────────────────────────────────────

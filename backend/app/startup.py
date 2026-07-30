@@ -28,25 +28,15 @@ from app.config import settings
 from app.database.base import BaseRepository
 from app.models.schemas import Destination
 from app.services.vectorstore import (
-    ensure_collection,
+    clear_collection,
     get_qdrant_client,
     get_vectorstore,
 )
 
 logger = logging.getLogger(__name__)
 
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-"""
-Convert a Destination Pydantic model into a rich LangChain Document.
-The page_content is a structured text block that Gemini reads as context.
-All fields are also preserved in metadata for filtering.
-"""
-
-
 def _destination_to_document(dest: Destination) -> Document:
-    """FIXED: Added type hint for dest parameter."""
+    """Build the text and metadata used for retrieval."""
     permit_text = ""
     if dest.permit_required and dest.permit_info:
         permit_text = f"\nPERMIT REQUIRED: {dest.permit_info}"
@@ -80,18 +70,8 @@ def _destination_to_document(dest: Destination) -> Document:
     return Document(page_content=page_content, metadata=metadata)
 
 
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-"""
-Load all destinations from `repo`, embed them, and upsert into Qdrant.
-Returns the number of documents indexed.
-Idempotent — safe to call multiple times (upserts, not inserts).
-"""
-
-
 async def populate_vectorstore(repo: BaseRepository) -> int:
-    """FIXED: Proper error handling when database is empty."""
+    """Replace the active Qdrant collection with the repository snapshot."""
     if not settings.gemini_api_key:
         logger.warning(
             "GEMINI_API_KEY is not set... — Skipping Vector Store Population. "
@@ -108,7 +88,6 @@ async def populate_vectorstore(repo: BaseRepository) -> int:
 
     destinations = await repo.list_destinations()
     if not destinations:
-        # FIXED: Raise error in production, warn in development
         error_msg = (
             f"CRITICAL: No destinations found in {settings.db_mode}. "
             "Vector store will be EMPTY!"
@@ -128,7 +107,9 @@ async def populate_vectorstore(repo: BaseRepository) -> int:
     documents = [_destination_to_document(d) for d in destinations]
 
     client = get_qdrant_client()
-    ensure_collection(client)
+    # Make syncs authoritative: upserts alone retain records that were deleted
+    # from the data source and let stale destinations leak into retrieval.
+    clear_collection(client)
 
     vectorstore = get_vectorstore()
     ids = [str(uuid.uuid4()) for _ in documents]
@@ -143,15 +124,6 @@ async def populate_vectorstore(repo: BaseRepository) -> int:
     return len(documents)
 
 
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-"""
-Re-sync the vector store with the current repository state.
-Called by the /api/admin/sync endpoint.
-"""
-
-
 async def resync_vectorstore(repo: BaseRepository) -> dict:
 
     count = await populate_vectorstore(repo)
@@ -162,8 +134,3 @@ async def resync_vectorstore(repo: BaseRepository) -> dict:
         "qdrant_mode": settings.qdrant_mode,
         "collection": settings.qdrant_collection,
     }
-
-
-# ────────────────────────────────────────────────────────────────
-# ────────────────────────────────────────────────────────────────
-# ────────────────────────────────────────────────────────────────

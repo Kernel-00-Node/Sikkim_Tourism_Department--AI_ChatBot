@@ -947,6 +947,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             requestBody.image_mime_type = image.mimeType;
         }
 
+        let shouldRefreshConversation = true;
         try {
             const response = await fetch(`/api/conversations/${currentConvId}/chat`, {
                 method: "POST",
@@ -1007,14 +1008,30 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             }
         } catch (error) {
             if (error instanceof Error && error.name === "AbortError") {
+                shouldRefreshConversation = false;
                 return;
             }
             console.error("Chat error:", error);
+            shouldRefreshConversation = false;
+            setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated.at(-1);
+                if (last?.role === "assistant" && !last.content) {
+                    updated[updated.length - 1] = {
+                        ...last,
+                        content:
+                            "I couldn't reach the assistant just now. Please check your connection and try again.",
+                    };
+                }
+                return updated;
+            });
         } finally {
             setIsStreaming(false);
             setLastSentHadImage(false);
             abortControllerRef.current = null;
-            if (currentConvId) {
+            // Keep a local connection error visible rather than replacing it
+            // with the server's user-only conversation state.
+            if (currentConvId && shouldRefreshConversation) {
                 try {
                     const res = await fetchConversation(currentConvId);
                     // The backend never persists `suggestions` (they're streamed once,

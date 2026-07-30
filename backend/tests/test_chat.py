@@ -48,6 +48,29 @@ def test_whitespace_only_message_is_rejected():
         ChatRequest(message="     ")
 
 
+def test_image_fields_must_be_provided_together():
+    with pytest.raises(ValidationError, match="supplied together"):
+        ChatRequest(message="Identify this", image_base64="aGVsbG8=")
+
+
+def test_invalid_image_base64_is_rejected():
+    with pytest.raises(ValidationError, match="valid base64"):
+        ChatRequest(
+            message="Identify this",
+            image_base64="not base64!",
+            image_mime_type="image/jpeg",
+        )
+
+
+def test_unsupported_image_type_is_rejected():
+    with pytest.raises(ValidationError, match="Unsupported image type"):
+        ChatRequest(
+            message="Identify this",
+            image_base64="aGVsbG8=",
+            image_mime_type="image/svg+xml",
+        )
+
+
 # ── /api/conversations endpoints (HTTP-level) ──────────────────────────────
 
 def test_create_then_fetch_conversation(client):

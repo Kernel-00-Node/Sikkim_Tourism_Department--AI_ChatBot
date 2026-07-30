@@ -23,13 +23,12 @@ import json
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.database.base import BaseRepository
 from app.database.factory import get_repo
+from app.limiting import limiter
 from app.models.schemas import ChatRequest, ConversationResponse, Message
 from app.services.rag_chain import (
     stream_rag_response,
@@ -40,7 +39,12 @@ from app.services.rag_chain import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-limiter = Limiter(key_func=get_remote_address)
+
+# Keep model prompts bounded as a conversation grows.  Full history was sent
+# on every request, eventually causing slow responses, provider token-limit
+# failures, and unnecessary cost.  The complete conversation remains stored
+# in the repository; this only limits what is placed in a single prompt.
+MAX_HISTORY_MESSAGES = 16
 
 
 def _messages_to_history(messages: list[Message]) -> list[dict]:
@@ -52,7 +56,7 @@ def _messages_to_history(messages: list[Message]) -> list[dict]:
     return [
         {"role": m.role, "content": m.content}
         for m in messages[:-1]
-    ]
+    ][-MAX_HISTORY_MESSAGES:]
 
 
 def _is_valid_uuid(val: str) -> bool:
@@ -62,6 +66,44 @@ def _is_valid_uuid(val: str) -> bool:
         return True
     except (ValueError, AttributeError):
         return False
+
+
+async def _build_official_destinations_context(repo: BaseRepository) -> str:
+    """
+    Build a compact, complete summary of every destination in the Department's
+    official records and hand it to the LLM as `extra_context` on every turn.
+
+    Why this exists: the RAG step (`_retrieve_context` in rag_chain.py) only
+    pulls the top-4 semantically similar destinations from the vector store.
+    That's fine for a narrow question ("tell me about Yumthang Valley") but it
+    silently drops destinations for broad questions like "what places can I
+    visit in Sikkim?" or "list all destinations" — the model would only ever
+    see 4 of them and could present an incomplete answer as if it were
+    complete. The full destinations list is small (a few dozen records at
+    most) and cheap to include in full on every request, so instead of hoping
+    similarity search happens to surface everything relevant, we always give
+    the model the complete, authoritative list and let it decide what's
+    relevant to the question. This is what previously made "FIX 3/FIX 4" in
+    rag_chain.py a no-op — the parameter existed but nothing ever populated it.
+    """
+    try:
+        destinations = await repo.list_destinations()
+    except Exception as exc:
+        logger.warning("Could not load destinations for extra_context: %s", exc)
+        return ""
+
+    if not destinations:
+        return ""
+
+    lines = ["OFFICIAL SIKKIM TOURISM DEPARTMENT — FULL DESTINATIONS LIST:"]
+    for d in destinations:
+        permit = f"Permit required ({d.permit_info})" if d.permit_required else "No permit required"
+        entry_fee = d.entry_fee or "Free"
+        lines.append(
+            f"- {d.name} ({d.district}, category: {d.category}): {d.description} "
+            f"Best time: {d.best_time}. Entry fee: {entry_fee}. {permit}."
+        )
+    return "\n".join(lines)
 
 
 @router.post("", response_model=ConversationResponse)
@@ -129,8 +171,14 @@ async def send_message(
                     image_mime_type=body.image_mime_type, # type: ignore[arg-type]
                 )
             else:
-                # Text path — Groq / Llama
-                stream = stream_rag_response(body.message, history)
+                # Text path — Groq / Llama.
+                # Always inject the complete, authoritative destinations list
+                # (see _build_official_destinations_context) so broad questions
+                # ("what can I see in Sikkim?", "list all destinations") get a
+                # complete, accurate answer instead of only the top-4 matches
+                # the vector similarity search happens to surface.
+                extra_context = await _build_official_destinations_context(repo)
+                stream = stream_rag_response(body.message, history, extra_context)
 
             async for chunk in stream:
                 assistant_chunks.append(chunk)

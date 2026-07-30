@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from base64 import b64decode
 from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ── Destination ──────────────────────────────────────────────────────────
@@ -163,26 +164,49 @@ class ChatRequest(BaseModel):
         if v is None:
             return v
         if not isinstance(v, str):
-            return None
+            raise ValueError("image_mime_type must be a string")
         v = v.strip().lower()
         if v not in _ALLOWED_IMAGE_MIME_TYPES:
-            import logging
-            logging.getLogger(__name__).warning(
-                "Rejected image upload with MIME type: %s", v
-            )
-            return None  # silently discard unsupported types rather than 422
+            raise ValueError("Unsupported image type. Use JPEG, PNG, WebP, or GIF.")
         return v
+
+    @model_validator(mode="after")
+    def validate_image_payload(self):
+        """Require a complete, valid image payload when an image is attached.
+
+        Previously an unsupported MIME type was silently converted to ``None``.
+        That left the base64 data in the request but routed the turn through the
+        text-only chain, which is surprising to users and makes invalid uploads
+        difficult to diagnose.  Validate both fields together and reject bad
+        base64 before it reaches the model provider.
+        """
+        if (self.image_base64 is None) != (self.image_mime_type is None):
+            raise ValueError(
+                "image_base64 and image_mime_type must be supplied together."
+            )
+        if self.image_base64 is None:
+            return self
+
+        try:
+            decoded = b64decode(self.image_base64, validate=True)
+        except (ValueError, TypeError):
+            raise ValueError("image_base64 must be valid base64 data.") from None
+
+        # Keep the server-side limit aligned with the 4 MB client-side limit.
+        if len(decoded) > 4 * 1024 * 1024:
+            raise ValueError("Image must be 4 MB or smaller.")
+        return self
 
 
 class ConversationResponse(BaseModel):
     """Response body for conversation create / fetch endpoints."""
 
     conversation: Conversation
-    messages: list[Message] = []
+    messages: list[Message] = Field(default_factory=list)
 
 
 class DestinationsListResponse(BaseModel):
     """Response body for GET /api/destinations/."""
 
-    destinations: list[DestinationSummary]
+    destinations: list[DestinationSummary] = Field(default_factory=list)
     total: int

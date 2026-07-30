@@ -19,13 +19,12 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.database.factory import get_repo
 from app.dependencies import verify_admin_key
+from app.limiting import limiter
 from app.routers import chat, destinations
 from app.startup import resync_vectorstore, populate_vectorstore
 
@@ -35,10 +34,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-# ────────────────────────────────────────────────────────────────
-# ── Lifespan (Startup / Shutdown) ──────────────────────────────────────────────
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,41 +53,35 @@ async def lifespan(app: FastAPI):
         logger.error("Vector store population failed (non-fatal): %s", exc)
         logger.warning("Falling back to basic keyword search. Fix the error and restart.")
     yield
-    # Nothing to Clean Up for `in-memory` Qdrant
-
-
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-# ── Security Middleware ────────────────────────────────────────────────────────────
-
-
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """FIXED: Add security headers to all responses."""
+    """Apply browser protections consistently to every API response."""
 
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "base-uri 'self'; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'; "
+            "img-src 'self' data:; "
+            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self'; "
+            "connect-src 'self' https://api.open-meteo.com"
+        )
         # Allow microphone for Web Speech API (voice input).
         # Camera is not used directly (images are file-uploaded, not captured).
         response.headers["Permissions-Policy"] = (
             "geolocation=(), microphone=(self), camera=()"
         )
 
-        # HSTS only in production
+        # HSTS is meaningful only when the site is always served over HTTPS.
         if settings.environment == "production":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
         return response
-
-
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-# ── App ─────────────────────────────────────────────────────────────
 
 app = FastAPI(
     title="Sikkim Tourism Assistant API",
@@ -107,17 +96,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-# ── Security Middleware ────────────────────────────────────────────────────────────
-
 app.add_middleware(SecurityHeadersMiddleware)
-
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-# ── CORS (Cross-Origin-Resource-Sharing) ────────────────────────────────────────────────
 
 origins = settings.origins_list
 methods = settings.methods_list
@@ -128,16 +107,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=allow_credentials,
-    allow_methods=methods,  # FIXED: Restricted to necessary methods
-    allow_headers=headers,  # FIXED: Restricted to necessary headers
+    allow_methods=methods,
+    allow_headers=headers,
 )
 
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-# ── Rate Limiting (NEW - SECURITY) ────────────────────────────────────────────────
-
-limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
 
@@ -148,28 +121,11 @@ async def rate_limit_exceeded_handler(request, exc: RateLimitExceeded):
         content={"detail": "Too many requests. Please wait a moment before trying again."},
     )
 
-
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-# ── Routers ───────────────────────────────────────────────────────────
-
 app.include_router(destinations.router, prefix="/api/destinations", tags=["Destinations"])
 app.include_router(chat.router, prefix="/api/conversations", tags=["Chat"])
-
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-# ── Global_Error_Handling ────────────────────────────────────────────────────────
-# Any unhandled exception (e.g. a NotImplementedError from a not-yet-wired-up
-# MySQL method, a DB connection error, etc.)
-# Every error the API returns has the
-# predictable JSON shape: {"detail": "..."}.
-
-
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc: Exception):
-    # FIXED: Don't expose stack traces in production
+    """Log detail server-side while returning a stable public error shape."""
     if settings.environment == "production":
         logger.error(
             f"Unhandled {type(exc).__name__} on {request.method} {request.url.path}"
@@ -189,13 +145,6 @@ async def unhandled_exception_handler(request, exc: Exception):
 async def http_exception_handler(request, exc: HTTPException):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
-
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
-# ── System_Endpoints ────────────────────────────────────────────────────────
-
-
 @app.get("/api/health", tags=["System"])
 def health():
     return {
@@ -214,7 +163,7 @@ def health():
 admin_router = APIRouter(
     prefix="/api/admin",
     tags=["Admin"],
-    dependencies=[Depends(verify_admin_key)],  # FIXED: require X-Admin-Key on every route below
+    dependencies=[Depends(verify_admin_key)],
 )
 
 
@@ -226,15 +175,7 @@ async def sync_vectorstore(repo=Depends(get_repo)):
     """
     return await resync_vectorstore(repo)
 
-
-# ────────────────────────────────────────────────────────────────
-
-# ────────────────────────────────────────────────────────────────
 app.include_router(admin_router)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
-# ────────────────────────────────────────────────────────────────
-# ────────────────────────────────────────────────────────────────
-# ────────────────────────────────────────────────────────────────
