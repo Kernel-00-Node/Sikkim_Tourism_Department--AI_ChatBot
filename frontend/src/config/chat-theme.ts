@@ -152,7 +152,10 @@ export function useChatTheme(): ChatTheme {
     const observer = new MutationObserver(apply);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class"],
+      // "class" catches the light/dark toggle; "style" catches the custom
+      // dark-mode color picker, which sets --chat-* vars inline rather than
+      // via a class change.
+      attributeFilter: ["class", "style"],
     });
     return () => observer.disconnect();
   }, []);
