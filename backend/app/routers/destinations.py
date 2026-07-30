@@ -25,13 +25,15 @@ def _to_summary(d: Destination) -> DestinationSummary:
         image_placeholder=d.image_placeholder,
         image_url=d.image_url,
         description=d.description[:160] + ("…" if len(d.description) > 160 else ""),
+        latitude=d.latitude,
+        longitude=d.longitude,
     )
 
 @router.get("", response_model=DestinationsListResponse)
 async def list_destinations(
-    search: str | None = Query(None, max_length=100),
-    category: str | None = Query(None),
-    repo: BaseRepository = Depends(get_repo),
+        search: str | None = Query(None, max_length=100),
+        category: str | None = Query(None),
+        repo: BaseRepository = Depends(get_repo),
 ):
     if category and category not in VALID_CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Invalid category. Choose from: {', '.join(sorted(VALID_CATEGORIES))}")
@@ -50,8 +52,8 @@ async def list_categories():
 
 @router.get("/{destination_id}", response_model=Destination)
 async def get_destination(
-    destination_id: int,
-    repo: BaseRepository = Depends(get_repo),
+        destination_id: int,
+        repo: BaseRepository = Depends(get_repo),
 ):
     destination = await repo.get_destination(destination_id)
     if not destination:

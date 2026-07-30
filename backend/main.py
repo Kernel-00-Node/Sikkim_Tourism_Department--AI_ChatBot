@@ -76,8 +76,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        # Allow microphone for Web Speech API (voice input).
+        # Camera is not used directly (images are file-uploaded, not captured).
         response.headers["Permissions-Policy"] = (
-            "geolocation=(), microphone=(), camera=()"
+            "geolocation=(), microphone=(self), camera=()"
         )
 
         # HSTS only in production

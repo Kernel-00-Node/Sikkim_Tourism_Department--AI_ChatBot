@@ -49,6 +49,10 @@ export interface Destination {
   imageUrl: string | null;
   /** Hex colour used as a CSS background fallback when no image is available. */
   imagePlaceholder: string;
+  /** Decimal latitude — used by useWeather hook for live weather fetching. */
+  latitude: number | null;
+  /** Decimal longitude — used by useWeather hook for live weather fetching. */
+  longitude: number | null;
 }
 
 export interface DestinationSummary {
@@ -63,6 +67,8 @@ export interface DestinationSummary {
   tags: string[];
   imageUrl: string | null;
   imagePlaceholder: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface Conversation {
@@ -78,6 +84,12 @@ export interface Message {
   content: string;
   createdAt: string;
   suggestions?: string[];
+  /**
+   * Frontend-only: data-URL of an image the user attached to this message.
+   * Never sent to or received from the backend — used only to render the
+   * image thumbnail inside the user bubble without a round-trip.
+   */
+  imageDataUrl?: string;
 }
 
 // ── Raw shapes (backend snake_case) ──────────────────────────────────────────
@@ -101,6 +113,8 @@ interface RawDestination {
   tags: string[];
   image_url: string | null;
   image_placeholder: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface RawDestinationSummary {
@@ -115,6 +129,8 @@ interface RawDestinationSummary {
   tags: string[];
   image_url: string | null;
   image_placeholder: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface RawConversation {
@@ -145,13 +161,15 @@ function mapDestination(d: RawDestination): Destination {
     bestTimeToVisit: d.best_time,
     entryFee: d.entry_fee ?? null,
     permitsRequired: d.permit_required
-      ? (d.permit_info ?? "Required")
-      : "Not required",
+        ? (d.permit_info ?? "Required")
+        : "Not required",
     howToReach: d.how_to_reach,
     highlights: d.highlights ?? [],
     tags: d.tags ?? [],
     imageUrl: d.image_url ?? null,
     imagePlaceholder: d.image_placeholder ?? "#6b7280",
+    latitude: d.latitude ?? null,
+    longitude: d.longitude ?? null,
   };
 }
 
@@ -168,6 +186,8 @@ function mapDestinationSummary(d: RawDestinationSummary): DestinationSummary {
     tags: d.tags ?? [],
     imageUrl: d.image_url ?? null,
     imagePlaceholder: d.image_placeholder ?? "#6b7280",
+    latitude: d.latitude ?? null,
+    longitude: d.longitude ?? null,
   };
 }
 
@@ -196,9 +216,9 @@ function mapMessage(m: RawMessage): Message {
  *                 The caller should catch AbortError and ignore it.
  */
 export async function fetchDestinations(
-  search?: string,
-  category?: string,
-  signal?: AbortSignal,
+    search?: string,
+    category?: string,
+    signal?: AbortSignal,
 ): Promise<DestinationSummary[]> {
   const params = new URLSearchParams();
   if (search) params.set("search", search);
@@ -206,7 +226,7 @@ export async function fetchDestinations(
   const q = params.toString();
   const res = await apiFetch<{ destinations: RawDestinationSummary[]; total: number }>(
       `/destinations${q ? "?" + q : ""}`,
-    { signal },
+      { signal },
   );
   // Guard against a missing or malformed destinations array
   return (res.destinations ?? []).map(mapDestinationSummary);

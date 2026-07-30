@@ -40,6 +40,10 @@ class Destination(BaseModel):
     # Relative URL (e.g. /images/Gangtok.png) or colour hex used as CSS
     # background fallback when no image is available.
     image_url: str | None = None
+    # Geographic coordinates — used by the frontend to fetch live weather
+    # from Open-Meteo (free, no API key required).
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class DestinationSummary(BaseModel):
@@ -57,6 +61,9 @@ class DestinationSummary(BaseModel):
     image_url: str | None = None
     # Truncated to 160 chars by the router for list views
     description: str
+    # Geographic coordinates forwarded from the full Destination record
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 # ── Conversation ──────────────────────────────────────────────────────────
@@ -81,10 +88,29 @@ class Message(BaseModel):
 
 # ── Request / Response bodies ──────────────────────────────────────────────────
 
+# Allowed MIME types for image uploads — whitelist only.
+_ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+
+# Max base64 length accepted (~4 MB binary → ~5.5 MB base64).
+_MAX_IMAGE_BASE64_LEN = 5_600_000
+
+
 class ChatRequest(BaseModel):
-    """Body for POST /api/conversations/{id}/chat."""
+    """Body for POST /api/conversations/{id}/chat.
+
+    image_base64 / image_mime_type are optional.  When supplied the backend
+    routes the turn through Gemini Vision instead of the Groq text chain so
+    the AI can analyse the image and answer about it in a Sikkim context.
+    """
 
     message: str = Field(..., min_length=1, max_length=2000)
+
+    # ── Optional image attachment ──────────────────────────────────────────
+    # Raw base64-encoded image bytes (no data-URI prefix — strip it on the
+    # frontend before sending to keep the payload clean and avoid surprises
+    # when the backend validates length).
+    image_base64: str | None = Field(default=None, max_length=_MAX_IMAGE_BASE64_LEN)
+    image_mime_type: str | None = Field(default=None)
 
     @field_validator("message", mode="before")
     @classmethod
@@ -128,6 +154,23 @@ class ChatRequest(BaseModel):
                 f"Potential injection pattern detected in message: {v[:50]}..."
             )
 
+        return v
+
+    @field_validator("image_mime_type", mode="before")
+    @classmethod
+    def validate_mime_type(cls, v):
+        """Accept only images from the explicit whitelist."""
+        if v is None:
+            return v
+        if not isinstance(v, str):
+            return None
+        v = v.strip().lower()
+        if v not in _ALLOWED_IMAGE_MIME_TYPES:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Rejected image upload with MIME type: %s", v
+            )
+            return None  # silently discard unsupported types rather than 422
         return v
 
 

@@ -1,6 +1,12 @@
 """
 LangChain RAG chain for the Sikkim Tourism Assistant.
 Pure LCEL — works with LangChain 0.2+ and 0.3+.
+
+Two public entry-points:
+  stream_rag_response(user_message, history, extra_context)
+      → text-only path via Groq (Llama-3.3-70b)
+  stream_rag_response_with_image(user_message, history, image_base64, mime_type)
+      → vision path via Gemini 1.5 Flash (multimodal)
 """
 from __future__ import annotations
 
@@ -9,7 +15,7 @@ import logging
 from collections.abc import AsyncGenerator
 from functools import lru_cache
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
@@ -83,6 +89,35 @@ _FOLLOWUP_SYSTEM = (
     "Your answer: {answer}"
 )
 
+# Vision-specific system prompt.  Shares the same scope rules but adds
+# explicit image-analysis instructions.
+_VISION_SYSTEM_PROMPT = (
+    "You are the Sikkim Tourism Assistant, the official virtual guide of the Tourism and Civil "
+    "Aviation Department, Government of Sikkim.\n\n"
+
+    "The user has sent you an image. Your job:\n"
+    "1. First, look at the image carefully and identify what is shown — a destination, landmark, "
+    "trail, wildlife, flower, food dish, cultural artefact, etc.\n"
+    "2. If the image shows something related to Sikkim (a place, animal, plant, cultural item, "
+    "food, or anything a visitor to Sikkim might encounter), describe what it is and share "
+    "relevant, helpful information about it — such as location in Sikkim, best time to visit, "
+    "permit requirements, how to reach it, or similar facts.\n"
+    "3. If the image clearly shows something unrelated to Sikkim (a foreign city, a random "
+    "consumer product, a celebrity, etc.), politely say: 'I can only help with images related to "
+    "Sikkim — places, wildlife, culture, and travel. Is there something about Sikkim I can "
+    "help with?'\n\n"
+
+    "ANSWERING:\n"
+    "Be friendly and locally knowledgeable. Mention permits clearly when required. "
+    "Keep responses concise but complete. Use bullet points for lists. "
+    "Do not make up facts. Do not use emojis.\n\n"
+
+    "Use the following context from the Department's records where relevant:\n"
+    "--- CONTEXT ---\n"
+    "{context}\n"
+    "--- END CONTEXT ---"
+)
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -119,7 +154,6 @@ async def _contextualise_question(inputs: dict) -> str:
         ("human", "{input}"),
     ])
     chain = rephrase_prompt | _get_llm(streaming=False) | StrOutputParser()
-    # FIX 5: was "network round-trip to Gemini" — corrected to Groq
     # Use ainvoke so this doesn't block the FastAPI event loop during the
     # network round-trip to Groq.
     return await chain.ainvoke({"input": question, "chat_history": chat_history})
@@ -166,7 +200,7 @@ def _build_chain():
     )
 
 # ---------------------------------------------------------------------------
-# Public API
+# Public API — text-only path (Groq / Llama)
 # ---------------------------------------------------------------------------
 
 # FIX 4: added extra_context parameter so the chat router can inject the
@@ -191,13 +225,87 @@ async def stream_rag_response(
                 yield chunk
     except Exception as exc:
         logger.exception("RAG chain error: %s", exc)
-        # FIX 7: was yielding raw Python exception string to the user.
-        # Now yields a friendly message instead.
         yield (
             "I'm sorry, I ran into a problem processing your request. "
             "Please try again in a moment."
         )
 
+
+# ---------------------------------------------------------------------------
+# Public API — vision path (Gemini multimodal)
+# ---------------------------------------------------------------------------
+
+async def stream_rag_response_with_image(
+        user_message: str,
+        history_messages: list[dict],
+        image_base64: str,
+        image_mime_type: str,
+) -> AsyncGenerator[str, None]:
+    """Analyse an attached image with Gemini Vision, grounded in Sikkim context.
+
+    Falls back gracefully if GEMINI_API_KEY is missing or any error occurs.
+    """
+    if not settings.gemini_api_key:
+        yield (
+            "Image analysis requires a Gemini API key. "
+            "Please add GEMINI_API_KEY to your .env file and restart."
+        )
+        return
+
+    # Retrieve Sikkim-relevant context from Qdrant to ground the vision answer.
+    context = await _retrieve_context(user_message)
+
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI  # type: ignore
+
+        vision_llm = ChatGoogleGenerativeAI(
+            model=settings.gemini_model,          # gemini-1.5-flash supports vision
+            google_api_key=settings.gemini_api_key,
+            temperature=0.3,
+            max_output_tokens=1024,
+            streaming=True,
+        )
+
+        # Build message list: system + history + multimodal user turn.
+        messages: list = [
+            SystemMessage(content=_VISION_SYSTEM_PROMPT.format(context=context or "No specific records found.")),
+        ]
+        for m in history_messages:
+            if m["role"] == "user":
+                messages.append(HumanMessage(content=m["content"]))
+            else:
+                messages.append(AIMessage(content=m["content"]))
+
+        # The final user turn carries both the text question and the image.
+        user_text = user_message or "What is shown in this image? How does it relate to Sikkim?"
+        messages.append(
+            HumanMessage(content=[
+                {"type": "text", "text": user_text},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{image_mime_type};base64,{image_base64}"
+                    },
+                },
+            ])
+        )
+
+        async for chunk in vision_llm.astream(messages):
+            text = chunk.content
+            if text:
+                yield str(text)
+
+    except Exception as exc:
+        logger.exception("Vision chain error: %s", exc)
+        yield (
+            "I'm sorry, I had trouble analysing that image. "
+            "Please try again or ask your question in text."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Follow-up suggestion chips (shared by both paths)
+# ---------------------------------------------------------------------------
 
 async def generate_followups(question: str, answer: str) -> list[str]:
     """

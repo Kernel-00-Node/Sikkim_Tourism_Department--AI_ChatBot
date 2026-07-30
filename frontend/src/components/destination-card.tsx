@@ -3,6 +3,7 @@ import { MapPin, Clock, Ticket, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion, useMotionValue, useTransform, useSpring } from "framer-motion";
 import { useRef } from "react";
+import { useWeather } from "@/hooks/use-weather";
 
 export function DestinationCard({
                                   dest,
@@ -45,6 +46,9 @@ export function DestinationCard({
     px.set(0);
     py.set(0);
   };
+
+  // Live weather from Open-Meteo — no API key needed
+  const { weather } = useWeather(dest.latitude, dest.longitude);
 
   return (
       <motion.div
@@ -95,6 +99,7 @@ export function DestinationCard({
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(6,18,16,0.06),rgba(6,18,16,0.10),rgba(6,18,16,0.68))]" />
           <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/18 to-transparent" />
 
+          {/* Top badge row: category on left, live weather on right */}
           <div className="absolute left-4 top-4 flex items-center gap-2">
             <Badge
                 variant="secondary"
@@ -103,6 +108,20 @@ export function DestinationCard({
               {dest.category}
             </Badge>
           </div>
+
+          {/* Live weather badge — top right, fades in once data arrives */}
+          {weather && (
+              <motion.div
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="absolute right-4 top-4 flex items-center gap-1 rounded-full border border-white/20 bg-black/30 px-2.5 py-1 text-[0.7rem] font-semibold text-white backdrop-blur-sm"
+                  title={`${weather.condition} · ${weather.windspeedKmh} km/h · ${weather.humidity}% humidity`}
+              >
+                <span role="img" aria-label={weather.condition}>{weather.emoji}</span>
+                <span>{weather.tempC}°C</span>
+              </motion.div>
+          )}
 
           <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
             <div>

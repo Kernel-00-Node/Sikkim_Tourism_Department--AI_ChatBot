@@ -36,6 +36,8 @@ DESTINATIONS: list[Destination] = [
         tags=["capital", "monastery", "culture", "shopping", "viewpoint", "ropeway"],
         image_placeholder="#4a7c59",
         image_url="/images/Gangtok.png",
+        latitude=27.3314,
+        longitude=88.6138,
     ),
     Destination(
         id=2,
@@ -71,6 +73,8 @@ DESTINATIONS: list[Destination] = [
         tags=["border", "high-altitude", "silk-road", "snow", "permit", "adventure"],
         image_placeholder="#5b6d8a",
         image_url="/images/Nathula_Pass.jpeg",
+        latitude=27.3856,
+        longitude=88.8232,
     ),
     Destination(
         id=3,
@@ -105,6 +109,8 @@ DESTINATIONS: list[Destination] = [
         tags=["lake", "glacial", "sacred", "wildlife", "rhododendron", "snow", "permit"],
         image_placeholder="#2e6fa3",
         image_url="/images/Tsomgo_Lake.jpeg",
+        latitude=27.3734,
+        longitude=88.7694,
     ),
     Destination(
         id=4,
@@ -139,7 +145,8 @@ DESTINATIONS: list[Destination] = [
         tags=["valley", "flowers", "rhododendron", "hot-springs", "north-sikkim", "permit"],
         image_placeholder="#7d5a9a",
         image_url="/images/Yumthang_Valley.jpeg",
-
+        latitude=27.8253,
+        longitude=88.6842,
     ),
     Destination(
         id=5,
@@ -171,6 +178,8 @@ DESTINATIONS: list[Destination] = [
         tags=["viewpoint", "kanchenjunga", "monastery", "ruins", "west-sikkim", "bridge"],
         image_placeholder="#8b5e3c",
         image_url="/images/Pelling.jpeg",
+        latitude=27.2990,
+        longitude=88.2604,
     ),
     Destination(
         id=6,
@@ -206,6 +215,8 @@ DESTINATIONS: list[Destination] = [
         tags=["history", "first-capital", "trek", "goechala", "monastery", "west-sikkim", "permit"],
         image_placeholder="#3d6b4f",
         image_url="/images/Yuksom.jpeg",
+        latitude=27.4350,
+        longitude=88.3370,
     ),
     Destination(
         id=7,
@@ -236,6 +247,8 @@ DESTINATIONS: list[Destination] = [
         tags=["buddhism", "buddha-statue", "south-sikkim", "wildlife", "monastery", "pilgrimage"],
         image_placeholder="#c4813a",
         image_url="/images/Ravangla.jpeg",
+        latitude=27.3040,
+        longitude=88.3615,
     ),
     Destination(
         id=8,
@@ -270,6 +283,8 @@ DESTINATIONS: list[Destination] = [
         tags=["lake", "high-altitude", "sacred", "sikh", "north-sikkim", "permit", "pilgrimage"],
         image_placeholder="#4a6fa5",
         image_url="/images/Gurudongmar_Lake.jpeg",
+        latitude=27.7163,
+        longitude=88.7274,
     ),
     Destination(
         id=9,
@@ -300,6 +315,8 @@ DESTINATIONS: list[Destination] = [
         tags=["pilgrimage", "guru-rinpoche", "south-sikkim", "statue", "hinduism", "buddhism"],
         image_placeholder="#9c5b5b",
         image_url="/images/Namchi.jpeg",
+        latitude=27.1672,
+        longitude=88.3595,
     ),
     Destination(
         id=10,
@@ -334,5 +351,7 @@ DESTINATIONS: list[Destination] = [
         tags=["snow", "zero-point", "north-sikkim", "glacier", "adventure", "permit"],
         image_placeholder="#5b8da8",
         image_url="/images/L_Z.jpeg",
+        latitude=27.6868,
+        longitude=88.7463,
     ),
 ]
