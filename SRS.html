@@ -1,0 +1,1954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>SRS — Sikkim Tourism AI Assistant v2.0</title>
+    <style>
+        /* ── Reset & Base ──────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg:        #070d1a;
+            --bg2:       #0c1526;
+            --bg3:       #111e33;
+            --surface:   #152035;
+            --border:    #1e3050;
+            --accent:    #10b981;
+            --accent2:   #3b82f6;
+            --accent3:   #8b5cf6;
+            --gold:      #f59e0b;
+            --text:      #e2e8f0;
+            --muted:     #7c91ab;
+            --sidebar-w: 270px;
+            --header-h:  64px;
+        }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        /* ── LOCK SCREEN ────────────────────────────────────────────────── */
+        #lock-screen {
+            position: fixed; inset: 0; z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            background: #030810;
+            transition: opacity .6s ease, transform .6s ease;
+        }
+        #lock-screen.unlocking {
+            opacity: 0; transform: scale(1.06) translateY(-20px);
+            pointer-events: none;
+        }
+        #lock-canvas {
+            position: absolute; inset: 0; pointer-events: none;
+        }
+        .lock-card {
+            position: relative; z-index: 2;
+            background: linear-gradient(135deg, rgba(15,25,46,.95), rgba(10,18,36,.98));
+            border: 1px solid rgba(16,185,129,.25);
+            border-radius: 20px;
+            padding: 48px 44px 44px;
+            width: min(440px, 92vw);
+            box-shadow: 0 0 60px rgba(16,185,129,.08), 0 30px 80px rgba(0,0,0,.6);
+            text-align: center;
+        }
+        .lock-emblem {
+            width: 72px; height: 72px;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 30px;
+            box-shadow: 0 0 30px rgba(16,185,129,.3);
+            animation: pulse-ring 2.5s infinite;
+        }
+        @keyframes pulse-ring {
+            0%,100%{ box-shadow: 0 0 30px rgba(16,185,129,.3); }
+            50%    { box-shadow: 0 0 50px rgba(16,185,129,.5), 0 0 80px rgba(16,185,129,.15); }
+        }
+        .lock-title {
+            font-size: 1.35rem; font-weight: 700;
+            background: linear-gradient(90deg, #10b981, #60a5fa);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+        .lock-sub { font-size: .83rem; color: var(--muted); margin-bottom: 32px; letter-spacing: .03em; }
+        .lock-label {
+            display: block; text-align: left; font-size: .75rem;
+            color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+            margin-bottom: 8px;
+        }
+        .lock-input-wrap { position: relative; margin-bottom: 16px; }
+        .lock-input {
+            width: 100%; padding: 14px 46px 14px 16px;
+            background: rgba(255,255,255,.04);
+            border: 1px solid var(--border);
+            border-radius: 10px; color: #fff; font-size: 1rem;
+            outline: none; letter-spacing: .06em;
+            transition: border-color .25s, box-shadow .25s;
+        }
+        .lock-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(16,185,129,.15);
+        }
+        .lock-eye {
+            position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+            cursor: pointer; color: var(--muted); font-size: 18px;
+            background: none; border: none; padding: 0;
+            transition: color .2s;
+        }
+        .lock-eye:hover { color: var(--accent); }
+        .lock-btn {
+            width: 100%; padding: 14px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none; border-radius: 10px;
+            color: #fff; font-size: 1rem; font-weight: 600;
+            cursor: pointer; letter-spacing: .04em;
+            transition: transform .15s, box-shadow .2s, opacity .15s;
+            box-shadow: 0 4px 20px rgba(16,185,129,.3);
+        }
+        .lock-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(16,185,129,.4); }
+        .lock-btn:active { transform: translateY(0); }
+        .lock-btn:disabled { opacity: .5; cursor: default; }
+        .lock-error {
+            margin-top: 12px; font-size: .83rem;
+            color: #f87171; min-height: 20px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            animation: shake .35s ease;
+        }
+        @keyframes shake {
+            0%,100%{ transform:translateX(0) }
+            20%{ transform:translateX(-6px) }
+            40%{ transform:translateX(6px) }
+            60%{ transform:translateX(-4px) }
+            80%{ transform:translateX(4px) }
+        }
+        .lock-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 28px; padding: 6px 14px;
+            background: rgba(245,158,11,.08);
+            border: 1px solid rgba(245,158,11,.2);
+            border-radius: 20px; font-size: .73rem; color: #f59e0b;
+        }
+
+        /* ── APP SHELL ──────────────────────────────────────────────────── */
+        #app { display: none; min-height: 100vh; }
+        #app.visible { display: block; }
+
+        /* ── TOP NAV BAR ────────────────────────────────────────────────── */
+        .topbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            height: var(--header-h);
+            background: rgba(7,13,26,.92);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 24px;
+            gap: 16px;
+        }
+        .topbar-menu-btn {
+            background: none; border: none; color: var(--muted);
+            font-size: 22px; cursor: pointer; display: flex; align-items: center;
+            padding: 6px; border-radius: 6px; transition: color .2s, background .2s;
+            display: none;
+        }
+        .topbar-menu-btn:hover { color: var(--text); background: var(--bg3); }
+        .topbar-logo {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none;
+        }
+        .topbar-logo-icon {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .topbar-logo-text {
+            font-size: .9rem; font-weight: 700;
+            background: linear-gradient(90deg, #10b981, #60a5fa);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .topbar-sub { font-size: .72rem; color: var(--muted); }
+        .topbar-right {
+            margin-left: auto; display: flex; align-items: center; gap: 12px;
+        }
+        .topbar-tag {
+            padding: 4px 12px; border-radius: 20px; font-size: .72rem; font-weight: 600;
+            background: rgba(16,185,129,.12); color: var(--accent);
+            border: 1px solid rgba(16,185,129,.25);
+        }
+        .topbar-ver {
+            font-size: .72rem; color: var(--muted);
+        }
+        .topbar-lock-btn {
+            padding: 6px 14px; font-size: .78rem;
+            background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.25);
+            color: #f87171; border-radius: 8px; cursor: pointer;
+            transition: background .2s; font-weight: 500;
+        }
+        .topbar-lock-btn:hover { background: rgba(248,113,113,.2); }
+
+        /* ── SIDEBAR ────────────────────────────────────────────────────── */
+        .sidebar {
+            position: fixed; top: var(--header-h); left: 0; bottom: 0;
+            width: var(--sidebar-w); z-index: 80;
+            background: var(--bg2);
+            border-right: 1px solid var(--border);
+            overflow-y: auto; padding: 20px 0 60px;
+            transition: transform .3s cubic-bezier(.4,0,.2,1);
+        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .nav-section-label {
+            padding: 8px 20px 4px;
+            font-size: .67rem; text-transform: uppercase; letter-spacing: .1em;
+            color: var(--muted); font-weight: 600;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 20px; font-size: .83rem; color: var(--muted);
+            cursor: pointer; border-left: 3px solid transparent;
+            transition: color .2s, background .2s, border-color .2s;
+            text-decoration: none;
+        }
+        .nav-item:hover { color: var(--text); background: rgba(255,255,255,.04); }
+        .nav-item.active {
+            color: var(--accent); border-left-color: var(--accent);
+            background: rgba(16,185,129,.06);
+        }
+        .nav-item-num {
+            font-size: .68rem; font-weight: 700; color: inherit;
+            width: 20px; text-align: center; flex-shrink: 0;
+        }
+
+        /* ── MAIN CONTENT ────────────────────────────────────────────────── */
+        .main {
+            margin-left: var(--sidebar-w);
+            padding-top: var(--header-h);
+            min-height: 100vh;
+        }
+
+        /* ── HERO ───────────────────────────────────────────────────────── */
+        .hero {
+            position: relative; overflow: hidden;
+            padding: 80px 60px 72px;
+            background: linear-gradient(135deg, #070d1a 0%, #0b1930 40%, #0e2244 100%);
+            border-bottom: 1px solid var(--border);
+        }
+        .hero-bg-grid {
+            position: absolute; inset: 0; pointer-events: none;
+            background-image:
+                    linear-gradient(rgba(16,185,129,.04) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(16,185,129,.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 60%, transparent 100%);
+        }
+        .hero-glow {
+            position: absolute; width: 600px; height: 400px;
+            background: radial-gradient(ellipse, rgba(16,185,129,.12) 0%, transparent 70%);
+            top: -60px; left: 50%; transform: translateX(-50%);
+            pointer-events: none;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 16px; border-radius: 24px;
+            background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.3);
+            font-size: .75rem; color: var(--accent); margin-bottom: 24px;
+            letter-spacing: .05em; font-weight: 600;
+        }
+        .hero h1 {
+            font-size: clamp(1.9rem, 4vw, 3rem); font-weight: 800; line-height: 1.15;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #fff 30%, #94a3b8);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero h1 span {
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero-desc { font-size: 1.05rem; color: var(--muted); max-width: 680px; margin-bottom: 36px; }
+        .hero-meta {
+            display: flex; flex-wrap: wrap; gap: 10px;
+        }
+        .hero-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 8px; font-size: .78rem;
+            background: rgba(255,255,255,.05); border: 1px solid var(--border);
+            color: var(--muted);
+        }
+        .hero-chip .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+        /* ── SECTIONS ────────────────────────────────────────────────────── */
+        .section {
+            padding: 56px 60px;
+            border-bottom: 1px solid var(--border);
+            opacity: 0; transform: translateY(32px);
+            transition: opacity .7s ease, transform .7s ease;
+        }
+        .section.in-view { opacity: 1; transform: translateY(0); }
+        .section:last-child { border-bottom: none; }
+
+        .sec-eyebrow {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: .72rem; text-transform: uppercase; letter-spacing: .12em;
+            color: var(--accent); font-weight: 700; margin-bottom: 12px;
+        }
+        .sec-eyebrow::before {
+            content:''; display: block; width: 20px; height: 2px;
+            background: var(--accent); border-radius: 1px;
+        }
+        .sec-title {
+            font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 800;
+            margin-bottom: 10px; line-height: 1.2;
+        }
+        .sec-subtitle { color: var(--muted); font-size: .95rem; max-width: 640px; margin-bottom: 36px; }
+
+        /* ── SUB-SECTIONS ──────────────────────────────────────────────── */
+        .sub-section { margin-bottom: 36px; }
+        .sub-title {
+            font-size: 1.08rem; font-weight: 700; color: #c8d8f0;
+            margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+        }
+        .sub-title-num {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 26px; height: 26px; border-radius: 6px;
+            background: rgba(16,185,129,.15); color: var(--accent);
+            font-size: .72rem; font-weight: 800; flex-shrink: 0;
+        }
+        p { color: var(--muted); margin-bottom: 12px; font-size: .93rem; line-height: 1.75; }
+        p strong { color: var(--text); }
+
+        /* ── CARDS / GRIDS ───────────────────────────────────────────────── */
+        .card-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px; margin-top: 20px;
+        }
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; padding: 22px;
+            transition: transform .25s, border-color .25s, box-shadow .25s;
+            position: relative; overflow: hidden;
+        }
+        .card::before {
+            content:''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: var(--card-accent, linear-gradient(90deg, #10b981, #3b82f6));
+        }
+        .card:hover { transform: translateY(-3px); border-color: rgba(16,185,129,.3); box-shadow: 0 12px 36px rgba(0,0,0,.3); }
+        .card-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            background: var(--card-icon-bg, rgba(16,185,129,.1));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; margin-bottom: 14px;
+        }
+        .card h4 { font-size: .95rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .card p { font-size: .82rem; margin: 0; }
+
+        /* ── FEATURE LIST ────────────────────────────────────────────────── */
+        .feat-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+        .feat-list li {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 14px 16px; border-radius: 10px;
+            background: rgba(255,255,255,.02); border: 1px solid var(--border);
+            font-size: .87rem; color: var(--muted);
+            transition: background .2s, border-color .2s;
+        }
+        .feat-list li:hover { background: rgba(255,255,255,.04); border-color: rgba(16,185,129,.2); }
+        .feat-check {
+            width: 20px; height: 20px; border-radius: 6px;
+            background: rgba(16,185,129,.12); color: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; flex-shrink: 0; margin-top: 1px;
+        }
+        .feat-list li strong { color: var(--text); }
+
+        /* ── TABLE ───────────────────────────────────────────────────────── */
+        .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); margin-top: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+        thead tr { background: var(--surface); }
+        thead th {
+            padding: 12px 16px; text-align: left;
+            font-size: .72rem; text-transform: uppercase; letter-spacing: .08em;
+            color: var(--muted); font-weight: 700; border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        tbody tr { border-bottom: 1px solid rgba(30,48,80,.5); transition: background .15s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,.02); }
+        tbody td { padding: 11px 16px; color: var(--muted); vertical-align: top; }
+        tbody td strong { color: var(--text); }
+        .td-code {
+            font-family: 'Courier New', monospace; font-size: .78rem;
+            color: #93c5fd; background: rgba(59,130,246,.08);
+            padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+        }
+        .badge {
+            display: inline-block; padding: 2px 10px; border-radius: 20px;
+            font-size: .7rem; font-weight: 700; white-space: nowrap;
+        }
+        .badge-get { background: rgba(16,185,129,.12); color: #34d399; }
+        .badge-post { background: rgba(245,158,11,.12); color: #fbbf24; }
+        .badge-req { background: rgba(239,68,68,.1); color: #f87171; }
+        .badge-opt { background: rgba(148,163,184,.1); color: #94a3b8; }
+        .badge-high { background: rgba(239,68,68,.1); color: #f87171; }
+        .badge-med { background: rgba(245,158,11,.1); color: #fbbf24; }
+        .badge-low { background: rgba(16,185,129,.1); color: #34d399; }
+
+        /* ── ARCHITECTURE DIAGRAM ────────────────────────────────────────── */
+        .arch-diagram {
+            margin-top: 24px; border-radius: 16px; overflow: hidden;
+            border: 1px solid var(--border);
+            background: linear-gradient(135deg, #0a1628, #0f1e38);
+            padding: 40px 32px;
+        }
+        .arch-row {
+            display: flex; align-items: center; justify-content: center;
+            flex-wrap: wrap; gap: 12px; margin-bottom: 8px;
+        }
+        .arch-node {
+            padding: 10px 18px; border-radius: 10px;
+            font-size: .78rem; font-weight: 700; text-align: center;
+            min-width: 110px; border: 1px solid;
+        }
+        .arch-arrow {
+            display: flex; flex-direction: column; align-items: center;
+            color: var(--muted); font-size: .65rem; gap: 2px;
+        }
+        .arch-arrow .line { width: 2px; height: 30px; background: var(--border); margin: 0 auto; }
+        .arch-arrow .tip { font-size: 12px; color: var(--muted); }
+        .arch-node-blue { background: rgba(59,130,246,.1); color: #60a5fa; border-color: rgba(59,130,246,.3); }
+        .arch-node-green { background: rgba(16,185,129,.1); color: #34d399; border-color: rgba(16,185,129,.3); }
+        .arch-node-purple { background: rgba(139,92,246,.1); color: #a78bfa; border-color: rgba(139,92,246,.3); }
+        .arch-node-gold { background: rgba(245,158,11,.1); color: #fbbf24; border-color: rgba(245,158,11,.3); }
+        .arch-node-red { background: rgba(239,68,68,.1); color: #f87171; border-color: rgba(239,68,68,.3); }
+        .arch-label {
+            font-size: .68rem; color: var(--muted); text-align: center;
+            margin-bottom: 24px; letter-spacing: .04em;
+        }
+        .arch-layer-label {
+            font-size: .67rem; text-transform: uppercase; letter-spacing: .1em;
+            color: var(--muted); font-weight: 700; margin-bottom: 8px; text-align: center;
+        }
+        .arch-separator {
+            width: 100%; height: 1px; background: var(--border); margin: 16px 0;
+            position: relative;
+        }
+        .arch-separator span {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            top: -9px; background: #0f1e38; padding: 0 12px;
+            font-size: .65rem; color: var(--muted); white-space: nowrap;
+        }
+
+        /* ── REQUIREMENTS TABLE ──────────────────────────────────────────── */
+        .req-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+        .req-row {
+            display: grid; grid-template-columns: 90px 1fr auto;
+            gap: 12px; align-items: center;
+            padding: 12px 16px; border-radius: 10px;
+            background: rgba(255,255,255,.02); border: 1px solid var(--border);
+            transition: background .15s;
+        }
+        .req-row:hover { background: rgba(255,255,255,.035); }
+        .req-id { font-family: 'Courier New', monospace; font-size: .78rem; color: #93c5fd; }
+        .req-desc { font-size: .85rem; color: var(--muted); }
+        .req-desc strong { color: var(--text); display: block; font-size: .88rem; margin-bottom: 2px; }
+
+        /* ── TEAM CARDS ──────────────────────────────────────────────────── */
+        .team-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px; margin-top: 24px;
+        }
+        .team-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 16px; padding: 30px 24px 24px;
+            text-align: center;
+            transition: transform .3s, border-color .3s, box-shadow .3s;
+            position: relative; overflow: hidden;
+            animation: fadeInUp .6s ease forwards;
+            opacity: 0;
+        }
+        .team-card:nth-child(1) { animation-delay: .1s; --team-color: #10b981; }
+        .team-card:nth-child(2) { animation-delay: .2s; --team-color: #3b82f6; }
+        .team-card:nth-child(3) { animation-delay: .3s; --team-color: #8b5cf6; }
+        .team-card:nth-child(4) { animation-delay: .4s; --team-color: #f59e0b; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(28px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .team-card::before {
+            content:''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: var(--team-color, #10b981);
+        }
+        .team-card::after {
+            content:''; position: absolute;
+            top: -60px; right: -60px; width: 140px; height: 140px;
+            background: radial-gradient(circle, rgba(var(--tc-rgb, 16,185,129),.07) 0%, transparent 70%);
+            border-radius: 50%; pointer-events: none;
+        }
+        .team-card:nth-child(1)::after { --tc-rgb: 16,185,129; }
+        .team-card:nth-child(2)::after { --tc-rgb: 59,130,246; }
+        .team-card:nth-child(3)::after { --tc-rgb: 139,92,246; }
+        .team-card:nth-child(4)::after { --tc-rgb: 245,158,11; }
+        .team-card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,.12); box-shadow: 0 16px 44px rgba(0,0,0,.35); }
+        .team-avatar {
+            width: 88px; height: 88px; border-radius: 50%;
+            margin: 0 auto 18px;
+            background: linear-gradient(135deg, rgba(var(--tc-rgb, 16,185,129),.2), rgba(var(--tc-rgb, 16,185,129),.05));
+            border: 3px solid var(--team-color, #10b981);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; font-weight: 800; color: var(--team-color, #10b981);
+            box-shadow: 0 0 0 6px rgba(var(--tc-rgb, 16,185,129), .08);
+            position: relative; overflow: hidden;
+        }
+        .team-avatar img {
+            width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+            position: absolute; inset: 0;
+        }
+        .team-avatar .avatar-placeholder {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, rgba(var(--tc-rgb, 16,185,129),.15), rgba(var(--tc-rgb, 16,185,129),.05));
+        }
+        .team-name { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .team-num {
+            position: absolute; top: 14px; right: 14px;
+            width: 22px; height: 22px; border-radius: 50%;
+            background: rgba(var(--tc-rgb, 16,185,129),.12);
+            color: var(--team-color, #10b981);
+            font-size: .65rem; font-weight: 800;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid rgba(var(--tc-rgb, 16,185,129),.3);
+        }
+        .team-role {
+            font-size: .78rem; color: var(--muted); line-height: 1.5; margin-bottom: 14px;
+        }
+        .team-badge {
+            display: inline-block; padding: 3px 12px; border-radius: 20px;
+            font-size: .68rem; font-weight: 700;
+            background: rgba(var(--tc-rgb, 16,185,129),.1);
+            color: var(--team-color, #10b981);
+            border: 1px solid rgba(var(--tc-rgb, 16,185,129),.25);
+        }
+
+        /* ── STACK PILLS ─────────────────────────────────────────────────── */
+        .stack-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+        .pill {
+            padding: 5px 13px; border-radius: 20px; font-size: .75rem; font-weight: 600;
+            border: 1px solid;
+        }
+        .pill-green { background: rgba(16,185,129,.1); color: #34d399; border-color: rgba(16,185,129,.25); }
+        .pill-blue  { background: rgba(59,130,246,.1); color: #60a5fa; border-color: rgba(59,130,246,.25); }
+        .pill-purple{ background: rgba(139,92,246,.1); color: #a78bfa; border-color: rgba(139,92,246,.25); }
+        .pill-gold  { background: rgba(245,158,11,.1); color: #fbbf24; border-color: rgba(245,158,11,.25); }
+        .pill-red   { background: rgba(239,68,68,.1);  color: #f87171; border-color: rgba(239,68,68,.25); }
+        .pill-gray  { background: rgba(148,163,184,.07); color: #94a3b8; border-color: rgba(148,163,184,.2); }
+
+        /* ── CALLOUT BOX ─────────────────────────────────────────────────── */
+        .callout {
+            padding: 16px 20px; border-radius: 10px; margin: 16px 0;
+            display: flex; gap: 12px; align-items: flex-start;
+            font-size: .85rem;
+        }
+        .callout-info { background: rgba(59,130,246,.07); border-left: 3px solid #3b82f6; }
+        .callout-warn { background: rgba(245,158,11,.07); border-left: 3px solid #f59e0b; }
+        .callout-success { background: rgba(16,185,129,.07); border-left: 3px solid #10b981; }
+        .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+        .callout-body { color: var(--muted); }
+        .callout-body strong { color: var(--text); display: block; margin-bottom: 3px; }
+
+        /* ── FOOTER ──────────────────────────────────────────────────────── */
+        .footer {
+            margin-left: var(--sidebar-w);
+            padding: 24px 60px;
+            background: var(--bg2); border-top: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 12px;
+            font-size: .75rem; color: var(--muted);
+        }
+        .footer-left { display: flex; align-items: center; gap: 8px; }
+        .footer-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+
+        /* ── PROGRESS BAR ────────────────────────────────────────────────── */
+        .reading-progress {
+            position: fixed; top: var(--header-h); left: var(--sidebar-w);
+            right: 0; height: 2px; z-index: 90; background: var(--border);
+        }
+        .reading-progress-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+            transition: width .1s linear;
+        }
+
+        /* ── SCROLL-TO-TOP ───────────────────────────────────────────────── */
+        #scroll-top {
+            position: fixed; bottom: 28px; right: 28px; z-index: 200;
+            width: 42px; height: 42px; border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            border: none; cursor: pointer; color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; box-shadow: 0 4px 16px rgba(16,185,129,.3);
+            opacity: 0; transform: translateY(12px);
+            transition: opacity .3s, transform .3s;
+        }
+        #scroll-top.visible { opacity: 1; transform: translateY(0); }
+        #scroll-top:hover { transform: scale(1.08) translateY(-2px); }
+
+        /* ── OVERLAY (mobile) ────────────────────────────────────────────── */
+        .overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.6); z-index: 75; backdrop-filter: blur(4px);
+        }
+
+        /* ── DIVIDER ─────────────────────────────────────────────────────── */
+        .divider {
+            height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent);
+            margin: 28px 0;
+        }
+
+        /* ── CODE BLOCK ──────────────────────────────────────────────────── */
+        .code-block {
+            background: #0a1628; border: 1px solid var(--border);
+            border-radius: 10px; padding: 18px 20px; font-size: .8rem;
+            font-family: 'Courier New', monospace; color: #93c5fd;
+            overflow-x: auto; margin: 14px 0; line-height: 1.7;
+        }
+        .code-block .kw { color: #c084fc; }
+        .code-block .str { color: #86efac; }
+        .code-block .cm { color: #6b7280; font-style: italic; }
+        .code-block .num { color: #fcd34d; }
+
+        /* ── VERSION TIMELINE ────────────────────────────────────────────── */
+        .timeline { display: flex; flex-direction: column; gap: 0; margin-top: 16px; }
+        .tl-item {
+            display: flex; gap: 16px; padding-bottom: 24px;
+            position: relative;
+        }
+        .tl-item:not(:last-child) .tl-line {
+            position: absolute; left: 15px; top: 32px; bottom: 0; width: 2px;
+            background: var(--border);
+        }
+        .tl-dot {
+            width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 800; border: 2px solid;
+            position: relative; z-index: 1;
+        }
+        .tl-dot-green { background: rgba(16,185,129,.15); color: var(--accent); border-color: var(--accent); }
+        .tl-dot-blue  { background: rgba(59,130,246,.15); color: #60a5fa; border-color: #3b82f6; }
+        .tl-body { flex: 1; padding-top: 6px; }
+        .tl-ver { font-size: .85rem; font-weight: 700; color: var(--text); }
+        .tl-date { font-size: .75rem; color: var(--muted); margin-bottom: 6px; }
+        .tl-desc { font-size: .83rem; color: var(--muted); margin: 0; }
+
+        /* ── RESPONSIVE ──────────────────────────────────────────────────── */
+        @media (max-width: 900px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+            .footer { margin-left: 0; }
+            .reading-progress { left: 0; }
+            .topbar-menu-btn { display: flex; }
+            .overlay.open { display: block; }
+            .section { padding: 40px 24px; }
+            .hero { padding: 48px 24px 44px; }
+            .footer { padding: 20px 24px; }
+            .req-row { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 520px) {
+            .card-grid { grid-template-columns: 1fr; }
+            .team-grid { grid-template-columns: repeat(2, 1fr); }
+            .topbar-ver, .topbar-sub { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LOCK SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="lock-screen" role="dialog" aria-modal="true" aria-label="Document access">
+    <canvas id="lock-canvas"></canvas>
+    <div class="lock-card">
+        <div class="lock-emblem" aria-hidden="true">🏔️</div>
+        <h1 class="lock-title">Sikkim Tourism AI Assistant</h1>
+        <p class="lock-sub">Software Requirements Specification · v2.0.0<br>Tourism &amp; Civil Aviation Dept, Government of Sikkim</p>
+        <label class="lock-label" for="pwd-input">🔒 Team Access Password</label>
+        <div class="lock-input-wrap">
+            <input class="lock-input" id="pwd-input" type="password"
+                   placeholder="Enter password to continue" autocomplete="current-password"
+                   aria-describedby="lock-err"/>
+            <button class="lock-eye" id="eye-btn" aria-label="Toggle password visibility">👁</button>
+        </div>
+        <button class="lock-btn" id="unlock-btn">Access Document</button>
+        <div class="lock-error" id="lock-err" role="alert" aria-live="polite"></div>
+        <div class="lock-badge">
+            <span>🛡</span>
+            <span>Restricted — Authorised Team Members Only</span>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════════════════════════ -->
+<div id="app">
+
+    <!-- Reading Progress Bar -->
+    <div class="reading-progress"><div class="reading-progress-fill" id="progress-fill"></div></div>
+
+    <!-- Top Bar -->
+    <nav class="topbar">
+        <button class="topbar-menu-btn" id="menu-btn" aria-label="Toggle navigation">☰</button>
+        <a class="topbar-logo" href="#hero">
+            <div class="topbar-logo-icon">🏔️</div>
+            <div>
+                <div class="topbar-logo-text">STAC Assistant SRS</div>
+                <div class="topbar-sub">Tourism &amp; Civil Aviation Dept · GoS</div>
+            </div>
+        </a>
+        <div class="topbar-right">
+            <span class="topbar-tag">v2.0.0</span>
+            <span class="topbar-ver">July 2025</span>
+            <button class="topbar-lock-btn" id="relock-btn">🔒 Lock</button>
+        </div>
+    </nav>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Document navigation">
+        <div class="nav-section-label">Document</div>
+        <a class="nav-item" href="#hero" data-section="hero"><span class="nav-item-num">⌂</span>Cover Page</a>
+        <div class="nav-section-label">Sections</div>
+        <a class="nav-item" href="#s1" data-section="s1"><span class="nav-item-num">1</span>Introduction</a>
+        <a class="nav-item" href="#s2" data-section="s2"><span class="nav-item-num">2</span>Overall Description</a>
+        <a class="nav-item" href="#s3" data-section="s3"><span class="nav-item-num">3</span>System Features</a>
+        <a class="nav-item" href="#s4" data-section="s4"><span class="nav-item-num">4</span>Interface Requirements</a>
+        <a class="nav-item" href="#s5" data-section="s5"><span class="nav-item-num">5</span>Non-Functional Req.</a>
+        <a class="nav-item" href="#s6" data-section="s6"><span class="nav-item-num">6</span>System Architecture</a>
+        <a class="nav-item" href="#s7" data-section="s7"><span class="nav-item-num">7</span>Data Model</a>
+        <a class="nav-item" href="#s8" data-section="s8"><span class="nav-item-num">8</span>API Reference</a>
+        <a class="nav-item" href="#s9" data-section="s9"><span class="nav-item-num">9</span>Security Design</a>
+        <a class="nav-item" href="#s10" data-section="s10"><span class="nav-item-num">10</span>Deployment &amp; Config</a>
+        <a class="nav-item" href="#s11" data-section="s11"><span class="nav-item-num">11</span>Testing Strategy</a>
+        <a class="nav-item" href="#s12" data-section="s12"><span class="nav-item-num">12</span>Team Contributors</a>
+        <a class="nav-item" href="#s13" data-section="s13"><span class="nav-item-num">13</span>Appendix &amp; Glossary</a>
+    </aside>
+
+    <!-- Mobile Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Main Content -->
+    <main class="main">
+
+        <!-- HERO / COVER ─────────────────────────────────────────────── -->
+        <section id="hero" class="hero">
+            <div class="hero-bg-grid"></div>
+            <div class="hero-glow"></div>
+            <div class="hero-badge">📄 Software Requirements Specification</div>
+            <h1>Sikkim Tourism &amp;<br><span>AI Assistant</span></h1>
+            <p class="hero-desc">
+                A production-grade RAG-powered chatbot for the Tourism &amp; Civil Aviation Department,
+                Government of Sikkim. This document defines all functional, non-functional, and system
+                requirements for the <strong>STAC AI Assistant v2.0</strong>.
+            </p>
+            <div class="hero-meta">
+                <div class="hero-chip"><span class="dot" style="background:#10b981"></span>Document Type: SRS</div>
+                <div class="hero-chip"><span class="dot" style="background:#3b82f6"></span>Version: 2.0.0</div>
+                <div class="hero-chip"><span class="dot" style="background:#8b5cf6"></span>Status: Final Draft</div>
+                <div class="hero-chip"><span class="dot" style="background:#f59e0b"></span>Date: July 2025</div>
+                <div class="hero-chip"><span class="dot" style="background:#ef4444"></span>Classification: Restricted</div>
+                <div class="hero-chip"><span class="dot" style="background:#10b981"></span>GoS · Internship Project</div>
+            </div>
+        </section>
+
+        <!-- §1 INTRODUCTION ──────────────────────────────────────────── -->
+        <section id="s1" class="section">
+            <div class="sec-eyebrow">Section 1</div>
+            <h2 class="sec-title">Introduction</h2>
+            <p class="sec-subtitle">Purpose, scope, definitions, and an overview of this specification document.</p>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">1.1</span>Purpose</div>
+                <p>This Software Requirements Specification (SRS) defines the complete set of requirements for the <strong>Sikkim Tourism &amp; Civil Aviation Department AI Assistant</strong> (hereafter "STAC Assistant" or "the System"). It serves as the authoritative reference for design, development, testing, and maintenance activities.</p>
+                <p>This document is intended for the development team, the Department of Tourism &amp; Civil Aviation (Government of Sikkim), project supervisors, and any future maintainers of the System.</p>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">1.2</span>Scope</div>
+                <p>The STAC Assistant is a full-stack web application that provides an <strong>AI-powered conversational interface</strong> for tourists, travel planners, and the general public to obtain accurate, real-time information about travel destinations, permits, routes, accommodation, festivals, and all aspects of visiting Sikkim.</p>
+                <p>The System encompasses:</p>
+                <ul class="feat-list">
+                    <li><span class="feat-check">✓</span><span><strong>Real-time RAG Chatbot</strong> — Retrieval-Augmented Generation using LangChain + Qdrant + Google Gemini Embeddings + Groq LLM (llama-3.3-70b-versatile), streamed via Server-Sent Events (SSE).</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Destination Explorer</strong> — A searchable, filterable catalogue of Sikkim's key destinations with full detail views, permit information, and travel tips.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Admin Sync Endpoint</strong> — Protected endpoint for re-indexing the vector store without server restart.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Dual Database Mode</strong> — Mock in-memory data for development; MySQL for production deployment.</span></li>
+                </ul>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">1.3</span>Definitions, Acronyms &amp; Abbreviations</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+                        <tbody>
+                        <tr><td><span class="td-code">RAG</span></td><td>Retrieval-Augmented Generation — An AI architecture that grounds LLM answers in retrieved documents.</td></tr>
+                        <tr><td><span class="td-code">LLM</span></td><td>Large Language Model — A neural network model trained on large corpora to generate coherent text (e.g. Groq Llama, Gemini).</td></tr>
+                        <tr><td><span class="td-code">SSE</span></td><td>Server-Sent Events — A unidirectional HTTP streaming protocol used to push AI response chunks to the browser in real time.</td></tr>
+                        <tr><td><span class="td-code">LCEL</span></td><td>LangChain Expression Language — Declarative chain composition syntax used to build the RAG pipeline.</td></tr>
+                        <tr><td><span class="td-code">PAP</span></td><td>Protected Area Permit — Required for foreign nationals visiting restricted border regions of Sikkim.</td></tr>
+                        <tr><td><span class="td-code">ILP</span></td><td>Inner Line Permit — Required for Indian nationals visiting certain restricted areas of Sikkim.</td></tr>
+                        <tr><td><span class="td-code">STAC</span></td><td>Sikkim Tourism &amp; Civil Aviation (Department) — The government body this system serves.</td></tr>
+                        <tr><td><span class="td-code">GoS</span></td><td>Government of Sikkim.</td></tr>
+                        <tr><td><span class="td-code">CORS</span></td><td>Cross-Origin Resource Sharing — HTTP header-based security mechanism controlling cross-origin requests.</td></tr>
+                        <tr><td><span class="td-code">HSTS</span></td><td>HTTP Strict Transport Security — Forces HTTPS connections in production.</td></tr>
+                        <tr><td><span class="td-code">API</span></td><td>Application Programming Interface — Programmatic contract between the frontend and backend.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">1.4</span>References</div>
+                <ul class="feat-list">
+                    <li><span class="feat-check">📄</span><span><strong>IEEE 830-1998</strong> — Recommended Practice for Software Requirements Specifications.</span></li>
+                    <li><span class="feat-check">📄</span><span><strong>FastAPI Documentation</strong> — fastapi.tiangolo.com</span></li>
+                    <li><span class="feat-check">📄</span><span><strong>LangChain Documentation</strong> — python.langchain.com</span></li>
+                    <li><span class="feat-check">📄</span><span><strong>Qdrant Documentation</strong> — qdrant.tech/documentation</span></li>
+                    <li><span class="feat-check">📄</span><span><strong>Google Gemini API</strong> — ai.google.dev</span></li>
+                    <li><span class="feat-check">📄</span><span><strong>Groq Developer Console</strong> — console.groq.com</span></li>
+                    <li><span class="feat-check">📄</span><span><strong>Tourism &amp; Civil Aviation Department, GoS</strong> — sikkim.gov.in/tourism</span></li>
+                </ul>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">1.5</span>Document Overview</div>
+                <p>The remainder of this SRS is structured as follows: §2 describes the product context and stakeholder classes; §3–§4 enumerate functional and interface requirements; §5 covers non-functional requirements; §6–§10 present architecture, data model, API, security, and deployment details; §11 describes testing; §12 credits the development team; §13 is the appendix and glossary.</p>
+            </div>
+        </section>
+
+        <!-- §2 OVERALL DESCRIPTION ───────────────────────────────────── -->
+        <section id="s2" class="section">
+            <div class="sec-eyebrow">Section 2</div>
+            <h2 class="sec-title">Overall Description</h2>
+            <p class="sec-subtitle">Product perspective, key functions, user classes, operating environment, and constraints.</p>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">2.1</span>Product Perspective</div>
+                <p>The STAC Assistant is a <strong>new, self-contained system</strong> built as a Summer Internship Project for the Tourism &amp; Civil Aviation Department, Government of Sikkim. It replaces manual tourist inquiry handling with an intelligent conversational interface accessible via any modern web browser.</p>
+                <p>It is architecturally independent — it does not integrate with any existing GoS IT infrastructure — but is designed to be portable and deployable on any cloud or on-premise Linux server.</p>
+                <div class="callout callout-info">
+                    <span class="callout-icon">ℹ️</span>
+                    <div class="callout-body"><strong>Zero External Services in Dev Mode</strong> — Qdrant runs fully in-memory and the database falls back to rich mock data, enabling complete offline development with only API keys required.</div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">2.2</span>Product Functions (High-Level)</div>
+                <div class="card-grid">
+                    <div class="card" style="--card-accent: linear-gradient(90deg,#10b981,#059669)">
+                        <div class="card-icon" style="--card-icon-bg: rgba(16,185,129,.1)">💬</div>
+                        <h4>AI Chat Interface</h4>
+                        <p>Real-time SSE-streamed conversational AI with session memory, conversation history, and contextual follow-up suggestions.</p>
+                    </div>
+                    <div class="card" style="--card-accent: linear-gradient(90deg,#3b82f6,#2563eb)">
+                        <div class="card-icon" style="--card-icon-bg: rgba(59,130,246,.1)">🔍</div>
+                        <h4>Semantic Search (RAG)</h4>
+                        <p>Vector-based semantic retrieval of destination data to ground LLM responses in factual, up-to-date content.</p>
+                    </div>
+                    <div class="card" style="--card-accent: linear-gradient(90deg,#8b5cf6,#7c3aed)">
+                        <div class="card-icon" style="--card-icon-bg: rgba(139,92,246,.1)">🗺️</div>
+                        <h4>Destination Explorer</h4>
+                        <p>Searchable, category-filtered catalogue of 10+ Sikkim destinations with full detail, permits, and travel information.</p>
+                    </div>
+                    <div class="card" style="--card-accent: linear-gradient(90deg,#f59e0b,#d97706)">
+                        <div class="card-icon" style="--card-icon-bg: rgba(245,158,11,.1)">⚙️</div>
+                        <h4>Admin Sync</h4>
+                        <p>Authenticated endpoint to re-index the Qdrant vector store on demand — no server restart needed.</p>
+                    </div>
+                    <div class="card" style="--card-accent: linear-gradient(90deg,#ef4444,#dc2626)">
+                        <div class="card-icon" style="--card-icon-bg: rgba(239,68,68,.1)">🛡️</div>
+                        <h4>Security Hardening</h4>
+                        <p>Rate limiting, CORS hardening, security response headers, UUID validation, input sanitisation, and HSTS in production.</p>
+                    </div>
+                    <div class="card" style="--card-accent: linear-gradient(90deg,#06b6d4,#0891b2)">
+                        <div class="card-icon" style="--card-icon-bg: rgba(6,182,212,.1)">📊</div>
+                        <h4>Health &amp; Observability</h4>
+                        <p>Health check endpoint reporting DB mode, Qdrant mode, embedding status, and LLM configuration state.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">2.3</span>User Classes &amp; Characteristics</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>User Class</th><th>Description</th><th>Technical Skill</th><th>Access Level</th></tr></thead>
+                        <tbody>
+                        <tr><td><strong>Tourist / Visitor</strong></td><td>Members of the public planning a trip to Sikkim. Primary end-users of the chat and destination features.</td><td>Low–Medium</td><td>Full UI, Chat, Destinations</td></tr>
+                        <tr><td><strong>Travel Agent / Planner</strong></td><td>Professionals creating itineraries for clients. May use the API directly for integration.</td><td>Medium</td><td>Full UI, API (GET)</td></tr>
+                        <tr><td><strong>Department Administrator</strong></td><td>GoS staff managing destination data. Uses the admin sync endpoint to update the knowledge base.</td><td>Medium–High</td><td>All endpoints incl. <span class="td-code">POST /api/admin/sync</span></td></tr>
+                        <tr><td><strong>Developer / Maintainer</strong></td><td>Team members managing, extending, or debugging the system. Has full access to all tooling.</td><td>High</td><td>Full system + source</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">2.4</span>Operating Environment</div>
+                <div class="stack-pills">
+                    <span class="pill pill-blue">Python 3.11+</span>
+                    <span class="pill pill-green">FastAPI 0.115+</span>
+                    <span class="pill pill-blue">React 18 / TypeScript</span>
+                    <span class="pill pill-purple">Vite 6</span>
+                    <span class="pill pill-gold">Tailwind CSS v4</span>
+                    <span class="pill pill-green">Node.js 20+</span>
+                    <span class="pill pill-gray">Linux / Ubuntu 22.04+</span>
+                    <span class="pill pill-blue">Qdrant (in-memory or Cloud)</span>
+                    <span class="pill pill-red">MySQL 8+ (production)</span>
+                    <span class="pill pill-gray">Chrome 120+ / Firefox 121+ / Safari 17+</span>
+                </div>
+                <p style="margin-top:14px">The backend runs on any Linux system with Python 3.11+, Uvicorn, and internet access to the Gemini and Groq APIs. The frontend is a single-page React application served via Vite in development or as a static build in production. The backend proxies all <code>/api/*</code> requests, so no CORS configuration is needed for same-origin deployments.</p>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">2.5</span>Design &amp; Implementation Constraints</div>
+                <ul class="feat-list">
+                    <li><span class="feat-check">⚠</span><span><strong>Gemini API Key Required</strong> — Google Gemini is used exclusively for text embeddings (<code>models/gemini-embedding-001</code>). No embedding fallback exists. The key must be set before startup.</span></li>
+                    <li><span class="feat-check">⚠</span><span><strong>Groq API Key Required for Chat</strong> — The LLM inference step uses Groq (<code>llama-3.3-70b-versatile</code>). Without this key, the chat endpoint returns a user-visible error, not a system crash.</span></li>
+                    <li><span class="feat-check">⚠</span><span><strong>Embedding Model Dimension Detection</strong> — The Qdrant collection vector size is auto-detected at runtime by embedding a probe string; this adds ~500ms to first startup but prevents dimension mismatch errors.</span></li>
+                    <li><span class="feat-check">⚠</span><span><strong>No Virtual Environments on Replit</strong> — Dependencies are managed via <code>requirements.txt</code> and the host Python environment.</span></li>
+                    <li><span class="feat-check">⚠</span><span><strong>Retired Embedding Model</strong> — <code>text-embedding-004</code> was retired by Google in late 2025; the system uses <code>models/gemini-embedding-001</code> (3072 dims by default).</span></li>
+                </ul>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">2.6</span>Assumptions &amp; Dependencies</div>
+                <ul class="feat-list">
+                    <li><span class="feat-check">✓</span><span>Stable internet connectivity to Gemini and Groq APIs is assumed in production.</span></li>
+                    <li><span class="feat-check">✓</span><span>For production MySQL mode, a MySQL 8+ instance with the schema from <code>docs/schema.sql</code> is assumed to be provisioned.</span></li>
+                    <li><span class="feat-check">✓</span><span>The <code>ALLOWED_ORIGINS</code> environment variable is set to the exact production frontend URL before go-live.</span></li>
+                    <li><span class="feat-check">✓</span><span>An <code>ADMIN_API_KEY</code> of at least 32 random bytes is set before enabling the admin sync endpoint in production.</span></li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- §3 SYSTEM FEATURES ───────────────────────────────────────── -->
+        <section id="s3" class="section">
+            <div class="sec-eyebrow">Section 3</div>
+            <h2 class="sec-title">System Features &amp; Functional Requirements</h2>
+            <p class="sec-subtitle">Detailed functional requirements grouped by feature area.</p>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">FR-01</span>Conversation Management</div>
+                <div class="req-grid">
+                    <div class="req-row">
+                        <span class="req-id">FR-01-1</span>
+                        <div class="req-desc"><strong>Create Conversation</strong> The system shall create a new conversation session via <code>POST /api/conversations/</code>, returning a UUID-based conversation ID and an empty messages list.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-01-2</span>
+                        <div class="req-desc"><strong>Retrieve Conversation</strong> The system shall return the full message history for a given conversation ID via <code>GET /api/conversations/{id}</code>. Invalid UUID formats shall return HTTP 400.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-01-3</span>
+                        <div class="req-desc"><strong>Persist Messages</strong> Both user and assistant messages shall be persisted to the active data store (mock or MySQL) with role, content, and ISO-8601 timestamp.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">FR-02</span>AI Chat &amp; RAG Pipeline</div>
+                <div class="req-grid">
+                    <div class="req-row">
+                        <span class="req-id">FR-02-1</span>
+                        <div class="req-desc"><strong>SSE Streaming Response</strong> The system shall stream assistant responses as Server-Sent Events (SSE) via <code>POST /api/conversations/{id}/chat</code>. Each event shall be a JSON object with a <code>text</code> field. Stream termination shall be signalled by <code>"[DONE]"</code>.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-02-2</span>
+                        <div class="req-desc"><strong>Question Contextualisation</strong> The system shall use a rephrasing sub-chain to rewrite follow-up questions into fully self-contained search queries, incorporating conversation history context before vector retrieval.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-02-3</span>
+                        <div class="req-desc"><strong>Semantic Retrieval</strong> The system shall embed the contextualised query using <code>models/gemini-embedding-001</code> and perform a similarity search against the Qdrant collection to retrieve the top-k most relevant destination documents.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-02-4</span>
+                        <div class="req-desc"><strong>Grounded Answer Generation</strong> Retrieved context shall be injected into the system prompt. The LLM (Groq Llama 3.3 70B) shall generate an answer grounded in this context. If context is empty but the question is Sikkim-related, the LLM shall answer from general knowledge.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-02-5</span>
+                        <div class="req-desc"><strong>Topic Scoping</strong> The assistant shall politely decline to answer questions unrelated to Sikkim or tourism in general (e.g. physics, coding, unrelated politics), and redirect to Sikkim-related topics.</div>
+                        <span class="badge badge-med">Medium</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-02-6</span>
+                        <div class="req-desc"><strong>Follow-up Suggestions</strong> After each assistant reply, the system shall generate exactly 3 short, contextually relevant follow-up question suggestions and send them as a single <code>{"suggestions": [...]}</code> SSE event.</div>
+                        <span class="badge badge-med">Medium</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-02-7</span>
+                        <div class="req-desc"><strong>Rate Limiting</strong> The chat endpoint shall enforce a rate limit of 30 requests per minute per IP address. Excess requests shall return HTTP 429.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-02-8</span>
+                        <div class="req-desc"><strong>Input Sanitisation</strong> User messages shall be stripped of leading/trailing whitespace and NFKC-normalised. Messages matching known injection patterns (XSS, SQL injection) shall be logged with a warning but still processed (the LLM acts as the guardrail).</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">FR-03</span>Destination Management</div>
+                <div class="req-grid">
+                    <div class="req-row">
+                        <span class="req-id">FR-03-1</span>
+                        <div class="req-desc"><strong>List Destinations</strong> <code>GET /api/destinations/</code> shall return all destinations with optional <code>search</code> (max 100 chars) and <code>category</code> query filters. Invalid category values shall return HTTP 400.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-03-2</span>
+                        <div class="req-desc"><strong>Get Destination Detail</strong> <code>GET /api/destinations/{id}</code> shall return the full destination record including highlights, permit info, how-to-reach, entry fee, and tags.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-03-3</span>
+                        <div class="req-desc"><strong>List Categories</strong> <code>GET /api/destinations/categories</code> shall return the set of valid destination categories: <em>nature, culture, adventure, pilgrimage, wildlife</em>.</div>
+                        <span class="badge badge-low">Low</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-03-4</span>
+                        <div class="req-desc"><strong>Truncated Summaries</strong> List responses shall truncate destination descriptions to 160 characters to minimise payload size for the destination grid view.</div>
+                        <span class="badge badge-low">Low</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">FR-04</span>Admin &amp; Vector Store Sync</div>
+                <div class="req-grid">
+                    <div class="req-row">
+                        <span class="req-id">FR-04-1</span>
+                        <div class="req-desc"><strong>Protected Admin Sync</strong> <code>POST /api/admin/sync</code> shall re-index all destinations into the Qdrant vector store. It requires a valid <code>X-Admin-Key</code> header. Requests without a valid key shall return HTTP 403.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-04-2</span>
+                        <div class="req-desc"><strong>Fail Closed</strong> If <code>ADMIN_API_KEY</code> is not configured, the admin endpoint shall reject all requests (fail closed). An unset secret must never default to "no auth required".</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                    <div class="req-row">
+                        <span class="req-id">FR-04-3</span>
+                        <div class="req-desc"><strong>Startup Population</strong> On server startup, the system shall automatically populate the Qdrant vector store from the active repository (mock or MySQL). Failure is non-fatal — the system continues with degraded semantic search capability.</div>
+                        <span class="badge badge-high">High</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">FR-05</span>Health Check</div>
+                <div class="req-grid">
+                    <div class="req-row">
+                        <span class="req-id">FR-05-1</span>
+                        <div class="req-desc"><strong>Health Endpoint</strong> <code>GET /api/health</code> shall return HTTP 200 with JSON containing: <code>status</code>, <code>version</code>, <code>db_mode</code>, <code>qdrant_mode</code>, <code>qdrant_collection</code>, <code>embeddings_configured</code>, and <code>chat_llm_configured</code>.</div>
+                        <span class="badge badge-med">Medium</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- §4 INTERFACE REQUIREMENTS ────────────────────────────────── -->
+        <section id="s4" class="section">
+            <div class="sec-eyebrow">Section 4</div>
+            <h2 class="sec-title">External Interface Requirements</h2>
+            <p class="sec-subtitle">User interface, hardware, software, and communication interface specifications.</p>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">4.1</span>User Interfaces</div>
+                <div class="card-grid">
+                    <div class="card" style="--card-accent: linear-gradient(90deg,#10b981,#059669)">
+                        <div class="card-icon">🏠</div>
+                        <h4>Home Page</h4>
+                        <p>Landing page with hero video/poster, animated tagline rotation (10s interval), highlights section (Organic State, Kanchenjunga, Adventure, UNESCO), and a popular destinations grid (top 3). Framer Motion-powered staggered entry animations.</p>
+                    </div>
+                    <div class="card" style="--card-accent: linear-gradient(90deg,#3b82f6,#2563eb)">
+                        <div class="card-icon">🗺️</div>
+                        <h4>Destinations Page</h4>
+                        <p>Full searchable grid of all destinations with category filter tabs. Each card shows image/colour placeholder, name, category badge, district, best time, permit indicator, and tags.</p>
+                    </div>
+                    <div class="card" style="--card-accent: linear-gradient(90deg,#8b5cf6,#7c3aed)">
+                        <div class="card-icon">💬</div>
+                        <h4>Chat Widget</h4>
+                        <p>Floating bottom-right launcher that opens the full chat panel. Features starter prompts, real-time SSE streaming with typing indicator, markdown rendering, message timestamps, and follow-up suggestion chips.</p>
+                    </div>
+                    <div class="card" style="--card-accent: linear-gradient(90deg,#f59e0b,#d97706)">
+                        <div class="card-icon">📋</div>
+                        <h4>Destination Detail Dialog</h4>
+                        <p>Full-detail modal triggered from destination cards. Shows all fields: altitude, location, best time, entry fee, permit info, how to reach, highlights list, and tags.</p>
+                    </div>
+                </div>
+                <div class="callout callout-info" style="margin-top:20px">
+                    <span class="callout-icon">🎨</span>
+                    <div class="callout-body"><strong>Design System</strong> — Built with Radix UI primitives, Tailwind CSS v4, Framer Motion for animations, Lucide React icons, and a government-themed prayer-flag colour strip (<em>blue, white, red, green, yellow</em>) in the chat header.</div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">4.2</span>Hardware Interfaces</div>
+                <p>No dedicated hardware interfaces are required. The system is entirely software-based. The backend server requires a minimum of <strong>1 GB RAM</strong> (2 GB recommended for in-memory Qdrant + model loading) and a modern x86-64 CPU.</p>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">4.3</span>Software Interfaces</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>System</th><th>Interface Type</th><th>Purpose</th><th>Auth</th></tr></thead>
+                        <tbody>
+                        <tr><td><strong>Google Gemini API</strong></td><td>HTTPS REST</td><td>Text embedding (<code>models/gemini-embedding-001</code>)</td><td>API Key</td></tr>
+                        <tr><td><strong>Groq API</strong></td><td>HTTPS REST</td><td>LLM inference (<code>llama-3.3-70b-versatile</code>)</td><td>API Key</td></tr>
+                        <tr><td><strong>Qdrant</strong></td><td>In-process / HTTPS</td><td>Vector store for semantic retrieval</td><td>Optional API Key</td></tr>
+                        <tr><td><strong>MySQL 8+</strong></td><td>TCP (3306)</td><td>Production destination data store</td><td>Username / Password</td></tr>
+                        <tr><td><strong>Vite Dev Server</strong></td><td>HTTP localhost:5173</td><td>Frontend development with HMR</td><td>None</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">4.4</span>Communication Interfaces</div>
+                <ul class="feat-list">
+                    <li><span class="feat-check">✓</span><span><strong>HTTP/1.1 + SSE</strong> — Chat streaming uses Server-Sent Events over HTTP/1.1. Each chunk is <code>data: {"text": "..."}\n\n</code>. Stream ends with <code>data: "[DONE]"\n\n</code>.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>REST/JSON</strong> — All non-streaming endpoints communicate via JSON over HTTPS.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>CORS</strong> — Restricted to explicit origins via <code>ALLOWED_ORIGINS</code> env var. Wildcard <code>*</code> is permitted only in development with a logged warning.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Vite Proxy</strong> — In development, Vite proxies all <code>/api/*</code> requests to <code>localhost:8000</code>, eliminating CORS issues in the dev environment.</span></li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- §5 NON-FUNCTIONAL ────────────────────────────────────────── -->
+        <section id="s5" class="section">
+            <div class="sec-eyebrow">Section 5</div>
+            <h2 class="sec-title">Non-Functional Requirements</h2>
+            <p class="sec-subtitle">Performance, security, reliability, maintainability, and scalability constraints.</p>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">5.1</span>Performance</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Metric</th><th>Target</th><th>Notes</th></tr></thead>
+                        <tbody>
+                        <tr><td><strong>Time-to-First-Token</strong></td><td>&lt; 3 seconds</td><td>Includes embedding + Qdrant retrieval + Groq first token</td></tr>
+                        <tr><td><strong>Streaming throughput</strong></td><td>&gt; 20 tokens/sec</td><td>Subject to Groq API tier</td></tr>
+                        <tr><td><strong>Destination list API</strong></td><td>&lt; 200ms</td><td>In-memory mock; MySQL may add ~50ms</td></tr>
+                        <tr><td><strong>Server startup time</strong></td><td>&lt; 15 seconds</td><td>Includes embedding probe + Qdrant population for 10 destinations</td></tr>
+                        <tr><td><strong>Concurrent users</strong></td><td>50+ simultaneous</td><td>Uvicorn async; each SSE connection is non-blocking</td></tr>
+                        <tr><td><strong>Vector search latency</strong></td><td>&lt; 50ms</td><td>In-memory Qdrant; remote adds network latency</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">5.2</span>Security Requirements</div>
+                <div class="req-grid">
+                    <div class="req-row"><span class="req-id">NFR-SEC-1</span><div class="req-desc"><strong>Security Response Headers</strong> — All HTTP responses shall include <code>X-Content-Type-Options: nosniff</code>, <code>X-Frame-Options: DENY</code>, <code>X-XSS-Protection: 1; mode=block</code>, <code>Referrer-Policy</code>, and <code>Permissions-Policy</code>.</div><span class="badge badge-high">High</span></div>
+                    <div class="req-row"><span class="req-id">NFR-SEC-2</span><div class="req-desc"><strong>HSTS</strong> — In production environment, <code>Strict-Transport-Security: max-age=31536000; includeSubDomains</code> shall be set on all responses.</div><span class="badge badge-high">High</span></div>
+                    <div class="req-row"><span class="req-id">NFR-SEC-3</span><div class="req-desc"><strong>Admin Authentication</strong> — The <code>/api/admin/sync</code> endpoint shall require a valid <code>X-Admin-Key</code> header. The key shall be a minimum 32-byte URL-safe random token.</div><span class="badge badge-high">High</span></div>
+                    <div class="req-row"><span class="req-id">NFR-SEC-4</span><div class="req-desc"><strong>Input Validation</strong> — All API inputs shall be validated via Pydantic v2 schemas. Messages shall be trimmed, NFKC-normalised, and checked for injection patterns before processing.</div><span class="badge badge-high">High</span></div>
+                    <div class="req-row"><span class="req-id">NFR-SEC-5</span><div class="req-desc"><strong>No Credential Hardcoding</strong> — All secrets (API keys, DB passwords, admin keys) shall be sourced exclusively from environment variables or <code>.env</code> files; never hardcoded in source code.</div><span class="badge badge-high">High</span></div>
+                    <div class="req-row"><span class="req-id">NFR-SEC-6</span><div class="req-desc"><strong>Rate Limiting</strong> — The chat endpoint shall enforce 30 requests/minute/IP. Future production hardening may reduce this to 10/minute.</div><span class="badge badge-high">High</span></div>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">5.3</span>Reliability &amp; Availability</div>
+                <ul class="feat-list">
+                    <li><span class="feat-check">✓</span><span><strong>Non-fatal startup failure</strong> — If Qdrant population fails at startup, the server still starts and falls back to basic keyword search. The error is logged with full traceback.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Graceful LLM error handling</strong> — If the Groq API fails mid-stream, a user-friendly error message is yielded instead of crashing the connection or exposing raw Python exceptions.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Missing API key messages</strong> — Missing Groq/Gemini keys yield a clear error message to the user (not a 500 server error).</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Target uptime</strong> — 99.5% for production deployment, subject to third-party API availability (Gemini, Groq).</span></li>
+                </ul>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">5.4</span>Maintainability</div>
+                <ul class="feat-list">
+                    <li><span class="feat-check">✓</span><span><strong>Repository pattern</strong> — <code>BaseRepository</code> abstract class decouples business logic from data source. Switching from mock to MySQL requires only changing <code>USE_MOCK_DB=false</code>.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Configuration centralisation</strong> — All settings are in <code>app/config.py</code> via Pydantic Settings, with full validation and documented defaults.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Embedding dimension auto-detection</strong> — Changing the embedding model requires only updating <code>GEMINI_EMBEDDING_MODEL</code>; no code changes needed.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>LangChain LCEL chains</strong> — The RAG pipeline is composable and each step (rephraser, retriever, answerer, suggestions) is independently testable.</span></li>
+                </ul>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">5.5</span>Scalability</div>
+                <ul class="feat-list">
+                    <li><span class="feat-check">✓</span><span><strong>Horizontal scaling</strong> — The backend is stateless (sessions stored in DB). Multiple Uvicorn instances can run behind a load balancer with a shared MySQL instance.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Qdrant Cloud migration</strong> — Setting <code>QDRANT_URL</code> migrates from in-memory to a persistent, scalable Qdrant Cloud cluster with zero code changes.</span></li>
+                    <li><span class="feat-check">✓</span><span><strong>Async I/O</strong> — All database and external API calls are async (Python <code>asyncio</code>), allowing high concurrency without thread blocking.</span></li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- §6 SYSTEM ARCHITECTURE ───────────────────────────────────── -->
+        <section id="s6" class="section">
+            <div class="sec-eyebrow">Section 6</div>
+            <h2 class="sec-title">System Architecture</h2>
+            <p class="sec-subtitle">Component diagram, data flow, and layer responsibilities.</p>
+
+            <div class="arch-diagram">
+                <div class="arch-layer-label">CLIENT LAYER</div>
+                <div class="arch-row">
+                    <div class="arch-node arch-node-blue">React 18 SPA<br><small>Vite + TypeScript</small></div>
+                    <div class="arch-node arch-node-blue">Framer Motion<br><small>Animations</small></div>
+                    <div class="arch-node arch-node-blue">Radix UI + Tailwind<br><small>Component Library</small></div>
+                </div>
+                <div class="arch-arrow"><div class="line"></div><span class="tip">▼ HTTP / SSE (via Vite proxy → /api/*)</span></div>
+                <div class="arch-separator"><span>API GATEWAY</span></div>
+                <div class="arch-row">
+                    <div class="arch-node arch-node-green">FastAPI 0.115<br><small>Uvicorn ASGI</small></div>
+                    <div class="arch-node arch-node-red">Security Middleware<br><small>Headers + Rate Limit</small></div>
+                    <div class="arch-node arch-node-gold">CORS Middleware<br><small>Origin Whitelist</small></div>
+                </div>
+                <div class="arch-arrow"><div class="line"></div><span class="tip">▼ Router dispatch</span></div>
+                <div class="arch-separator"><span>APPLICATION LAYER (LangChain LCEL)</span></div>
+                <div class="arch-row">
+                    <div class="arch-node arch-node-purple">Rephraser Chain<br><small>Gemini Flash</small></div>
+                    <div class="arch-node arch-node-purple">Retriever<br><small>Qdrant MMR Search</small></div>
+                    <div class="arch-node arch-node-purple">Answer Chain<br><small>Groq Llama 3.3 70B</small></div>
+                    <div class="arch-node arch-node-purple">Followup Generator<br><small>Groq (non-streaming)</small></div>
+                </div>
+                <div class="arch-arrow"><div class="line"></div><span class="tip">▼ External API calls</span></div>
+                <div class="arch-separator"><span>EXTERNAL SERVICES</span></div>
+                <div class="arch-row">
+                    <div class="arch-node arch-node-gold">Google Gemini<br><small>Embeddings</small></div>
+                    <div class="arch-node arch-node-gold">Groq API<br><small>LLM Inference</small></div>
+                    <div class="arch-node arch-node-gold">Qdrant<br><small>In-Memory / Cloud</small></div>
+                    <div class="arch-node arch-node-gold">MySQL 8+<br><small>Production DB</small></div>
+                </div>
+                <div class="arch-label" style="margin-top:16px">Full-stack RAG Architecture · STAC AI Assistant v2.0</div>
+            </div>
+
+            <div class="sub-section" style="margin-top:28px">
+                <div class="sub-title"><span class="sub-title-num">6.1</span>RAG Pipeline Data Flow</div>
+                <p>When a user sends a message, the following sequence executes:</p>
+                <ol style="list-style:decimal; padding-left:24px; color: var(--muted); font-size:.88rem; line-height:2">
+                    <li>User message is <strong>sanitised</strong> (strip whitespace, NFKC normalise, log injection patterns).</li>
+                    <li>Message is persisted to the data store as a <strong>user message</strong>.</li>
+                    <li>Full conversation history is loaded. A <strong>rephrasing sub-chain</strong> (Groq) rewrites the latest question as a self-contained search query.</li>
+                    <li>The self-contained query is <strong>embedded</strong> using Google Gemini (<code>models/gemini-embedding-001</code>, 3072 dims).</li>
+                    <li>Qdrant performs a <strong>similarity search</strong> against the <code>sikkim_destinations</code> collection, returning the top-k most relevant documents.</li>
+                    <li>Retrieved documents are formatted and injected as <strong>context</strong> into the system prompt.</li>
+                    <li>The <strong>answer chain</strong> (Groq Llama 3.3 70B) streams token-by-token via SSE to the browser.</li>
+                    <li>After the stream completes, the <strong>follow-up suggestion chain</strong> generates 3 short questions and sends them as a final <code>suggestions</code> event.</li>
+                    <li>The complete assistant response is <strong>persisted</strong> to the data store.</li>
+                </ol>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">6.2</span>Database Mode Selection</div>
+                <div class="code-block">
+                    <span class="cm"># Environment variable controls data source at runtime — no code changes needed</span>
+                    <span class="kw">USE_MOCK_DB</span>=<span class="str">true</span>   <span class="cm"># → MockRepository (rich in-memory Python objects)</span>
+                    <span class="kw">USE_MOCK_DB</span>=<span class="str">false</span>  <span class="cm"># → MySQLRepository (live MySQL 8+ connection)</span>
+                    <span class="cm"># Both implement BaseRepository — swapping is transparent to all business logic</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- §7 DATA MODEL ────────────────────────────────────────────── -->
+        <section id="s7" class="section">
+            <div class="sec-eyebrow">Section 7</div>
+            <h2 class="sec-title">Data Model</h2>
+            <p class="sec-subtitle">Core Pydantic schemas and their persistence structure.</p>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">7.1</span>Destination Schema</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+                        <tbody>
+                        <tr><td><span class="td-code">id</span></td><td>int</td><td><span class="badge badge-req">Required</span></td><td>Auto-incremented primary key</td></tr>
+                        <tr><td><span class="td-code">name</span></td><td>str</td><td><span class="badge badge-req">Required</span></td><td>Destination name (e.g. "Gangtok")</td></tr>
+                        <tr><td><span class="td-code">slug</span></td><td>str</td><td><span class="badge badge-req">Required</span></td><td>URL-safe identifier (e.g. "nathu-la")</td></tr>
+                        <tr><td><span class="td-code">category</span></td><td>enum</td><td><span class="badge badge-req">Required</span></td><td>One of: nature, culture, adventure, pilgrimage, wildlife</td></tr>
+                        <tr><td><span class="td-code">description</span></td><td>str</td><td><span class="badge badge-req">Required</span></td><td>Full-length destination description</td></tr>
+                        <tr><td><span class="td-code">location</span></td><td>str</td><td><span class="badge badge-req">Required</span></td><td>Human-readable location string</td></tr>
+                        <tr><td><span class="td-code">district</span></td><td>str</td><td><span class="badge badge-req">Required</span></td><td>One of: East, West, North, South Sikkim</td></tr>
+                        <tr><td><span class="td-code">altitude</span></td><td>str</td><td><span class="badge badge-req">Required</span></td><td>Altitude with unit (e.g. "3,780 m (12,400 ft)")</td></tr>
+                        <tr><td><span class="td-code">best_time</span></td><td>str</td><td><span class="badge badge-req">Required</span></td><td>Best visiting season/months</td></tr>
+                        <tr><td><span class="td-code">entry_fee</span></td><td>str | null</td><td><span class="badge badge-opt">Optional</span></td><td>Entry fee if applicable (null = free)</td></tr>
+                        <tr><td><span class="td-code">permit_required</span></td><td>bool</td><td><span class="badge badge-req">Required</span></td><td>Whether a permit is required</td></tr>
+                        <tr><td><span class="td-code">permit_info</span></td><td>str | null</td><td><span class="badge badge-opt">Optional</span></td><td>Full permit details if permit_required is true</td></tr>
+                        <tr><td><span class="td-code">how_to_reach</span></td><td>str</td><td><span class="badge badge-req">Required</span></td><td>Travel directions to the destination</td></tr>
+                        <tr><td><span class="td-code">highlights</span></td><td>list[str]</td><td><span class="badge badge-req">Required</span></td><td>Key attraction bullet points</td></tr>
+                        <tr><td><span class="td-code">tags</span></td><td>list[str]</td><td><span class="badge badge-req">Required</span></td><td>Searchable tags (e.g. "monastery", "snow", "permit")</td></tr>
+                        <tr><td><span class="td-code">image_url</span></td><td>str | null</td><td><span class="badge badge-opt">Optional</span></td><td>Path to destination image</td></tr>
+                        <tr><td><span class="td-code">image_placeholder</span></td><td>str | null</td><td><span class="badge badge-opt">Optional</span></td><td>Fallback hex colour (e.g. "#4a7c59")</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">7.2</span>Conversation &amp; Message Schemas</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Schema</th><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+                        <tbody>
+                        <tr><td rowspan="3"><strong>Conversation</strong></td><td><span class="td-code">id</span></td><td>UUID (str)</td><td>Session identifier</td></tr>
+                        <tr><td><span class="td-code">created_at</span></td><td>datetime</td><td>ISO-8601 creation timestamp</td></tr>
+                        <tr><td><span class="td-code">updated_at</span></td><td>datetime</td><td>Last activity timestamp</td></tr>
+                        <tr><td rowspan="4"><strong>Message</strong></td><td><span class="td-code">id</span></td><td>UUID (str)</td><td>Message identifier</td></tr>
+                        <tr><td><span class="td-code">conversation_id</span></td><td>UUID (str)</td><td>Parent conversation FK</td></tr>
+                        <tr><td><span class="td-code">role</span></td><td>"user" | "assistant"</td><td>Message author</td></tr>
+                        <tr><td><span class="td-code">content</span></td><td>str (min=1)</td><td>Message text (sanitised)</td></tr>
+                        <tr><td rowspan="2"><strong>ChatRequest</strong></td><td><span class="td-code">message</span></td><td>str (1–2000 chars)</td><td>Sanitised user input</td></tr>
+                        <tr><td><span class="td-code">—</span></td><td>—</td><td>NFKC-normalised before storage</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">7.3</span>Seed Data — Destinations in Scope</div>
+                <div class="stack-pills">
+                    <span class="pill pill-green">Gangtok (Culture)</span>
+                    <span class="pill pill-blue">Nathu La Pass (Adventure)</span>
+                    <span class="pill pill-blue">Tsomgo Lake (Nature)</span>
+                    <span class="pill pill-purple">Yumthang Valley (Nature)</span>
+                    <span class="pill pill-green">Pelling (Nature)</span>
+                    <span class="pill pill-gold">Yuksom (Culture)</span>
+                    <span class="pill pill-purple">Ravangla (Pilgrimage)</span>
+                    <span class="pill pill-gold">Gurudongmar Lake (Nature)</span>
+                    <span class="pill pill-red">Namchi (Pilgrimage)</span>
+                    <span class="pill pill-blue">Lachung &amp; Zero Point (Adventure)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- §8 API REFERENCE ──────────────────────────────────────────── -->
+        <section id="s8" class="section">
+            <div class="sec-eyebrow">Section 8</div>
+            <h2 class="sec-title">API Reference</h2>
+            <p class="sec-subtitle">Complete endpoint catalogue. Full interactive docs available at <code>/api/docs</code> (Swagger UI) and <code>/api/redoc</code> (ReDoc).</p>
+
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Auth</th><th>Rate Limit</th></tr></thead>
+                    <tbody>
+                    <tr>
+                        <td><span class="badge badge-get">GET</span></td>
+                        <td><span class="td-code">/api/health</span></td>
+                        <td>System health check — returns version, DB mode, Qdrant mode, API key status</td>
+                        <td>None</td><td>—</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-post">POST</span></td>
+                        <td><span class="td-code">/api/conversations/</span></td>
+                        <td>Create a new conversation session. Returns <code>ConversationResponse</code>.</td>
+                        <td>None</td><td>—</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-get">GET</span></td>
+                        <td><span class="td-code">/api/conversations/{id}</span></td>
+                        <td>Get conversation and its full message history. Returns 400 for invalid UUID, 404 for unknown.</td>
+                        <td>None</td><td>—</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-post">POST</span></td>
+                        <td><span class="td-code">/api/conversations/{id}/chat</span></td>
+                        <td>Send a message; receive SSE-streamed AI response. Body: <code>{"message": "..."}</code></td>
+                        <td>None</td><td><strong>30/min/IP</strong></td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-get">GET</span></td>
+                        <td><span class="td-code">/api/destinations/</span></td>
+                        <td>List all destinations. Optional query params: <code>search</code> (max 100 chars), <code>category</code>.</td>
+                        <td>None</td><td>—</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-get">GET</span></td>
+                        <td><span class="td-code">/api/destinations/categories</span></td>
+                        <td>Returns the set of valid category values.</td>
+                        <td>None</td><td>—</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-get">GET</span></td>
+                        <td><span class="td-code">/api/destinations/{id}</span></td>
+                        <td>Get full destination record by integer ID. Returns 404 if not found.</td>
+                        <td>None</td><td>—</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-post">POST</span></td>
+                        <td><span class="td-code">/api/admin/sync</span></td>
+                        <td>Re-index all destinations into Qdrant. Returns count of indexed items.</td>
+                        <td><strong>X-Admin-Key</strong></td><td>—</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-get">GET</span></td>
+                        <td><span class="td-code">/api/docs</span></td>
+                        <td>Swagger UI — interactive API documentation</td>
+                        <td>None</td><td>—</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-get">GET</span></td>
+                        <td><span class="td-code">/api/redoc</span></td>
+                        <td>ReDoc — alternative API documentation viewer</td>
+                        <td>None</td><td>—</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="sub-section" style="margin-top:24px">
+                <div class="sub-title"><span class="sub-title-num">8.1</span>SSE Chat Event Format</div>
+                <div class="code-block">
+                    <span class="cm">// Text chunk event (repeated for each streaming token batch)</span>
+                    <span class="str">data: {"text": "The best time to visit Gangtok..."}</span>
+
+                    <span class="cm">// Follow-up suggestions event (sent once, after stream completion)</span>
+                    <span class="str">data: {"suggestions": ["What permits do I need?", "How to reach Nathu La?", "Best hotels in Gangtok?"]}</span>
+
+                    <span class="cm">// Stream termination signal</span>
+                    <span class="str">data: "[DONE]"</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- §9 SECURITY DESIGN ───────────────────────────────────────── -->
+        <section id="s9" class="section">
+            <div class="sec-eyebrow">Section 9</div>
+            <h2 class="sec-title">Security Design</h2>
+            <p class="sec-subtitle">Defence-in-depth security measures implemented across all layers.</p>
+
+            <div class="card-grid">
+                <div class="card" style="--card-accent: linear-gradient(90deg,#ef4444,#dc2626); --card-icon-bg: rgba(239,68,68,.1)">
+                    <div class="card-icon">🛡️</div>
+                    <h4>Security Headers Middleware</h4>
+                    <p>Custom <code>SecurityHeadersMiddleware</code> appended to every response: <code>X-Content-Type-Options</code>, <code>X-Frame-Options: DENY</code>, <code>X-XSS-Protection</code>, <code>Referrer-Policy</code>, <code>Permissions-Policy</code>, and HSTS in production.</p>
+                </div>
+                <div class="card" style="--card-accent: linear-gradient(90deg,#f59e0b,#d97706); --card-icon-bg: rgba(245,158,11,.1)">
+                    <div class="card-icon">⏱️</div>
+                    <h4>SlowAPI Rate Limiting</h4>
+                    <p>Chat endpoint limited to 30 requests/minute per IP using <code>slowapi</code>. Exceeding this returns HTTP 429 <code>Too Many Requests</code>.</p>
+                </div>
+                <div class="card" style="--card-accent: linear-gradient(90deg,#10b981,#059669); --card-icon-bg: rgba(16,185,129,.1)">
+                    <div class="card-icon">🔐</div>
+                    <h4>Admin Key Authentication</h4>
+                    <p>The admin sync endpoint uses <code>X-Admin-Key</code> header validation via FastAPI <code>Depends</code>. Fail-closed: empty key = all requests denied.</p>
+                </div>
+                <div class="card" style="--card-accent: linear-gradient(90deg,#3b82f6,#2563eb); --card-icon-bg: rgba(59,130,246,.1)">
+                    <div class="card-icon">🌐</div>
+                    <h4>CORS Hardening</h4>
+                    <p>Restricted to explicit origins via <code>ALLOWED_ORIGINS</code>. Methods and headers are also allowlisted. Wildcard <code>*</code> is logged as a security warning.</p>
+                </div>
+                <div class="card" style="--card-accent: linear-gradient(90deg,#8b5cf6,#7c3aed); --card-icon-bg: rgba(139,92,246,.1)">
+                    <div class="card-icon">🧹</div>
+                    <h4>Input Sanitisation</h4>
+                    <p>User messages are stripped, NFKC-normalised (prevents homograph attacks), and scanned for 8 injection pattern regexes. Pydantic v2 validates all request bodies.</p>
+                </div>
+                <div class="card" style="--card-accent: linear-gradient(90deg,#06b6d4,#0891b2); --card-icon-bg: rgba(6,182,212,.1)">
+                    <div class="card-icon">🆔</div>
+                    <h4>UUID Validation</h4>
+                    <p>All conversation ID path parameters are validated as proper UUIDs before any database query, preventing path traversal and format-injection attacks.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- §10 DEPLOYMENT & CONFIG ──────────────────────────────────── -->
+        <section id="s10" class="section">
+            <div class="sec-eyebrow">Section 10</div>
+            <h2 class="sec-title">Deployment &amp; Configuration</h2>
+            <p class="sec-subtitle">Environment variables, deployment modes, and startup sequence.</p>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">10.1</span>Environment Variables Reference</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Variable</th><th>Default</th><th>Required</th><th>Description</th></tr></thead>
+                        <tbody>
+                        <tr><td><span class="td-code">GEMINI_API_KEY</span></td><td>—</td><td><span class="badge badge-req">Required</span></td><td>Google Gemini API key for embeddings</td></tr>
+                        <tr><td><span class="td-code">GROQ_API_KEY</span></td><td>—</td><td><span class="badge badge-req">Required</span></td><td>Groq API key for LLM inference (chat)</td></tr>
+                        <tr><td><span class="td-code">ADMIN_API_KEY</span></td><td>""</td><td><span class="badge badge-req">Required (prod)</span></td><td>Admin endpoint auth key. Leave empty to disable admin endpoint entirely.</td></tr>
+                        <tr><td><span class="td-code">USE_MOCK_DB</span></td><td><code>true</code></td><td><span class="badge badge-opt">Optional</span></td><td>Set to <code>false</code> to use MySQL</td></tr>
+                        <tr><td><span class="td-code">MYSQL_HOST</span></td><td>localhost</td><td><span class="badge badge-opt">Optional</span></td><td>MySQL host (only when USE_MOCK_DB=false)</td></tr>
+                        <tr><td><span class="td-code">MYSQL_PORT</span></td><td>3306</td><td><span class="badge badge-opt">Optional</span></td><td>MySQL port</td></tr>
+                        <tr><td><span class="td-code">MYSQL_USER</span></td><td>root</td><td><span class="badge badge-opt">Optional</span></td><td>MySQL user</td></tr>
+                        <tr><td><span class="td-code">MYSQL_PASSWORD</span></td><td>—</td><td><span class="badge badge-opt">Optional</span></td><td>MySQL password</td></tr>
+                        <tr><td><span class="td-code">MYSQL_DATABASE</span></td><td>sikkim_tourism</td><td><span class="badge badge-opt">Optional</span></td><td>MySQL database name</td></tr>
+                        <tr><td><span class="td-code">GEMINI_EMBEDDING_MODEL</span></td><td>models/gemini-embedding-001</td><td><span class="badge badge-opt">Optional</span></td><td>Gemini embedding model identifier</td></tr>
+                        <tr><td><span class="td-code">GROQ_MODEL</span></td><td>llama-3.3-70b-versatile</td><td><span class="badge badge-opt">Optional</span></td><td>Groq model identifier</td></tr>
+                        <tr><td><span class="td-code">QDRANT_URL</span></td><td>""</td><td><span class="badge badge-opt">Optional</span></td><td>Qdrant server URL. Empty = in-memory mode.</td></tr>
+                        <tr><td><span class="td-code">QDRANT_API_KEY</span></td><td>""</td><td><span class="badge badge-opt">Optional</span></td><td>Qdrant Cloud API key</td></tr>
+                        <tr><td><span class="td-code">QDRANT_COLLECTION</span></td><td>sikkim_destinations</td><td><span class="badge badge-opt">Optional</span></td><td>Qdrant collection name</td></tr>
+                        <tr><td><span class="td-code">ALLOWED_ORIGINS</span></td><td>http://localhost:5173</td><td><span class="badge badge-req">Required (prod)</span></td><td>Comma-separated allowed CORS origins</td></tr>
+                        <tr><td><span class="td-code">ENVIRONMENT</span></td><td>development</td><td><span class="badge badge-opt">Optional</span></td><td>Set to <code>production</code> to enable HSTS</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">10.2</span>Development Startup</div>
+                <div class="code-block">
+                    <span class="cm"># 1. Backend — copy .env.example, fill GEMINI_API_KEY + GROQ_API_KEY, then:</span>
+                    <span class="kw">cd</span> backend
+                    <span class="kw">pip install</span> -r requirements.txt
+                    <span class="kw">uvicorn</span> main:app --reload --port <span class="num">8000</span>
+
+                    <span class="cm"># 2. Frontend (separate terminal)</span>
+                    <span class="kw">cd</span> frontend
+                    <span class="kw">npm install</span>
+                    <span class="kw">npm run dev</span>   <span class="cm"># → http://localhost:5173</span>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">10.3</span>Version History</div>
+                <div class="timeline">
+                    <div class="tl-item">
+                        <div class="tl-dot tl-dot-green">2</div>
+                        <div class="tl-line"></div>
+                        <div class="tl-body">
+                            <div class="tl-ver">v2.0.0 — Current</div>
+                            <div class="tl-date">July 2025</div>
+                            <p class="tl-desc">Full LangChain LCEL RAG pipeline; Groq Llama 3.3 70B for chat LLM; Gemini for embeddings only; runtime embedding dimension detection; security hardening (rate limiting, headers, CORS, admin auth); follow-up suggestion chips; dual DB mode; automated test suite.</p>
+                        </div>
+                    </div>
+                    <div class="tl-item">
+                        <div class="tl-dot tl-dot-blue">1</div>
+                        <div class="tl-body">
+                            <div class="tl-ver">v1.0.0 — Initial</div>
+                            <div class="tl-date">June 2025</div>
+                            <p class="tl-desc">Initial prototype with basic Gemini Flash LLM integration, static destination data, and simple React chat UI. No RAG pipeline, no streaming.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- §11 TESTING STRATEGY ─────────────────────────────────────── -->
+        <section id="s11" class="section">
+            <div class="sec-eyebrow">Section 11</div>
+            <h2 class="sec-title">Testing Strategy</h2>
+            <p class="sec-subtitle">Unit, integration, and system test approach for the STAC Assistant.</p>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">11.1</span>Backend Test Suite</div>
+                <p>The backend includes a <strong>pytest</strong> test suite located at <code>backend/tests/</code>. Tests cover:</p>
+                <div class="card-grid">
+                    <div class="card" style="--card-accent:linear-gradient(90deg,#10b981,#059669)">
+                        <div class="card-icon">❤️</div>
+                        <h4>Health Endpoint Tests</h4>
+                        <p>Verifies <code>GET /api/health</code> returns HTTP 200 and the expected JSON fields.</p>
+                    </div>
+                    <div class="card" style="--card-accent:linear-gradient(90deg,#3b82f6,#2563eb)">
+                        <div class="card-icon">💬</div>
+                        <h4>Chat Flow Tests</h4>
+                        <p>Creates a conversation, sends a message, and verifies the SSE stream terminates with <code>[DONE]</code>.</p>
+                    </div>
+                    <div class="card" style="--card-accent:linear-gradient(90deg,#8b5cf6,#7c3aed)">
+                        <div class="card-icon">🗺️</div>
+                        <h4>Destination API Tests</h4>
+                        <p>Tests list (with/without filters), single destination fetch, and category listing endpoints.</p>
+                    </div>
+                    <div class="card" style="--card-accent:linear-gradient(90deg,#f59e0b,#d97706)">
+                        <div class="card-icon">🔐</div>
+                        <h4>Admin Auth Tests</h4>
+                        <p>Verifies that <code>/api/admin/sync</code> correctly rejects requests without <code>X-Admin-Key</code> (HTTP 403).</p>
+                    </div>
+                </div>
+                <div class="code-block" style="margin-top:16px">
+                    <span class="cm"># Run full test suite</span>
+                    <span class="kw">cd</span> backend
+                    <span class="kw">pytest</span> tests/ -v
+
+                    <span class="cm"># Run with asyncio mode</span>
+                    <span class="kw">pytest</span> --asyncio-mode=auto tests/
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">11.2</span>Manual Test Checklist</div>
+                <ul class="feat-list">
+                    <li><span class="feat-check">☐</span><span>Chat widget opens and displays starter prompts</span></li>
+                    <li><span class="feat-check">☐</span><span>Sending a message produces a real-time streamed response</span></li>
+                    <li><span class="feat-check">☐</span><span>Follow-up suggestion chips appear after each response</span></li>
+                    <li><span class="feat-check">☐</span><span>Off-topic question (e.g. "What is photosynthesis?") triggers polite decline</span></li>
+                    <li><span class="feat-check">☐</span><span>Destination grid loads and search/filter works correctly</span></li>
+                    <li><span class="feat-check">☐</span><span>Destination detail dialog opens with all fields</span></li>
+                    <li><span class="feat-check">☐</span><span>Rate limiting returns HTTP 429 after 30+ rapid requests</span></li>
+                    <li><span class="feat-check">☐</span><span>Admin sync endpoint returns 403 without X-Admin-Key</span></li>
+                    <li><span class="feat-check">☐</span><span>Health endpoint reflects correct DB and Qdrant mode</span></li>
+                    <li><span class="feat-check">☐</span><span>App is fully responsive on mobile, tablet, and desktop</span></li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- §12 TEAM CONTRIBUTORS ────────────────────────────────────── -->
+        <section id="s12" class="section">
+            <div class="sec-eyebrow">Section 12</div>
+            <h2 class="sec-title">Team Contributors</h2>
+            <p class="sec-subtitle">The four engineers behind the STAC AI Assistant — built as a Summer Internship Project for the Tourism &amp; Civil Aviation Department, Government of Sikkim.</p>
+
+            <div class="team-grid">
+                <!-- Member 1 -->
+                <div class="team-card">
+                    <div class="team-num">01</div>
+                    <div class="team-avatar">
+                        <div class="avatar-placeholder">KK</div>
+                    </div>
+                    <div class="team-name">Kulsum Khatoon</div>
+                    <div class="team-role">Frontend Developer</div>
+                    <div class="team-badge">Frontend</div>
+                </div>
+                <!-- Member 2 -->
+                <div class="team-card">
+                    <div class="team-num">02</div>
+                    <div class="team-avatar">
+                        <div class="avatar-placeholder">PT</div>
+                    </div>
+                    <div class="team-name">Pawan Thapa</div>
+                    <div class="team-role">Backend API Developer · Project Manager · QA Tester</div>
+                    <div class="team-badge">Backend + PM</div>
+                </div>
+                <!-- Member 3 -->
+                <div class="team-card">
+                    <div class="team-num">03</div>
+                    <div class="team-avatar">
+                        <div class="avatar-placeholder">DL</div>
+                    </div>
+                    <div class="team-name">Divij Limboo</div>
+                    <div class="team-role">AI / RAG Pipeline Developer</div>
+                    <div class="team-badge">AI / RAG</div>
+                </div>
+                <!-- Member 4 -->
+                <div class="team-card">
+                    <div class="team-num">04</div>
+                    <div class="team-avatar">
+                        <div class="avatar-placeholder">KA</div>
+                    </div>
+                    <div class="team-name">Karisma Adhikari</div>
+                    <div class="team-role">Vector DB &amp; Data / Infrastructure</div>
+                    <div class="team-badge">Data + Infra</div>
+                </div>
+            </div>
+
+            <div class="callout callout-success" style="margin-top:32px">
+                <span class="callout-icon">🎓</span>
+                <div class="callout-body">
+                    <strong>Summer Internship Project — Tourism &amp; Civil Aviation Department, Government of Sikkim</strong>
+                    This system was designed and built as part of a summer internship engagement with the GoS. The team collectively designed the architecture, implemented the full-stack application, and delivered a production-ready RAG chatbot with security hardening, dual database support, and a fully animated React frontend.
+                </div>
+            </div>
+        </section>
+
+        <!-- §13 APPENDIX ─────────────────────────────────────────────── -->
+        <section id="s13" class="section">
+            <div class="sec-eyebrow">Section 13</div>
+            <h2 class="sec-title">Appendix &amp; Glossary</h2>
+            <p class="sec-subtitle">Extended glossary of technical terms and project-specific concepts.</p>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">A</span>Extended Glossary</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Term</th><th>Full Form / Explanation</th></tr></thead>
+                        <tbody>
+                        <tr><td><span class="td-code">ASGI</span></td><td>Asynchronous Server Gateway Interface — The Python web server standard that enables async I/O in FastAPI and Uvicorn.</td></tr>
+                        <tr><td><span class="td-code">Embedding</span></td><td>A fixed-dimension dense vector representation of text that encodes semantic meaning. Similar texts have similar vectors.</td></tr>
+                        <tr><td><span class="td-code">Cosine Similarity</span></td><td>The metric Qdrant uses to rank retrieved documents — measures the angle between two embedding vectors.</td></tr>
+                        <tr><td><span class="td-code">Vector Store</span></td><td>A specialised database optimised for ANN (Approximate Nearest Neighbour) search over high-dimensional embedding vectors.</td></tr>
+                        <tr><td><span class="td-code">LCEL</span></td><td>LangChain Expression Language — Functional chain composition using <code>|</code> pipe syntax, enabling declarative RAG pipelines.</td></tr>
+                        <tr><td><span class="td-code">Groq</span></td><td>An AI inference provider offering ultra-fast LLM inference using custom LPU (Language Processing Unit) hardware.</td></tr>
+                        <tr><td><span class="td-code">Hallucination</span></td><td>When an LLM generates plausible-sounding but factually incorrect content. RAG mitigates this by grounding answers in retrieved facts.</td></tr>
+                        <tr><td><span class="td-code">Lifespan</span></td><td>FastAPI's startup/shutdown context manager — used here to populate the Qdrant vector store before the first request is served.</td></tr>
+                        <tr><td><span class="td-code">Pydantic v2</span></td><td>Python data validation library used for all request/response schema validation and settings management.</td></tr>
+                        <tr><td><span class="td-code">Uvicorn</span></td><td>High-performance ASGI web server used to run the FastAPI application.</td></tr>
+                        <tr><td><span class="td-code">SSE</span></td><td>Server-Sent Events — A one-way HTTP push protocol where the server streams <code>data: ...\n\n</code> events to the client.</td></tr>
+                        <tr><td><span class="td-code">HMR</span></td><td>Hot Module Replacement — Vite's feature that updates the browser without a full page reload during development.</td></tr>
+                        <tr><td><span class="td-code">MMR</span></td><td>Maximal Marginal Relevance — A retrieval strategy that balances relevance with diversity in retrieved documents.</td></tr>
+                        <tr><td><span class="td-code">Permit (ILP/PAP)</span></td><td>Inner Line Permit / Protected Area Permit — Government-mandated entry permits for restricted zones in Sikkim, including border areas like Nathu La and North Sikkim valleys.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="sub-section">
+                <div class="sub-title"><span class="sub-title-num">B</span>Technology Stack Summary</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Layer</th><th>Technology</th><th>Version</th><th>Purpose</th></tr></thead>
+                        <tbody>
+                        <tr><td>Backend Framework</td><td>FastAPI</td><td>≥ 0.115</td><td>REST API + SSE streaming + OpenAPI docs</td></tr>
+                        <tr><td>Web Server</td><td>Uvicorn (standard)</td><td>≥ 0.32</td><td>ASGI production server</td></tr>
+                        <tr><td>AI Orchestration</td><td>LangChain + LangChain-Core</td><td>≥ 0.3</td><td>LCEL RAG chain composition</td></tr>
+                        <tr><td>LLM (Chat)</td><td>Groq (llama-3.3-70b-versatile)</td><td>—</td><td>Streaming LLM inference</td></tr>
+                        <tr><td>LLM (Embeddings)</td><td>Google Gemini Embeddings</td><td>models/gemini-embedding-001</td><td>3072-dim text embeddings</td></tr>
+                        <tr><td>Vector Store</td><td>Qdrant</td><td>≥ 1.9</td><td>Semantic similarity search</td></tr>
+                        <tr><td>Data Validation</td><td>Pydantic v2</td><td>≥ 2.9</td><td>Request/response schemas + settings</td></tr>
+                        <tr><td>Rate Limiting</td><td>slowapi</td><td>≥ 0.1.9</td><td>Per-IP request rate limiting</td></tr>
+                        <tr><td>Production DB</td><td>MySQL</td><td>8+</td><td>Persistent destination data store</td></tr>
+                        <tr><td>Frontend Framework</td><td>React 18 + TypeScript</td><td>18.3 / 5.6</td><td>Component-based SPA</td></tr>
+                        <tr><td>Build Tool</td><td>Vite</td><td>6.0</td><td>Dev server + production bundler</td></tr>
+                        <tr><td>Styling</td><td>Tailwind CSS v4</td><td>4.0</td><td>Utility-first CSS framework</td></tr>
+                        <tr><td>Animation</td><td>Framer Motion</td><td>11.11</td><td>Declarative React animations</td></tr>
+                        <tr><td>UI Components</td><td>Radix UI</td><td>Various</td><td>Accessible headless component primitives</td></tr>
+                        <tr><td>Routing</td><td>Wouter</td><td>3.3</td><td>Lightweight React router</td></tr>
+                        <tr><td>Markdown</td><td>react-markdown + remark-gfm</td><td>10.1 / 4.0</td><td>Renders AI markdown responses</td></tr>
+                        <tr><td>Testing</td><td>pytest + pytest-asyncio</td><td>≥ 8.3 / 0.24</td><td>Backend unit &amp; integration tests</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+            <div style="text-align:center; padding:20px 0">
+                <div style="font-size:.8rem; color:var(--muted); line-height:2">
+                    <strong style="color:var(--text)">Sikkim Tourism &amp; Civil Aviation Department AI Assistant</strong><br>
+                    Software Requirements Specification · Version 2.0.0 · July 2025<br>
+                    Tourism &amp; Civil Aviation Department, Government of Sikkim<br>
+                    <span style="color:var(--accent)">● Restricted Document — Authorised Team Access Only ●</span>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-left">
+            <div class="footer-dot"></div>
+            <span>STAC AI Assistant SRS v2.0.0</span>
+        </div>
+        <span>© 2025 Tourism &amp; Civil Aviation Dept, Government of Sikkim · Summer Internship Project</span>
+    </footer>
+
+    <!-- Scroll to top -->
+    <button id="scroll-top" aria-label="Scroll to top">↑</button>
+
+</div><!-- /#app -->
+
+<script>
+    /* ═══════════════════════════════════════════════════════════════
+       PARTICLE CANVAS  (lock screen background)
+    ═══════════════════════════════════════════════════════════════ */
+    (function initParticles() {
+        const canvas = document.getElementById('lock-canvas');
+        const ctx = canvas.getContext('2d');
+        let W, H, particles = [];
+        const N = 90;
+
+        function resize() {
+            W = canvas.width  = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        function randRange(min, max) { return Math.random() * (max - min) + min; }
+
+        function spawn() {
+            return {
+                x: Math.random() * W,
+                y: Math.random() * H,
+                r: randRange(.6, 2.2),
+                vx: randRange(-.25, .25),
+                vy: randRange(-.35, -.05),
+                alpha: randRange(.15, .55),
+                da: randRange(-.003, .003),
+            };
+        }
+        for (let i = 0; i < N; i++) particles.push(spawn());
+
+        function drawConnections() {
+            const DIST = 110;
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const d  = Math.sqrt(dx*dx + dy*dy);
+                    if (d < DIST) {
+                        const op = (1 - d / DIST) * .12;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = `rgba(16,185,129,${op})`;
+                        ctx.lineWidth = .6;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function frame() {
+            ctx.clearRect(0, 0, W, H);
+            drawConnections();
+            particles.forEach(p => {
+                p.x += p.vx; p.y += p.vy;
+                p.alpha += p.da;
+                if (p.alpha > .55 || p.alpha < .05) p.da *= -1;
+                if (p.x < -10 || p.x > W + 10 || p.y < -10 || p.y > H + 10) {
+                    Object.assign(p, spawn(), { y: H + 5 });
+                }
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(16,185,129,${p.alpha})`;
+                ctx.fill();
+            });
+            requestAnimationFrame(frame);
+        }
+        frame();
+    })();
+
+    /* ═══════════════════════════════════════════════════════════════
+       PASSWORD GATE
+    ═══════════════════════════════════════════════════════════════ */
+    (function initLock() {
+        const HASH = 'f2e3a388badc68c5d5066535920c2b4475a4712ae7d325bdad02e68556c008b2';
+        const SESSION_KEY = 'stac_srs_unlocked';
+
+        const lockScreen = document.getElementById('lock-screen');
+        const app        = document.getElementById('app');
+        const input      = document.getElementById('pwd-input');
+        const btn        = document.getElementById('unlock-btn');
+        const errEl      = document.getElementById('lock-err');
+        const eyeBtn     = document.getElementById('eye-btn');
+        const relockBtn  = document.getElementById('relock-btn');
+
+        async function sha256(str) {
+            const buf  = new TextEncoder().encode(str);
+            const hash = await crypto.subtle.digest('SHA-256', buf);
+            return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+        }
+
+        function showApp() {
+            lockScreen.classList.add('unlocking');
+            setTimeout(() => {
+                lockScreen.style.display = 'none';
+                app.classList.add('visible');
+            }, 600);
+        }
+
+        function lockApp() {
+            sessionStorage.removeItem(SESSION_KEY);
+            lockScreen.style.display = 'flex';
+            lockScreen.style.opacity = '1';
+            lockScreen.style.transform = 'none';
+            lockScreen.classList.remove('unlocking');
+            app.classList.remove('visible');
+            input.value = '';
+            errEl.textContent = '';
+        }
+
+        // Persist session within the tab
+        if (sessionStorage.getItem(SESSION_KEY) === '1') {
+            showApp();
+        }
+
+        async function tryUnlock() {
+            const pwd = input.value;
+            if (!pwd) { errEl.textContent = '⚠ Please enter the password.'; return; }
+            btn.disabled = true;
+            btn.textContent = 'Verifying…';
+            const h = await sha256(pwd);
+            btn.disabled = false;
+            btn.textContent = 'Access Document';
+            if (h === HASH) {
+                sessionStorage.setItem(SESSION_KEY, '1');
+                errEl.textContent = '';
+                showApp();
+            } else {
+                errEl.innerHTML = '✕ Incorrect password. Please try again.';
+                input.value = '';
+                input.focus();
+                // Re-trigger shake animation
+                errEl.style.animation = 'none';
+                void errEl.offsetWidth;
+                errEl.style.animation = 'shake .35s ease';
+            }
+        }
+
+        btn.addEventListener('click', tryUnlock);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+        eyeBtn.addEventListener('click', () => {
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            eyeBtn.textContent = show ? '🙈' : '👁';
+        });
+        relockBtn.addEventListener('click', lockApp);
+    })();
+
+    /* ═══════════════════════════════════════════════════════════════
+       SIDEBAR & NAVIGATION
+    ═══════════════════════════════════════════════════════════════ */
+    (function initNav() {
+        const sidebar  = document.getElementById('sidebar');
+        const menuBtn  = document.getElementById('menu-btn');
+        const overlay  = document.getElementById('overlay');
+        const navLinks = document.querySelectorAll('.nav-item[data-section]');
+
+        function openSidebar() {
+            sidebar.classList.add('open');
+            overlay.classList.add('open');
+        }
+        function closeSidebar() {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('open');
+        }
+
+        menuBtn.addEventListener('click', () => sidebar.classList.contains('open') ? closeSidebar() : openSidebar());
+        overlay.addEventListener('click', closeSidebar);
+        navLinks.forEach(a => a.addEventListener('click', () => { if (window.innerWidth < 900) closeSidebar(); }));
+
+        // Active section highlight via IntersectionObserver
+        const sections = document.querySelectorAll('section[id]');
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    navLinks.forEach(a => a.classList.toggle('active', a.dataset.section === entry.target.id));
+                }
+            });
+        }, { threshold: .25, rootMargin: '-60px 0px -40% 0px' });
+
+        sections.forEach(s => observer.observe(s));
+    })();
+
+    /* ═══════════════════════════════════════════════════════════════
+       SCROLL ANIMATIONS
+    ═══════════════════════════════════════════════════════════════ */
+    (function initScrollAnimations() {
+        const sections = document.querySelectorAll('.section');
+        const progressFill = document.getElementById('progress-fill');
+        const scrollTopBtn = document.getElementById('scroll-top');
+
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in-view'); });
+        }, { threshold: .08 });
+
+        sections.forEach(s => observer.observe(s));
+
+        window.addEventListener('scroll', () => {
+            const main   = document.querySelector('.main');
+            const scrollY = window.scrollY;
+            const total   = document.body.scrollHeight - window.innerHeight;
+            const pct     = total > 0 ? (scrollY / total) * 100 : 0;
+            progressFill.style.width = pct + '%';
+            scrollTopBtn.classList.toggle('visible', scrollY > 400);
+        }, { passive: true });
+
+        scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    })();
+</script>
+</body>
+</html>
