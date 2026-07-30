@@ -92,19 +92,19 @@ export default function Destinations() {
             </p>
           </div>
 
-          <div className="mx-auto mt-10 max-w-5xl rounded-[var(--radius-panel)] border border-border/70 bg-white/78 p-4 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-slate-900/90 dark:border-white/10 sm:p-5">
+          <div className="mx-auto mt-10 max-w-5xl rounded-[var(--radius-panel)] border border-border/70 bg-white/78 p-4 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-white/[0.06] dark:border-white/10 sm:p-5">
             <div className="flex flex-col gap-4 sm:flex-row">
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground dark:text-white/50" />
                 <Input
                   placeholder="Search places, districts, or experiences..."
-                  className="h-13 rounded-2xl border-border/70 bg-background/70 pl-11 text-base shadow-none dark:bg-slate-950/80 dark:border-white/15 dark:text-foreground dark:placeholder:text-slate-400"
+                  className="h-13 rounded-2xl border-border/70 bg-background/70 pl-11 text-base shadow-none dark:bg-white/10 dark:border-white/15 dark:text-white dark:placeholder:text-white/50"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="h-13 w-full rounded-2xl border-border/70 bg-background/70 px-4 shadow-none dark:bg-slate-950/80 dark:border-white/15 sm:w-[230px]">
+                <SelectTrigger className="h-13 w-full rounded-2xl border-border/70 bg-background/70 px-4 shadow-none dark:bg-white/10 dark:border-white/15 sm:w-[230px]">
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-muted-foreground" />
                     <SelectValue placeholder="All Categories" />
