@@ -34,6 +34,15 @@ def test_security_headers_present_on_every_response(client):
     assert "strict-transport-security" not in resp.headers
 
 
+def test_docs_csp_allows_only_the_assets_fastapi_docs_need(client):
+    resp = client.get("/api/docs")
+
+    assert resp.status_code == 200
+    csp = resp.headers["content-security-policy"]
+    assert "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net" in csp
+    assert "connect-src 'self'" in csp
+
+
 def test_production_rejects_wildcard_cors():
     with pytest.raises(ValidationError, match="ALLOWED_ORIGINS"):
         Settings(environment="production", allowed_origins="*")

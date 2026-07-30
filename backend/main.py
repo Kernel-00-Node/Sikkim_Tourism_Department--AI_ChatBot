@@ -61,15 +61,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "base-uri 'self'; "
-            "frame-ancestors 'none'; "
-            "form-action 'self'; "
-            "img-src 'self' data:; "
-            "style-src 'self' 'unsafe-inline'; "
-            "script-src 'self'; "
-            "connect-src 'self' https://api.open-meteo.com"
+        response.headers["Content-Security-Policy"] = _content_security_policy(
+            request.url.path
         )
         # Allow microphone for Web Speech API (voice input).
         # Camera is not used directly (images are file-uploaded, not captured).
@@ -82,6 +75,38 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
         return response
+
+
+def _content_security_policy(path: str) -> str:
+    """Return the least-permissive policy needed for the requested endpoint.
+
+    FastAPI's Swagger and ReDoc pages use CDN assets and an inline bootstrap
+    script. The main API never needs those permissions, so the exception is
+    constrained to the two documentation routes rather than weakening every
+    response served by the application.
+    """
+    if path in {"/api/docs", "/api/redoc"}:
+        return (
+            "default-src 'self'; "
+            "base-uri 'self'; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'; "
+            "img-src 'self' data: https://fastapi.tiangolo.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "connect-src 'self'"
+        )
+
+    return (
+        "default-src 'self'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
+        "connect-src 'self' https://api.open-meteo.com"
+    )
 
 app = FastAPI(
     title="Sikkim Tourism Assistant API",
