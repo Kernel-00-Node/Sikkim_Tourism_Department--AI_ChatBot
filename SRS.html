@@ -43,30 +43,9 @@
             overflow-x: hidden;
         }
 
-        /* ── LOCK SCREEN ────────────────────────────────────────────────── */
-        #lock-screen {
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #030810;
-            transition: opacity .6s ease, transform .6s ease;
-        }
-
-        #lock-screen.unlocking {
-            opacity: 0;
-            transform: scale(1.06) translateY(-20px);
-            pointer-events: none;
-        }
-
-        #lock-canvas {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-        }
-
+        /* ── (legacy lock-screen component styles retained below in case
+           any other markup still references these classes; the gate
+           itself has been removed — see access-control note in HTML) ── */
         .lock-card {
             position: relative;
             z-index: 2;
@@ -1542,40 +1521,24 @@
 <body>
 
     <!-- ═══════════════════════════════════════════════════════════════
-     LOCK SCREEN
-     NOTE: This is a client-side UX gate only. The full document
-     markup below is delivered to, and present in, the browser
-     regardless of whether the password is entered — CSS/JS here
-     control what is *displayed*, not what is *accessible*. Do not
-     rely on this mechanism to protect genuinely sensitive content;
-     treat it purely as a "click-through" cover page.
+     ACCESS CONTROL NOTE
+     The previous client-side password/hash gate has been removed.
+     A JS check that merely toggles CSS visibility cannot stop an
+     unauthorised visitor from receiving this file's markup — the
+     browser downloads the whole document either way, and the
+     "restricted" content was always sitting in the page source
+     regardless of what was typed into the password box.
+     Real access control for this restricted SRS must be enforced
+     server-side: e.g. serve this file only behind authenticated
+     hosting (HTTP auth / SSO-gated proxy), or keep it in a private
+     repository / private Pages deployment so unauthorised visitors
+     never receive the response at all.
 ═══════════════════════════════════════════════════════════════ -->
-    <div id="lock-screen" role="dialog" aria-modal="true" aria-label="Document access">
-        <canvas id="lock-canvas"></canvas>
-        <div class="lock-card">
-            <div class="lock-emblem" aria-hidden="true">🏔️</div>
-            <h1 class="lock-title">Sikkim Tourism AI Assistant</h1>
-            <p class="lock-sub">Software Requirements Specification · v2.0.0<br>Tourism &amp; Civil Aviation Dept,
-                Government of Sikkim</p>
-            <label class="lock-label" for="pwd-input">🔒 Team Access Password</label>
-            <div class="lock-input-wrap">
-                <input class="lock-input" id="pwd-input" type="password" placeholder="Enter password to continue"
-                    autocomplete="current-password" aria-describedby="lock-err" />
-                <button class="lock-eye" id="eye-btn" aria-label="Toggle password visibility">👁</button>
-            </div>
-            <button class="lock-btn" id="unlock-btn">Access Document</button>
-            <div class="lock-error" id="lock-err" role="alert" aria-live="polite"></div>
-            <div class="lock-badge">
-                <span>🛡</span>
-                <span>Restricted — Authorised Team Members Only</span>
-            </div>
-        </div>
-    </div>
 
     <!-- ═══════════════════════════════════════════════════════════════
      MAIN APP
 ═══════════════════════════════════════════════════════════════ -->
-    <div id="app">
+    <div id="app" class="visible">
 
         <!-- Reading Progress Bar -->
         <div class="reading-progress">
@@ -1595,7 +1558,6 @@
             <div class="topbar-right">
                 <span class="topbar-tag">v2.0.0</span>
                 <span class="topbar-ver">July 2025</span>
-                <button class="topbar-lock-btn" id="relock-btn">🔒 Lock</button>
             </div>
         </nav>
 
@@ -1662,7 +1624,8 @@
                     <p>This Software Requirements Specification (SRS) defines the complete set of requirements for the
                         <strong>Sikkim Tourism &amp; Civil Aviation Department AI Assistant</strong> (hereafter "STAC
                         Assistant" or "the System"). It serves as the authoritative reference for design, development,
-                        testing, and maintenance activities.</p>
+                        testing, and maintenance activities.
+                    </p>
                     <p>This document is intended for the development team, the Department of Tourism &amp; Civil
                         Aviation (Government of Sikkim), project supervisors, and any future maintainers of the System.
                     </p>
@@ -2079,14 +2042,16 @@
                             <span class="req-id">FR-03-2</span>
                             <div class="req-desc"><strong>Get Destination Detail</strong>
                                 <code>GET /api/destinations/{id}</code> shall return the full destination record
-                                including highlights, permit info, how-to-reach, entry fee, and tags.</div>
+                                including highlights, permit info, how-to-reach, entry fee, and tags.
+                            </div>
                             <span class="badge badge-high">High</span>
                         </div>
                         <div class="req-row">
                             <span class="req-id">FR-03-3</span>
                             <div class="req-desc"><strong>List Categories</strong>
                                 <code>GET /api/destinations/categories</code> shall return the set of valid destination
-                                categories: <em>nature, culture, adventure, pilgrimage, wildlife</em>.</div>
+                                categories: <em>nature, culture, adventure, pilgrimage, wildlife</em>.
+                            </div>
                             <span class="badge badge-low">Low</span>
                         </div>
                         <div class="req-row">
@@ -2107,7 +2072,8 @@
                             <div class="req-desc"><strong>Protected Admin Sync</strong>
                                 <code>POST /api/admin/sync</code> shall re-index all destinations into the Qdrant vector
                                 store. It requires a valid <code>X-Admin-Key</code> header. Requests without a valid key
-                                shall return HTTP 403.</div>
+                                shall return HTTP 403.
+                            </div>
                             <span class="badge badge-high">High</span>
                         </div>
                         <div class="req-row">
@@ -2136,7 +2102,8 @@
                             <div class="req-desc"><strong>Health Endpoint</strong> <code>GET /api/health</code> shall
                                 return HTTP 200 with JSON containing: <code>status</code>, <code>version</code>,
                                 <code>db_mode</code>, <code>qdrant_mode</code>, <code>qdrant_collection</code>,
-                                <code>embeddings_configured</code>, and <code>chat_llm_configured</code>.</div>
+                                <code>embeddings_configured</code>, and <code>chat_llm_configured</code>.
+                            </div>
                             <span class="badge badge-med">Medium</span>
                         </div>
                     </div>
@@ -2324,19 +2291,20 @@
                             <div class="req-desc"><strong>Security Response Headers</strong> — All HTTP responses shall
                                 include <code>X-Content-Type-Options: nosniff</code>,
                                 <code>X-Frame-Options: DENY</code>, <code>X-XSS-Protection: 1; mode=block</code>,
-                                <code>Referrer-Policy</code>, and <code>Permissions-Policy</code>.</div><span
-                                class="badge badge-high">High</span>
+                                <code>Referrer-Policy</code>, and <code>Permissions-Policy</code>.
+                            </div><span class="badge badge-high">High</span>
                         </div>
                         <div class="req-row"><span class="req-id">NFR-SEC-2</span>
                             <div class="req-desc"><strong>HSTS</strong> — In production environment,
                                 <code>Strict-Transport-Security: max-age=31536000; includeSubDomains</code> shall be set
-                                on all responses.</div><span class="badge badge-high">High</span>
+                                on all responses.
+                            </div><span class="badge badge-high">High</span>
                         </div>
                         <div class="req-row"><span class="req-id">NFR-SEC-3</span>
                             <div class="req-desc"><strong>Admin Authentication</strong> — The
                                 <code>/api/admin/sync</code> endpoint shall require a valid <code>X-Admin-Key</code>
-                                header. The key shall be a minimum 32-byte URL-safe random token.</div><span
-                                class="badge badge-high">High</span>
+                                header. The key shall be a minimum 32-byte URL-safe random token.
+                            </div><span class="badge badge-high">High</span>
                         </div>
                         <div class="req-row"><span class="req-id">NFR-SEC-4</span>
                             <div class="req-desc"><strong>Input Validation</strong> — All API inputs shall be validated
@@ -2346,8 +2314,8 @@
                         <div class="req-row"><span class="req-id">NFR-SEC-5</span>
                             <div class="req-desc"><strong>No Credential Hardcoding</strong> — All secrets (API keys, DB
                                 passwords, admin keys) shall be sourced exclusively from environment variables or
-                                <code>.env</code> files; never hardcoded in source code.</div><span
-                                class="badge badge-high">High</span>
+                                <code>.env</code> files; never hardcoded in source code.
+                            </div><span class="badge badge-high">High</span>
                         </div>
                         <div class="req-row"><span class="req-id">NFR-SEC-6</span>
                             <div class="req-desc"><strong>Rate Limiting</strong> — The chat endpoint shall enforce 30
@@ -2713,7 +2681,8 @@
                 <div class="sec-eyebrow">Section 8</div>
                 <h2 class="sec-title">API Reference</h2>
                 <p class="sec-subtitle">Complete endpoint catalogue. Full interactive docs available at
-                    <code>/api/docs</code> (Swagger UI) and <code>/api/redoc</code> (ReDoc).</p>
+                    <code>/api/docs</code> (Swagger UI) and <code>/api/redoc</code> (ReDoc).
+                </p>
 
                 <div class="table-wrap">
                     <table>
@@ -2753,7 +2722,8 @@
                                 <td><span class="badge badge-post">POST</span></td>
                                 <td><span class="td-code">/api/conversations/{id}/chat</span></td>
                                 <td>Send a message; receive SSE-streamed AI response. Body:
-                                    <code>{"message": "..."}</code></td>
+                                    <code>{"message": "..."}</code>
+                                </td>
                                 <td>None</td>
                                 <td><strong>30/min/IP</strong></td>
                             </tr>
@@ -2761,7 +2731,8 @@
                                 <td><span class="badge badge-get">GET</span></td>
                                 <td><span class="td-code">/api/destinations/</span></td>
                                 <td>List all destinations. Optional query params: <code>search</code> (max 100 chars),
-                                    <code>category</code>.</td>
+                                    <code>category</code>.
+                                </td>
                                 <td>None</td>
                                 <td>—</td>
                             </tr>
@@ -2834,7 +2805,8 @@
                         <p>Custom <code>SecurityHeadersMiddleware</code> appended to every response:
                             <code>X-Content-Type-Options</code>, <code>X-Frame-Options: DENY</code>,
                             <code>X-XSS-Protection</code>, <code>Referrer-Policy</code>,
-                            <code>Permissions-Policy</code>, and HSTS in production.</p>
+                            <code>Permissions-Policy</code>, and HSTS in production.
+                        </p>
                     </div>
                     <div class="card"
                         style="--card-accent: linear-gradient(90deg,#f59e0b,#d97706); --card-icon-bg: rgba(245,158,11,.1)">
@@ -2848,7 +2820,8 @@
                         <div class="card-icon">🔐</div>
                         <h4>Admin Key Authentication</h4>
                         <p>The admin sync endpoint uses <code>X-Admin-Key</code> header validation via FastAPI
-                            <code>Depends</code>. Fail-closed: empty key = all requests denied.</p>
+                            <code>Depends</code>. Fail-closed: empty key = all requests denied.
+                        </p>
                     </div>
                     <div class="card"
                         style="--card-accent: linear-gradient(90deg,#3b82f6,#2563eb); --card-icon-bg: rgba(59,130,246,.1)">
@@ -3058,7 +3031,8 @@
                             <div class="card-icon">💬</div>
                             <h4>Chat Flow Tests</h4>
                             <p>Creates a conversation, sends a message, and verifies the SSE stream terminates with
-                                <code>[DONE]</code>.</p>
+                                <code>[DONE]</code>.
+                            </p>
                         </div>
                         <div class="card" style="--card-accent:linear-gradient(90deg,#8b5cf6,#7c3aed)">
                             <div class="card-icon">🗺️</div>
@@ -3070,7 +3044,8 @@
                             <div class="card-icon">🔐</div>
                             <h4>Admin Auth Tests</h4>
                             <p>Verifies that <code>/api/admin/sync</code> correctly rejects requests without
-                                <code>X-Admin-Key</code> (HTTP 403).</p>
+                                <code>X-Admin-Key</code> (HTTP 403).
+                            </p>
                         </div>
                     </div>
                     <div class="code-block" style="margin-top:16px">
@@ -3213,7 +3188,8 @@
                                 <tr>
                                     <td><span class="td-code">LCEL</span></td>
                                     <td>LangChain Expression Language — Functional chain composition using
-                                        <code>|</code> pipe syntax, enabling declarative RAG pipelines.</td>
+                                        <code>|</code> pipe syntax, enabling declarative RAG pipelines.
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td><span class="td-code">Groq</span></td>
@@ -3242,7 +3218,8 @@
                                 <tr>
                                     <td><span class="td-code">SSE</span></td>
                                     <td>Server-Sent Events — A one-way HTTP push protocol where the server streams
-                                        <code>data: ...\n\n</code> events to the client.</td>
+                                        <code>data: ...\n\n</code> events to the client.
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td><span class="td-code">HMR</span></td>
@@ -3417,155 +3394,6 @@
         /* Mark JS as active immediately so CSS can rely on html.js for
            progressive-enhancement fallbacks (e.g. reveal-on-scroll sections). */
         document.documentElement.classList.add('js');
-
-        /* ═══════════════════════════════════════════════════════════════
-           PARTICLE CANVAS  (lock screen background)
-        ═══════════════════════════════════════════════════════════════ */
-        (function initParticles() {
-            const canvas = document.getElementById('lock-canvas');
-            const ctx = canvas.getContext('2d');
-            let W, H, particles = [];
-            const N = 90;
-
-            function resize() {
-                W = canvas.width = window.innerWidth;
-                H = canvas.height = window.innerHeight;
-            }
-            resize();
-            window.addEventListener('resize', resize);
-
-            function randRange(min, max) { return Math.random() * (max - min) + min; }
-
-            function spawn() {
-                return {
-                    x: Math.random() * W,
-                    y: Math.random() * H,
-                    r: randRange(.6, 2.2),
-                    vx: randRange(-.25, .25),
-                    vy: randRange(-.35, -.05),
-                    alpha: randRange(.15, .55),
-                    da: randRange(-.003, .003),
-                };
-            }
-            for (let i = 0; i < N; i++) particles.push(spawn());
-
-            function drawConnections() {
-                const DIST = 110;
-                for (let i = 0; i < particles.length; i++) {
-                    for (let j = i + 1; j < particles.length; j++) {
-                        const dx = particles[i].x - particles[j].x;
-                        const dy = particles[i].y - particles[j].y;
-                        const d = Math.sqrt(dx * dx + dy * dy);
-                        if (d < DIST) {
-                            const op = (1 - d / DIST) * .12;
-                            ctx.beginPath();
-                            ctx.moveTo(particles[i].x, particles[i].y);
-                            ctx.lineTo(particles[j].x, particles[j].y);
-                            ctx.strokeStyle = `rgba(16,185,129,${op})`;
-                            ctx.lineWidth = .6;
-                            ctx.stroke();
-                        }
-                    }
-                }
-            }
-
-            function frame() {
-                ctx.clearRect(0, 0, W, H);
-                drawConnections();
-                particles.forEach(p => {
-                    p.x += p.vx; p.y += p.vy;
-                    p.alpha += p.da;
-                    if (p.alpha > .55 || p.alpha < .05) p.da *= -1;
-                    if (p.x < -10 || p.x > W + 10 || p.y < -10 || p.y > H + 10) {
-                        Object.assign(p, spawn(), { y: H + 5 });
-                    }
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(16,185,129,${p.alpha})`;
-                    ctx.fill();
-                });
-                requestAnimationFrame(frame);
-            }
-            frame();
-        })();
-
-        /* ═══════════════════════════════════════════════════════════════
-           PASSWORD GATE
-        ═══════════════════════════════════════════════════════════════ */
-        (function initLock() {
-            const HASH = 'f2e3a388badc68c5d5066535920c2b4475a4712ae7d325bdad02e68556c008b2';
-            const SESSION_KEY = 'stac_srs_unlocked';
-
-            const lockScreen = document.getElementById('lock-screen');
-            const app = document.getElementById('app');
-            const input = document.getElementById('pwd-input');
-            const btn = document.getElementById('unlock-btn');
-            const errEl = document.getElementById('lock-err');
-            const eyeBtn = document.getElementById('eye-btn');
-            const relockBtn = document.getElementById('relock-btn');
-
-            async function sha256(str) {
-                const buf = new TextEncoder().encode(str);
-                const hash = await crypto.subtle.digest('SHA-256', buf);
-                return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-            }
-
-            function showApp() {
-                lockScreen.classList.add('unlocking');
-                setTimeout(() => {
-                    lockScreen.style.display = 'none';
-                    app.classList.add('visible');
-                }, 600);
-            }
-
-            function lockApp() {
-                sessionStorage.removeItem(SESSION_KEY);
-                lockScreen.style.display = 'flex';
-                lockScreen.style.opacity = '1';
-                lockScreen.style.transform = 'none';
-                lockScreen.classList.remove('unlocking');
-                app.classList.remove('visible');
-                input.value = '';
-                errEl.textContent = '';
-            }
-
-            // Persist session within the tab
-            if (sessionStorage.getItem(SESSION_KEY) === '1') {
-                showApp();
-            }
-
-            async function tryUnlock() {
-                const pwd = input.value;
-                if (!pwd) { errEl.textContent = '⚠ Please enter the password.'; return; }
-                btn.disabled = true;
-                btn.textContent = 'Verifying…';
-                const h = await sha256(pwd);
-                btn.disabled = false;
-                btn.textContent = 'Access Document';
-                if (h === HASH) {
-                    sessionStorage.setItem(SESSION_KEY, '1');
-                    errEl.textContent = '';
-                    showApp();
-                } else {
-                    errEl.innerHTML = '✕ Incorrect password. Please try again.';
-                    input.value = '';
-                    input.focus();
-                    // Re-trigger shake animation
-                    errEl.style.animation = 'none';
-                    void errEl.offsetWidth;
-                    errEl.style.animation = 'shake .35s ease';
-                }
-            }
-
-            btn.addEventListener('click', tryUnlock);
-            input.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
-            eyeBtn.addEventListener('click', () => {
-                const show = input.type === 'password';
-                input.type = show ? 'text' : 'password';
-                eyeBtn.textContent = show ? '🙈' : '👁';
-            });
-            relockBtn.addEventListener('click', lockApp);
-        })();
 
         /* ═══════════════════════════════════════════════════════════════
            SIDEBAR & NAVIGATION
