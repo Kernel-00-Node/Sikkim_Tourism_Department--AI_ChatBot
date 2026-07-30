@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DestinationCard } from "@/components/destination-card";
 import { DestinationDetailsDialog } from "@/components/destination-details-dialog";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, MapPin, MountainSnow } from "lucide-react";
+import { Search, Filter, MapPin, MountainSnow, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -32,6 +32,13 @@ export default function Destinations() {
   const [destinations, setDestinations] = useState<DestinationSummary[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
 
   const debouncedSearch = useDebounce(search, 350);
 

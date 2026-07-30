@@ -154,10 +154,10 @@
 }
 
 .dark {
-  --background: 170 32% 8%;
+  --background: 170 32% 6%;   /* was 8% */
   --foreground: 155 22% 92%;
   --border: 170 20% 18%;
-  --card: 170 30% 10%;
+  --card: 170 30% 8%;         /* was 10% */
   --card-foreground: 155 22% 92%;
   --card-border: 170 20% 18%;
   --sidebar: 170 30% 10%;
@@ -236,6 +236,20 @@
   ::selection {
     background: hsl(var(--primary) / 0.18);
     color: hsl(var(--foreground));
+  }
+
+  .dark body {
+    background-image:
+            radial-gradient(circle at top left, rgba(233, 169, 59, 0.05), transparent 24%),
+            radial-gradient(circle at top right, rgba(39, 122, 107, 0.08), transparent 28%),
+            linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0));
+  }
+
+  .dark body::before {
+    background:
+            linear-gradient(120deg, rgba(255, 255, 255, 0.03), transparent 38%),
+            radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.05), transparent 18%);
+    opacity: 0.5;
   }
 
   h1,
