@@ -1,11 +1,15 @@
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Maximize2, Minimize2, MessageCircle } from "lucide-react";
-import { Chat } from "@/components/chat";
 import { GOVT_LOGO_SRC } from "@/config/brand";
 import { useChatTheme, PRAYER_FLAGS } from "@/config/chat-theme";
 import { useTypewriter } from "@/hooks/use-typewriter";
-import { withAlpha } from "@/lib/utils";          // ← NEW
+import { withAlpha } from "@/lib/utils";
+
+// Markdown rendering and image/voice chat controls are only needed after a
+// visitor opens the assistant. Deferring them materially reduces the landing
+// page download on Vercel.
+const Chat = lazy(() => import("@/components/chat").then((module) => ({ default: module.Chat })));
 
 /* Bilingual greeting rotation for the launcher hint chip — English and
    Hindi, alternating, so the nudge reads naturally to both audiences. */
@@ -382,7 +386,9 @@ export function ChatWidget() {
                 className="relative min-h-0 flex-1 backdrop-blur-xl backdrop-saturate-150"
                 style={{ background: theme.bg }}
               >
-                <Chat compact />
+                <Suspense fallback={<div className="h-full" aria-busy="true" />}>
+                  <Chat compact />
+                </Suspense>
               </div>
             </div>
           </motion.div>

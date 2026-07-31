@@ -94,16 +94,30 @@ class MockRepository(BaseRepository):
         conversation_id: str,
         role: MessageRole,
         content: str,
+        client_message_id: str | None = None,
     ) -> Message:
         msg = Message(
             id=str(uuid4()),
             conversation_id=conversation_id,
             role=role,
             content=content,
+            client_message_id=client_message_id,
             created_at=datetime.now(timezone.utc),
         )
         self._messages.setdefault(conversation_id, []).append(msg)
         return msg
+
+    async def get_message_by_client_id(
+        self, conversation_id: str, client_message_id: str
+    ) -> Message | None:
+        return next(
+            (
+                message
+                for message in self._messages.get(conversation_id, [])
+                if message.client_message_id == client_message_id
+            ),
+            None,
+        )
 
     async def list_messages(self, conversation_id: str) -> list[Message]:
         return self._messages.get(conversation_id, [])

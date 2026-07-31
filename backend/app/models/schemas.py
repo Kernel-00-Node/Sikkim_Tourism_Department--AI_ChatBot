@@ -84,13 +84,14 @@ class Message(BaseModel):
     conversation_id: str
     role: Literal["user", "assistant"]
     content: str
+    client_message_id: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ── Request / Response bodies ──────────────────────────────────────────────────
 
 # Allowed MIME types for image uploads — whitelist only.
-_ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+_ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 # Max base64 length accepted (~4 MB binary → ~5.5 MB base64).
 _MAX_IMAGE_BASE64_LEN = 5_600_000
@@ -105,6 +106,7 @@ class ChatRequest(BaseModel):
     """
 
     message: str = Field(..., min_length=1, max_length=2000)
+    client_message_id: str | None = Field(default=None, max_length=64)
 
     # ── Optional image attachment ──────────────────────────────────────────
     # Raw base64-encoded image bytes (no data-URI prefix — strip it on the
@@ -167,7 +169,16 @@ class ChatRequest(BaseModel):
             raise ValueError("image_mime_type must be a string")
         v = v.strip().lower()
         if v not in _ALLOWED_IMAGE_MIME_TYPES:
-            raise ValueError("Unsupported image type. Use JPEG, PNG, WebP, or GIF.")
+            raise ValueError("Unsupported image type. Use JPEG, PNG, or WebP.")
+        return v
+
+    @field_validator("client_message_id")
+    @classmethod
+    def validate_client_message_id(cls, v):
+        if v is None:
+            return v
+        if not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", v):
+            raise ValueError("client_message_id has an invalid format.")
         return v
 
     @model_validator(mode="after")
@@ -195,6 +206,22 @@ class ChatRequest(BaseModel):
         # Keep the server-side limit aligned with the 4 MB client-side limit.
         if len(decoded) > 4 * 1024 * 1024:
             raise ValueError("Image must be 4 MB or smaller.")
+
+        # MIME types are user-controlled. Confirm the file signature before the
+        # bytes are forwarded to the vision provider, and deliberately exclude
+        # animated formats whose decoded size can be disproportionate to their
+        # upload size.
+        valid_signature = {
+            "image/jpeg": decoded.startswith(b"\xff\xd8\xff"),
+            "image/png": decoded.startswith(b"\x89PNG\r\n\x1a\n"),
+            "image/webp": (
+                len(decoded) >= 12
+                and decoded[:4] == b"RIFF"
+                and decoded[8:12] == b"WEBP"
+            ),
+        }[self.image_mime_type]
+        if not valid_signature:
+            raise ValueError("Image data does not match image_mime_type.")
         return self
 
 

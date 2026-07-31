@@ -12,6 +12,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.schemas import ChatRequest
+from app.routers.chat import _needs_full_destination_context
 
 
 # ── ChatRequest schema (unit-level, no HTTP involved) ──────────────────────
@@ -71,6 +72,29 @@ def test_unsupported_image_type_is_rejected():
         )
 
 
+def test_image_bytes_must_match_the_declared_mime_type():
+    with pytest.raises(ValidationError, match="does not match"):
+        ChatRequest(
+            message="Identify this",
+            image_base64="iVBORw0KGgo=",  # PNG signature
+            image_mime_type="image/jpeg",
+        )
+
+
+def test_valid_jpeg_signature_is_accepted():
+    request = ChatRequest(
+        message="Identify this",
+        image_base64="/9j/AA==",  # JPEG SOI marker + one byte
+        image_mime_type="image/jpeg",
+    )
+    assert request.image_mime_type == "image/jpeg"
+
+
+def test_full_catalog_context_is_only_used_for_broad_destination_questions():
+    assert _needs_full_destination_context("What places can I visit in Sikkim?")
+    assert not _needs_full_destination_context("How do I reach Gangtok?")
+
+
 # ── /api/conversations endpoints (HTTP-level) ──────────────────────────────
 
 def test_create_then_fetch_conversation(client):
@@ -116,3 +140,39 @@ def test_chat_rejects_empty_message_body(client):
 
     resp = client.post(f"/api/conversations/{conv_id}/chat", json={"message": ""})
     assert resp.status_code == 422
+
+
+def test_chat_retry_replays_completed_turn_without_duplicate_model_call(client, monkeypatch):
+    """A repeated client ID must reuse the persisted assistant response."""
+    from app.routers import chat
+
+    calls = 0
+
+    async def fake_stream(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        yield "A grounded answer."
+
+    monkeypatch.setattr(chat, "stream_rag_response", fake_stream)
+    monkeypatch.setattr(chat, "generate_followups", lambda *_args: _empty_followups())
+
+    created = client.post("/api/conversations/")
+    conv_id = created.json()["conversation"]["id"]
+    body = {"message": "Tell me about Gangtok", "client_message_id": "retry-test-1234"}
+
+    first = client.post(f"/api/conversations/{conv_id}/chat", json=body)
+    second = client.post(f"/api/conversations/{conv_id}/chat", json=body)
+
+    assert first.status_code == second.status_code == 200
+    assert first.text == second.text
+    assert calls == 1
+
+    conversation = client.get(f"/api/conversations/{conv_id}")
+    assert [message["role"] for message in conversation.json()["messages"]] == [
+        "user",
+        "assistant",
+    ]
+
+
+async def _empty_followups():
+    return []

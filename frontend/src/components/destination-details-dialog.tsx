@@ -27,7 +27,7 @@ import { motion } from "framer-motion";
 function WeatherPanel({ lat, lon, destName }: { lat: number | null; lon: number | null; destName: string }) {
   const { weather, loading, error } = useWeather(lat, lon);
 
-  if (!lat || !lon) return null;
+  if (lat == null || lon == null) return null;
 
   return (
       <div className="rounded-2xl border border-border/60 bg-white/80 p-4 dark:bg-card/70">

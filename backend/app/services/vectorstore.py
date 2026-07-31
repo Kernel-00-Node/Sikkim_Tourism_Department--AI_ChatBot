@@ -133,6 +133,19 @@ def ensure_collection(client: QdrantClient) -> None:
     )
 
 
+def existing_point_count(client: QdrantClient) -> int | None:
+    """Return the persisted collection size, or ``None`` when it is absent.
+
+    This intentionally does not initialise embeddings or create a collection.
+    It lets startup reuse a healthy remote Qdrant snapshot without paying for
+    another complete embedding pass after a web-service restart.
+    """
+    existing = {collection.name for collection in client.get_collections().collections}
+    if settings.qdrant_collection not in existing:
+        return None
+    return client.count(settings.qdrant_collection, exact=False).count
+
+
 def clear_collection(client: QdrantClient) -> None:
     """Remove every point from the active collection without recreating it.
 

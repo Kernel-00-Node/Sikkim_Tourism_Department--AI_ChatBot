@@ -90,6 +90,10 @@ export interface Message {
    * image thumbnail inside the user bubble without a round-trip.
    */
   imageDataUrl?: string;
+  /** Frontend-only: marks an interrupted streamed response as retryable. */
+  retry?: boolean;
+  /** Frontend-only id used to make retries idempotent on the backend. */
+  clientMessageId?: string;
 }
 
 // ── Raw shapes (backend snake_case) ──────────────────────────────────────────

@@ -71,7 +71,7 @@ The Sikkim Tourism Assistant is a production-grade Retrieval-Augmented Generatio
 | Layer               | Technology                                                                               |
 | ------------------- | ---------------------------------------------------------------------------------------- |
 | **Backend**         | Python 3.11 · FastAPI · Uvicorn                                                        |
-| **AI / LLM**        | LangChain LCEL · Google Gemini (`gemini-1.5-flash`) · Groq (`llama-3.3-70b-versatile`) |
+| **AI / LLM**        | LangChain LCEL · Google Gemini (`gemini-2.5-flash`) · Groq (`llama-3.3-70b-versatile`) |
 | **Embeddings**      | Gemini`gemini-embedding-001` — 3072-dim (auto-detected), API-based                      |
 | **RAG**             | History-aware retriever + stuff-documents chain (LangChain)                              |
 | **Vector Store**    | Qdrant — in-memory by default, remote optional                                          |
@@ -273,6 +273,21 @@ source v_env/bin/activate     # v_env\Scripts\activate.bat on Windows
 pytest
 ```
 
+### Production deployment (Vercel + Render)
+
+The Vercel rewrite in `frontend/vercel.json` already proxies `/api/*` to the
+Render service. In Render, set the backend root directory to `backend`, use
+`pip install -r requirements.txt` as the build command, and use:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+as the start command. The included `.python-version` pins Python 3.11. Set
+`ENVIRONMENT=production`, `ALLOWED_ORIGINS=https://<your-vercel-domain>`,
+`GEMINI_API_KEY`, `GROQ_API_KEY`, and a strong `ADMIN_API_KEY` in Render's
+environment settings. Do not commit real keys to the repository.
+
 ---
 
 ## Environment Variables
@@ -292,9 +307,10 @@ Copy `backend/.env.example` to `backend/.env` and fill in the values below.
 
 | Variable                 | Default                       | Description                                          |
 | ------------------------ | ----------------------------- | ---------------------------------------------------- |
-| `GEMINI_MODEL`           | `gemini-1.5-flash`            | Gemini Chat Model                                    |
+| `GEMINI_MODEL`           | `gemini-2.5-flash`            | Stable Gemini multimodal model used for image analysis |
 | `GEMINI_EMBEDDING_MODEL` | `models/gemini-embedding-001` | Embedding model (3072-dim, auto-detected at runtime) |
 | `GROQ_MODEL`             | `llama-3.3-70b-versatile`     | Groq LLM model                                       |
+| `TAVILY_API_KEY`         | _(empty)_                     | Optional live Sikkim travel updates                   |
 
 ### Database
 
@@ -313,6 +329,11 @@ Copy `backend/.env.example` to `backend/.env` and fill in the values below.
 | `MYSQL_USER`     | `root`           |
 | `MYSQL_PASSWORD` | _(empty)_        |
 | `MYSQL_DATABASE` | `sikkim_tourism` |
+
+For an existing database created before geographic coordinates were added,
+apply [`docs/migrations/001_add_destination_coordinates.sql`](docs/migrations/001_add_destination_coordinates.sql)
+once, then populate `latitude` and `longitude` for each destination to enable
+the frontend weather panels.
 
 ### Vector Store (Qdrant)
 
@@ -349,9 +370,9 @@ The API ships with several hardening measures on by default:
 
 | Feature              | Detail                                                                                                                                                                                                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Rate limiting**    | `POST /api/conversations/{id}/chat` is capped at 30 requests/minute per IP (`slowapi`).                                                                                                                                              |
+| **Rate limiting**    | Conversation creation is capped at 20/minute and chat turns at 30/minute per IP (`slowapi`).                                                                                                                                            |
 | **Admin auth**       | `/api/admin/sync` requires an `X-Admin-Key` header matching `ADMIN_API_KEY`, compared using a constant-time check (`hmac.compare_digest`) to avoid timing attacks. The endpoint fails closed (503) if no key is configured.          |
-| **Security headers** | Every response includes`X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, and a restrictive `Permissions-Policy`. `Strict-Transport-Security` is added automatically when `ENVIRONMENT=production`. |
+| **Security headers** | Every response includes`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP, and a restrictive `Permissions-Policy`. `Strict-Transport-Security` is added automatically when `ENVIRONMENT=production`. |
 | **Locked-down CORS** | Allowed origins, methods, and headers are all explicitly configurable — no wildcard`*` origin by default.                                                                                                                           |
 
 ---

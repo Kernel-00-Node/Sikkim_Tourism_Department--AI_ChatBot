@@ -34,6 +34,16 @@ def test_security_headers_present_on_every_response(client):
     assert "strict-transport-security" not in resp.headers
 
 
+def test_conversation_responses_are_not_cacheable(client):
+    created = client.post("/api/conversations/")
+    assert "no-store" in created.headers["cache-control"]
+
+
+def test_public_destinations_are_cacheable(client):
+    response = client.get("/api/destinations/")
+    assert "s-maxage=3600" in response.headers["cache-control"]
+
+
 def test_docs_csp_allows_only_the_assets_fastapi_docs_need(client):
     resp = client.get("/api/docs")
 
@@ -46,3 +56,14 @@ def test_docs_csp_allows_only_the_assets_fastapi_docs_need(client):
 def test_production_rejects_wildcard_cors():
     with pytest.raises(ValidationError, match="ALLOWED_ORIGINS"):
         Settings(environment="production", allowed_origins="*")
+
+
+def test_production_rejects_whitespace_padded_wildcard_cors():
+    with pytest.raises(ValidationError, match="ALLOWED_ORIGINS"):
+        Settings(environment=" Production ", allowed_origins=" * ")
+
+
+def test_environment_is_normalised_before_security_checks():
+    settings = Settings(environment=" Production ", allowed_origins="https://example.com ")
+    assert settings.environment == "production"
+    assert settings.origins_list == ["https://example.com"]

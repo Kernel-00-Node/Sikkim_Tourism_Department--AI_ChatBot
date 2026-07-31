@@ -52,6 +52,8 @@ def _row_to_destination(row: dict) -> Destination:
         tags=tags,
         image_placeholder=row.get("image_placeholder") or "",
         image_url=row.get("image_url"),
+        latitude=row.get("latitude"),
+        longitude=row.get("longitude"),
     )
 
 
@@ -65,6 +67,7 @@ def _row_to_message(row: dict) -> Message:
         conversation_id=row["conversation_id"],
         role=row["role"],
         content=row["content"],
+        client_message_id=row.get("client_message_id"),
         created_at=row["created_at"],
     )
 
@@ -217,15 +220,26 @@ class MySQLRepository(BaseRepository):
         conversation_id: str,
         role: "MessageRole",
         content: str,
+        client_message_id: str | None = None,
     ) -> Message:
         msg = Message(conversation_id=conversation_id, role=role, content=content)
         await asyncio.to_thread(
             self._execute,
-            "INSERT INTO messages (id, conversation_id, role, content, created_at) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (msg.id, msg.conversation_id, msg.role, msg.content, msg.created_at),
+            "INSERT INTO messages (id, conversation_id, role, content, client_message_id, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (msg.id, msg.conversation_id, msg.role, msg.content, client_message_id, msg.created_at),
         )
         return msg
+
+    async def get_message_by_client_id(
+        self, conversation_id: str, client_message_id: str
+    ) -> Message | None:
+        rows = await asyncio.to_thread(
+            self._query,
+            "SELECT * FROM messages WHERE conversation_id = %s AND client_message_id = %s LIMIT 1",
+            (conversation_id, client_message_id),
+        )
+        return _row_to_message(rows[0]) if rows else None
 
     async def list_messages(self, conversation_id: str) -> list[Message]:
         rows = await asyncio.to_thread(

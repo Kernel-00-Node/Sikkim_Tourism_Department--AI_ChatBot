@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS destinations (
   tags            JSON             NOT NULL DEFAULT ('[]'),
   image_placeholder VARCHAR(20)    NOT NULL DEFAULT '#888888',
   image_url       VARCHAR(300)     NULL,
+  latitude        DECIMAL(9,6)     NULL,
+  longitude       DECIMAL(9,6)     NULL,
   created_at      DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -56,9 +58,11 @@ CREATE TABLE IF NOT EXISTS messages (
   conversation_id CHAR(36)                    NOT NULL,
   role            ENUM('user','assistant')    NOT NULL,
   content         LONGTEXT                    NOT NULL,
+  client_message_id VARCHAR(64)              NULL,
   created_at      DATETIME                    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   INDEX idx_messages_conversation (conversation_id),
+  UNIQUE KEY uq_messages_client_id (conversation_id, client_message_id),
   CONSTRAINT fk_messages_conversation
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

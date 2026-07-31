@@ -67,7 +67,13 @@ async function _fetch(lat: number, lon: number): Promise<WeatherData> {
         _pending.set(key, promise);
     }
 
-    return _pending.get(key)!;
+    const pending = _pending.get(key)!;
+    // A transient network failure must not poison this location forever.
+    // Successful responses remain available through _cache.
+    pending.catch(() => {}).finally(() => {
+        if (_pending.get(key) === pending) _pending.delete(key);
+    });
+    return pending;
 }
 
 /**
@@ -83,7 +89,12 @@ export function useWeather(
     const [error, setError]   = useState(false);
 
     useEffect(() => {
-        if (lat == null || lon == null) return;
+        if (lat == null || lon == null) {
+            setWeather(null);
+            setLoading(false);
+            setError(false);
+            return;
+        }
         let cancelled = false;
         setLoading(true);
         setError(false);

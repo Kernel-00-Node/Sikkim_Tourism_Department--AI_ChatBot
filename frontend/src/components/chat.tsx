@@ -13,6 +13,7 @@ import {
     Mic,
     MicOff,
     Camera,
+    RefreshCw,
     X,
     Copy,
     Check,
@@ -67,7 +68,6 @@ const ALLOWED_IMAGE_TYPES = new Set([
     "image/jpeg",
     "image/png",
     "image/webp",
-    "image/gif",
 ]);
 
 /* ── Format a timestamp like "9:42 AM" so threads feel real. ─────────────── */
@@ -540,6 +540,7 @@ function Bubble({
                     streaming,
                     isLast,
                     onSuggestionClick,
+                    onRetry,
                     isImageTurn,
                 }: {
     msg: Message;
@@ -547,11 +548,11 @@ function Bubble({
     streaming?: boolean;
     isLast?: boolean;
     onSuggestionClick?: (text: string) => void;
+    onRetry?: () => void;
     isImageTurn?: boolean;
 }) {
     const theme = useChatTheme();
     const isUser = msg.role === "user";
-    const [showActions, setShowActions] = useState(false);
 
     return (
         <motion.div
@@ -596,8 +597,6 @@ function Bubble({
                     className={`rounded-2xl px-3.5 py-2.5 backdrop-blur-md ${
                         isUser ? "rounded-tr-md" : "rounded-tl-md"
                     }`}
-                    onHoverStart={() => !isUser && msg.content && setShowActions(true)}
-                    onHoverEnd={() => setShowActions(false)}
                     animate={
                         !msg.content
                             ? {
@@ -658,27 +657,47 @@ function Bubble({
                     </p>
                 )}
 
-                {/* Action row: copy + feedback — appear on hover, fade in smoothly. */}
+                {/* Action row: copy + feedback. Visible once the response has
+                    finished streaming — no longer tied to hover state, so it
+                    doesn't vanish the moment the mouse moves away. */}
                 {!isUser && msg.content && !streaming && (
-                    <AnimatePresence>
-                        {showActions && (
-                            <motion.div
-                                initial={{ opacity: 0, y: -4 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -4 }}
-                                transition={{ duration: 0.15, ease: "easeOut" }}
-                                className="mt-1.5 flex items-center gap-1"
-                            >
-                                <CopyButton text={msg.content} />
-                                <span
-                                    className="mx-1 h-3 w-px"
-                                    style={{ background: theme.border }}
-                                    aria-hidden="true"
-                                />
-                                <FeedbackButtons />
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                    <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
+                        className="mt-1.5 flex items-center gap-1"
+                    >
+                        <CopyButton text={msg.content} />
+                        <span
+                            className="mx-1 h-3 w-px"
+                            style={{ background: theme.border }}
+                            aria-hidden="true"
+                        />
+                        <FeedbackButtons />
+                    </motion.div>
+                )}
+
+                {!isUser && msg.retry && !streaming && (
+                    <div
+                        className="mt-2 flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-[0.72rem]"
+                        style={{
+                            borderColor: withAlpha("#d88b32", 0.42),
+                            background: withAlpha("#d88b32", 0.08),
+                            color: theme.inkSoft,
+                        }}
+                    >
+                        <span>Connection interrupted. This response may be incomplete.</span>
+                        <button
+                            type="button"
+                            onClick={onRetry}
+                            className="inline-flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 font-semibold transition-opacity hover:opacity-70 focus:outline-none focus-visible:ring-2"
+                            style={{ color: theme.pine }}
+                            aria-label="Try sending the message again"
+                        >
+                            <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} />
+                            Try again
+                        </button>
+                    </div>
                 )}
 
                 {/* Follow-up suggestion chips */}
@@ -742,6 +761,11 @@ export function Chat({ compact = false }: { compact?: boolean }) {
     const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
     const [imageError, setImageError] = useState<string | null>(null);
     const [lastSentHadImage, setLastSentHadImage] = useState(false);
+    const [failedTurn, setFailedTurn] = useState<{
+        text: string;
+        image: PendingImage | null;
+        clientMessageId: string;
+    } | null>(null);
 
     // Voice input state
     const [isListening, setIsListening] = useState(false);
@@ -823,7 +847,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
         rec.lang = "en-IN";          // Indian English — works for regional accents
         rec.interimResults = true;
         rec.maxAlternatives = 1;
-        rec.continuous = false;
+        rec.continuous = true;
 
         rec.onresult = (e: any) => {
             const transcript = Array.from(e.results as SpeechRecognitionResultList)
@@ -855,7 +879,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             if (!file) return;
 
             if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-                setImageError("Only JPEG, PNG, WebP, and GIF images are supported.");
+                setImageError("Only JPEG, PNG, and WebP images are supported.");
                 return;
             }
             if (file.size > MAX_IMAGE_BYTES) {
@@ -881,7 +905,11 @@ export function Chat({ compact = false }: { compact?: boolean }) {
     }, []);
 
     /* ── Send ───────────────────────────────────────────────────────────── */
-    const handleSend = async (text: string, imageOverride?: PendingImage | null) => {
+    const handleSend = async (
+        text: string,
+        imageOverride?: PendingImage | null,
+        retryClientMessageId?: string,
+    ) => {
         const trimmed = text.trim();
         const image = imageOverride !== undefined ? imageOverride : pendingImage;
 
@@ -891,6 +919,8 @@ export function Chat({ compact = false }: { compact?: boolean }) {
         setInput("");
         setPendingImage(null);
         setImageError(null);
+        setFailedTurn(null);
+        setMessages((prev) => prev.map((message) => ({ ...message, retry: false })));
 
         // Stop any active voice session.
         if (isListening) {
@@ -913,6 +943,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
         const now = new Date().toISOString();
         // When only an image is sent, show a short display text in the bubble.
         const displayText = trimmed || (image ? "" : "");
+        const clientMessageId = retryClientMessageId ?? crypto.randomUUID();
         const userMsg: Message = {
             id: `u-${Date.now()}`,
             conversationId: currentConvId,
@@ -920,6 +951,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             content: displayText,
             createdAt: now,
             imageDataUrl: image?.dataUrl,
+            clientMessageId,
         };
         const assistantMsg: Message = {
             id: `a-${Date.now()}`,
@@ -941,6 +973,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
         // Build request body — include image only when present.
         const requestBody: Record<string, unknown> = {
             message: trimmed || "Please describe and identify what you see in this image in the context of Sikkim.",
+            client_message_id: clientMessageId,
         };
         if (image) {
             requestBody.image_base64 = image.base64;
@@ -965,6 +998,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             const decoder = new TextDecoder();
             let assistantContent = "";
             let buffer = "";
+            let streamFinished = false;
 
             while (true) {
                 const { value, done } = await reader.read();
@@ -975,7 +1009,11 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                     for (const part of parts) {
                         if (!part.startsWith("data: ")) continue;
                         const dataStr = part.slice(6).trim();
-                        if (!dataStr || dataStr === "[DONE]") continue;
+                        if (!dataStr) continue;
+                        if (dataStr === "[DONE]") {
+                            streamFinished = true;
+                            continue;
+                        }
                         try {
                             const data = JSON.parse(dataStr);
                             if (data.text) {
@@ -1006,6 +1044,10 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                 }
                 if (done) break;
             }
+
+            if (!streamFinished) {
+                throw new Error("The response stream ended before completion.");
+            }
         } catch (error) {
             if (error instanceof Error && error.name === "AbortError") {
                 shouldRefreshConversation = false;
@@ -1013,14 +1055,15 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             }
             console.error("Chat error:", error);
             shouldRefreshConversation = false;
+            setFailedTurn({ text: trimmed, image: image ?? null, clientMessageId });
             setMessages((prev) => {
                 const updated = [...prev];
                 const last = updated.at(-1);
-                if (last?.role === "assistant" && !last.content) {
+                if (last?.role === "assistant") {
                     updated[updated.length - 1] = {
                         ...last,
-                        content:
-                            "I couldn't reach the assistant just now. Please check your connection and try again.",
+                        content: last.content || "I couldn't reach the assistant just now.",
+                        retry: true,
                     };
                 }
                 return updated;
@@ -1076,6 +1119,16 @@ export function Chat({ compact = false }: { compact?: boolean }) {
         }
     };
 
+    const retryFailedTurn = () => {
+        if (failedTurn) {
+            void handleSend(
+                failedTurn.text,
+                failedTurn.image,
+                failedTurn.clientMessageId,
+            );
+        }
+    };
+
     return (
         <div
             className="relative flex h-full min-h-0 flex-col backdrop-blur-xl backdrop-saturate-150"
@@ -1126,6 +1179,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                                             streaming={isStreaming && idx === messages.length - 1}
                                             isLast={idx === messages.length - 1}
                                             onSuggestionClick={(text) => handleSend(text)}
+                                            onRetry={retryFailedTurn}
                                             isImageTurn={showImageThinking}
                                         />
                                     );
@@ -1141,7 +1195,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
+                accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 aria-hidden="true"
                 onChange={handleImageSelect}
@@ -1214,7 +1268,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                             handleSend(input);
                             requestAnimationFrame(resizeInput);
                         }}
-                        className="relative flex items-end gap-1.5 rounded-[1.4rem] border pr-1 shadow-[0_1px_0_rgba(19,66,56,0.04)] backdrop-blur-md transition-colors focus-within:shadow-[0_0_0_3px_rgba(19,66,56,0.12)]"
+                        className="relative flex items-center gap-1.5 rounded-[1.4rem] border pr-1 shadow-[0_1px_0_rgba(19,66,56,0.04)] backdrop-blur-md transition-colors focus-within:shadow-[0_0_0_3px_rgba(19,66,56,0.12)]"
                         style={{ borderColor: theme.border, background: theme.surface }}
                         onFocus={(e) => {
                             e.currentTarget.style.borderColor = theme.pine;
@@ -1231,7 +1285,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                             title="Attach an image"
                             whileHover={{ scale: 1.08 }}
                             whileTap={{ scale: 0.92 }}
-                            className="mb-1.5 ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                            className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                             style={{
                                 background: pendingImage
                                     ? withAlpha(theme.pine, 0.15)
@@ -1274,7 +1328,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                                 title={isListening ? "Stop listening" : "Speak your question"}
                                 whileHover={!isStreaming ? { scale: 1.08 } : undefined}
                                 whileTap={!isStreaming ? { scale: 0.92 } : undefined}
-                                className="mb-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                                 style={{
                                     background: isListening
                                         ? withAlpha("#e05252", 0.12)
@@ -1318,7 +1372,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                             disabled={(!input.trim() && !pendingImage) || isStreaming}
                             whileHover={(input.trim() || pendingImage) ? { scale: 1.08 } : undefined}
                             whileTap={(input.trim() || pendingImage) ? { scale: 0.92 } : undefined}
-                            className="mb-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-[0_6px_14px_-8px_rgba(19,66,56,0.6)] transition-shadow disabled:cursor-not-allowed disabled:shadow-none"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-[0_6px_14px_-8px_rgba(19,66,56,0.6)] transition-shadow disabled:cursor-not-allowed disabled:shadow-none"
                             style={{
                                 background:
                                     input.trim() || pendingImage

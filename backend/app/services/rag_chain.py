@@ -6,7 +6,7 @@ Two public entry-points:
   stream_rag_response(user_message, history, extra_context)
       → text-only path via Groq (Llama-3.3-70b)
   stream_rag_response_with_image(user_message, history, image_base64, mime_type)
-      → vision path via Gemini 1.5 Flash (multimodal)
+      → vision path via Gemini 2.5 Flash (multimodal)
 """
 from __future__ import annotations
 
@@ -57,6 +57,14 @@ _SYSTEM_PROMPT = (
     "personally explaining Sikkim to a visitor. Mention permits clearly when required. "
     "Keep responses concise but complete. Use bullet points for lists. "
     "Do not make up facts. Do not use emojis.\n\n"
+
+    "IMAGE UPLOAD CAPABILITY:\n"
+    "You DO support image analysis. Users can tap the camera icon next to the message box to "
+    "upload a photo (a destination, plant, animal, food, or cultural item), and you will identify "
+    "it and explain how it relates to Sikkim. If a user asks in text whether they can upload or "
+    "show you an image, confirm that they can via the camera icon — never say you lack this "
+    "capability.\n\n"
+
 
     "Use the following retrieved context to ground your answer where relevant. "
     "If the context is empty or does not cover the question but the question is still about Sikkim, "
@@ -153,7 +161,7 @@ def _get_llm(streaming: bool = True) -> ChatGroq:
         model=settings.groq_model,
         api_key=settings.groq_api_key,
         temperature=0.3,
-        max_tokens=1024,
+        max_tokens=2048,
         streaming=streaming,
     )
 
@@ -359,10 +367,10 @@ async def stream_rag_response_with_image(
         from langchain_google_genai import ChatGoogleGenerativeAI  # type: ignore
 
         vision_llm = ChatGoogleGenerativeAI(
-            model=settings.gemini_model,          # gemini-1.5-flash supports vision
+            model=settings.gemini_model,          # gemini-2.5-flash supports vision
             google_api_key=settings.gemini_api_key,
             temperature=0.3,
-            max_output_tokens=1024,
+            max_output_tokens=2048,
             streaming=True,
         )
 

@@ -26,6 +26,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from app.config import settings
 from app.database.base import BaseRepository
 from app.database.factory import get_repo
 from app.limiting import limiter
@@ -45,6 +46,21 @@ router = APIRouter()
 # failures, and unnecessary cost.  The complete conversation remains stored
 # in the repository; this only limits what is placed in a single prompt.
 MAX_HISTORY_MESSAGES = 16
+
+# Only broad catalogue questions need every destination in the prompt. Sending
+# it on narrow questions wastes tokens and noticeably delays the first answer.
+_FULL_CATALOG_PHRASES = (
+    "list all",
+    "all destinations",
+    "all places",
+    "places to visit",
+    "places can i visit",
+    "what can i visit",
+    "where can i go",
+    "what to see",
+    "tourist attractions",
+    "sightseeing",
+)
 
 
 def _messages_to_history(messages: list[Message]) -> list[dict]:
@@ -66,6 +82,10 @@ def _is_valid_uuid(val: str) -> bool:
         return True
     except (ValueError, AttributeError):
         return False
+
+
+def _needs_full_destination_context(message: str) -> bool:
+    return any(phrase in " ".join(message.lower().split()) for phrase in _FULL_CATALOG_PHRASES)
 
 
 async def _build_official_destinations_context(repo: BaseRepository) -> str:
@@ -106,8 +126,45 @@ async def _build_official_destinations_context(repo: BaseRepository) -> str:
     return "\n".join(lines)
 
 
+def _sse_response(event_generator):
+    """Create a non-cacheable SSE response with proxy-safe streaming headers."""
+    return StreamingResponse(
+        event_generator,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+async def _replay_completed_turn(
+    repo: BaseRepository, conversation_id: str, user_message_id: str
+):
+    """Return the saved assistant answer for a completed idempotent retry."""
+    messages = await repo.list_messages(conversation_id)
+    for index, message in enumerate(messages):
+        if message.id != user_message_id:
+            continue
+        if index + 1 < len(messages) and messages[index + 1].role == "assistant":
+            answer = messages[index + 1].content
+
+            async def replay():
+                yield f"data: {json.dumps({'text': answer})}\n\n"
+                yield "data: [DONE]\n\n"
+
+            return _sse_response(replay())
+        break
+    return None
+
+
 @router.post("", response_model=ConversationResponse)
-async def create_conversation(repo: BaseRepository = Depends(get_repo)):
+@limiter.limit("20/minute")
+async def create_conversation(
+    request: Request,
+    repo: BaseRepository = Depends(get_repo),
+):
     conv = await repo.create_conversation()
     return ConversationResponse(conversation=conv, messages=[])
 
@@ -123,6 +180,7 @@ async def get_conversation(
     conv = await repo.get_conversation(conversation_id)
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found.")
+
     messages = await repo.list_messages(conversation_id)
     return ConversationResponse(conversation=conv, messages=messages)
 
@@ -142,6 +200,23 @@ async def send_message(
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found.")
 
+    # A browser can retry after a network interruption even though the first
+    # request reached us. Replaying a completed turn avoids duplicate user
+    # messages and duplicate model/provider charges. A still-running turn is
+    # rejected rather than starting a second generation for the same id.
+    if body.client_message_id:
+        existing = await repo.get_message_by_client_id(
+            conversation_id, body.client_message_id
+        )
+        if existing:
+            replay = await _replay_completed_turn(repo, conversation_id, existing.id)
+            if replay:
+                return replay
+            raise HTTPException(
+                status_code=409,
+                detail="This message is already being processed. Please retry shortly.",
+            )
+
     # Determine whether this is a vision turn.
     has_image = bool(
         body.image_base64
@@ -150,7 +225,12 @@ async def send_message(
     )
 
     # 1. Persist user message (store text only — never persist raw image data).
-    await repo.add_message(conversation_id, "user", body.message)
+    await repo.add_message(
+        conversation_id,
+        "user",
+        body.message,
+        client_message_id=body.client_message_id,
+    )
 
     # 2. Build conversation history (all messages before this one)
     all_messages = await repo.list_messages(conversation_id)
@@ -171,13 +251,11 @@ async def send_message(
                     image_mime_type=body.image_mime_type, # type: ignore[arg-type]
                 )
             else:
-                # Text path — Groq / Llama.
-                # Always inject the complete, authoritative destinations list
-                # (see _build_official_destinations_context) so broad questions
-                # ("what can I see in Sikkim?", "list all destinations") get a
-                # complete, accurate answer instead of only the top-4 matches
-                # the vector similarity search happens to surface.
-                extra_context = await _build_official_destinations_context(repo)
+                # Text path — Groq / Llama. Broad catalogue questions get the
+                # full official list; focused questions use only RAG results.
+                extra_context = ""
+                if _needs_full_destination_context(body.message):
+                    extra_context = await _build_official_destinations_context(repo)
                 stream = stream_rag_response(body.message, history, extra_context)
 
             async for chunk in stream:
@@ -197,17 +275,11 @@ async def send_message(
             full_response = "".join(assistant_chunks)
             if full_response:
                 await repo.add_message(conversation_id, "assistant", full_response)
-                # Best-effort follow-up chips — never raises, never blocks.
-                suggestions = await generate_followups(body.message, full_response)
-                if suggestions:
-                    yield f"data: {json.dumps({'suggestions': suggestions})}\n\n"
+                if settings.enable_followups:
+                    # Best-effort and opt-in: this is an extra LLM call.
+                    suggestions = await generate_followups(body.message, full_response)
+                    if suggestions:
+                        yield f"data: {json.dumps({'suggestions': suggestions})}\n\n"
             yield "data: [DONE]\n\n"
 
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    return _sse_response(event_generator())

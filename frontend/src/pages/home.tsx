@@ -76,12 +76,15 @@ export default function Home() {
   const [taglineVisible, setTaglineVisible] = useState(true);
 
   useEffect(() => {
-    fetchDestinations()
+    const controller = new AbortController();
+    fetchDestinations(undefined, undefined, controller.signal)
         .then((all) => setPopularDestinations(all.slice(0, 3)))
         .catch((err: unknown) => {
+          if (err instanceof Error && err.name === "AbortError") return;
           console.error("Failed to load popular destinations:", err);
           setLoadError("Could not load destinations. Please refresh the page.");
         });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {

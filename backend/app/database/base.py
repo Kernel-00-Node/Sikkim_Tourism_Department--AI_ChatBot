@@ -55,8 +55,16 @@ class BaseRepository(ABC):
         conversation_id: str,
         role: MessageRole,
         content: str,
+        client_message_id: str | None = None,
     ) -> Message:
         """Persist and return a new message belonging to `conversation_id`."""
+        ...
+
+    @abstractmethod
+    async def get_message_by_client_id(
+        self, conversation_id: str, client_message_id: str
+    ) -> Message | None:
+        """Return a previously accepted user message for an idempotent retry."""
         ...
 
     @abstractmethod

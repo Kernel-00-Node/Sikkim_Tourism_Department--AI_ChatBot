@@ -45,6 +45,7 @@ export default function Destinations() {
 
   useEffect(() => {
     const controller = new AbortController();
+    let active = true;
 
     setIsLoading(true);
     fetchDestinations(
@@ -57,9 +58,14 @@ export default function Destinations() {
           if (err instanceof Error && err.name === "AbortError") return;
           console.error("Failed to load destinations:", err);
         })
-        .finally(() => setIsLoading(false));
+        .finally(() => {
+          if (active) setIsLoading(false);
+        });
 
-    return () => controller.abort();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [debouncedSearch, category]);
 
   const isFiltered = debouncedSearch || category !== "all";

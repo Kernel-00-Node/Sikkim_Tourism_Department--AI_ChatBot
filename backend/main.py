@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
         logger.info("Startup complete. Destinations indexed: %d", indexed)
     except Exception as exc:
         logger.error("Vector store population failed (non-fatal): %s", exc)
-        logger.warning("Falling back to basic keyword search. Fix the error and restart.")
+        logger.warning("The chat service will continue without vector retrieval. Fix the error and restart.")
     yield
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Apply browser protections consistently to every API response."""
@@ -69,6 +69,23 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = (
             "geolocation=(), microphone=(self), camera=()"
         )
+
+        # Conversation IDs are bearer-like capabilities. Never allow their
+        # history (or authenticated admin responses) into browser/proxy caches.
+        if request.url.path.startswith(("/api/conversations", "/api/admin")):
+            response.headers.setdefault(
+                "Cache-Control", "no-store, max-age=0, must-revalidate"
+            )
+        elif (
+            request.method == "GET"
+            and request.url.path.startswith("/api/destinations")
+            and response.status_code == 200
+        ):
+            # These records are public and change infrequently. Browser/CDN
+            # caching avoids an unnecessary Vercel-to-backend round trip.
+            response.headers.setdefault(
+                "Cache-Control", "public, max-age=300, s-maxage=3600"
+            )
 
         # HSTS is meaningful only when the site is always served over HTTPS.
         if settings.environment == "production":
@@ -115,9 +132,11 @@ app = FastAPI(
         "Powered by LangChain + Qdrant RAG + Google Gemini."
     ),
     version="2.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    # Interactive docs are useful locally but unnecessarily expose the API
+    # surface in production. Keep the machine-readable schema private too.
+    docs_url="/api/docs" if settings.environment != "production" else None,
+    redoc_url="/api/redoc" if settings.environment != "production" else None,
+    openapi_url="/api/openapi.json" if settings.environment != "production" else None,
     lifespan=lifespan,
 )
 
@@ -172,6 +191,8 @@ async def http_exception_handler(request, exc: HTTPException):
 
 @app.get("/api/health", tags=["System"])
 def health():
+    if settings.environment == "production":
+        return {"status": "ok", "version": "2.0.0"}
     return {
         "status": "ok",
         "version": "2.0.0",
