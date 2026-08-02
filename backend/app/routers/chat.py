@@ -142,7 +142,7 @@ async def _build_latest_circulars_context(repo: BaseRepository) -> str:
     for c in circulars:
         district = f" ({c.district})" if c.district else ""
         lines.append(
-            f"- [{c.issue_date}] {c.title}{district} — {c.extracted_text[:800]} "
+            f"- [{c.issue_date}] {c.title}{district} — {c.extracted_text} "
             f"(Source: {c.source_url})"
         )
     return "\n".join(lines)

@@ -175,6 +175,120 @@ async def _extract_text(pdf_bytes: bytes) -> str:
     return await _extract_text_vision(pdf_bytes)
 
 
+async def _extract_text_vision_raw_image(image_bytes: bytes, mime_type: str) -> str:
+    """
+    Same Gemini Vision transcription as `_extract_text_vision`, but for a
+    plain photo (JPG/PNG straight off WhatsApp) instead of a PDF page —
+    there is no PyMuPDF render step since there's no PDF to open.
+    """
+    if not settings.gemini_api_key:
+        logger.warning("GEMINI_API_KEY not set — cannot OCR image via vision.")
+        return ""
+
+    import base64
+
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    from langchain_core.messages import HumanMessage
+
+    vision_llm = ChatGoogleGenerativeAI(
+        model=settings.gemini_model,
+        google_api_key=settings.gemini_api_key,
+        temperature=0.0,
+        max_output_tokens=2048,
+    )
+
+    image_b64 = base64.b64encode(image_bytes).decode()
+    message = HumanMessage(content=[
+        {
+            "type": "text",
+            "text": (
+                "Transcribe all readable text from this scanned government "
+                "document page exactly as written. Return only the transcription."
+            ),
+        },
+        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}},
+    ])
+    result = await vision_llm.ainvoke([message])
+    return str(result.content).strip()
+
+
+_ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+async def ingest_uploaded_circular(
+        repo: BaseRepository,
+        *,
+        file_bytes: bytes,
+        title: str,
+        category: str,
+        source_url: str,
+        mime_type: str | None = None,
+        district: str | None = None,
+) -> dict:
+    """
+    Shared ingestion core for a circular that did NOT come from the scraper —
+    currently used by POST /api/admin/upload-circular for road-status reports
+    forwarded over WhatsApp (which never appear anywhere on the public site).
+
+    Deliberately reuses the exact same hash-dedup, text-extraction, and
+    persistence logic as `run_circular_sync` below, so a circular behaves
+    identically to the model/chat layer regardless of how it was ingested.
+
+    Accepts EITHER a real PDF or a plain photo (JPG/PNG/WEBP) — WhatsApp
+    forwards of the road report are usually a photographed scan, not a
+    clean PDF, so there's no PyMuPDF render step for those; they go
+    straight to Gemini Vision.
+    """
+    is_pdf = file_bytes.startswith(_PDF_MAGIC)
+    is_image = not is_pdf and (mime_type or "") in _ALLOWED_IMAGE_MIME_TYPES
+
+    if not is_pdf and not is_image:
+        return {
+            "status": "rejected",
+            "detail": (
+                "File is not a recognised PDF or image (jpg/png/webp). "
+                "If this was meant to be a PDF, the upload may be corrupt."
+            ),
+        }
+
+    pdf_hash = hashlib.sha256(file_bytes).hexdigest()
+    if await repo.circular_exists(pdf_hash):
+        return {
+            "status": "duplicate",
+            "detail": "This exact file has already been ingested — skipped.",
+        }
+
+    if is_pdf:
+        extracted_text = await _extract_text(file_bytes)
+    else:
+        extracted_text = await _extract_text_vision_raw_image(file_bytes, mime_type or "image/jpeg")
+
+    if not extracted_text:
+        return {
+            "status": "failed",
+            "detail": "No text could be extracted from the file (Gemini Vision may be unconfigured).",
+        }
+
+    circular = Circular(
+        title=title[:300],
+        category=category,
+        district=district,
+        issue_date=_guess_issue_date(title),
+        source_url=source_url,
+        pdf_hash=pdf_hash,
+        extracted_text=extracted_text,
+        ingested_at=datetime.now(timezone.utc),
+    )
+    saved = await repo.save_circular(circular)
+    logger.info("Ingested manually-uploaded circular: %s", title[:80])
+
+    return {
+        "status": "ingested",
+        "circular_id": saved.id,
+        "extracted_text_preview": extracted_text[:300],
+    }
+
+
 def _guess_issue_date(title: str) -> str:
     """Best-effort DD/MM/YYYY extraction from the title; falls back to today."""
     import re

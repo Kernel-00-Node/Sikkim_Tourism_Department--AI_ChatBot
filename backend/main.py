@@ -13,13 +13,15 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
@@ -27,7 +29,7 @@ from app.database.factory import get_repo
 from app.dependencies import verify_admin_key
 from app.limiting import limiter
 from app.routers import chat, destinations
-from app.services.circular_scraper import run_circular_sync
+from app.services.circular_scraper import ingest_uploaded_circular, run_circular_sync
 from app.startup import resync_vectorstore, populate_vectorstore
 
 logging.basicConfig(
@@ -187,6 +189,15 @@ app.add_middleware(
 
 app.state.limiter = limiter
 
+# Serves app/static/admin_upload.js for the admin upload page below.
+# Same-origin, so it's allowed under the default CSP's script-src 'self'
+# without needing any policy exception.
+app.mount(
+    "/admin/static",
+    StaticFiles(directory=Path(__file__).parent / "app" / "static"),
+    name="admin_static",
+)
+
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_exceeded_handler(request, exc: RateLimitExceeded):
@@ -236,6 +247,18 @@ def health():
     }
 
 
+@app.get("/admin/upload-circular", include_in_schema=False)
+def admin_upload_page():
+    """
+    Simple browser form for manually uploading a circular (e.g. a road
+    status report forwarded over WhatsApp) — same-origin page, so its
+    fetch() call to POST /api/admin/upload-circular needs no CORS setup.
+    The page itself has no secrets in it; the admin key is only ever
+    typed in and sent at submit time, never stored.
+    """
+    return FileResponse(Path(__file__).parent / "app" / "static" / "admin_upload.html")
+
+
 admin_router = APIRouter(
     prefix="/api/admin",
     tags=["Admin"],
@@ -260,6 +283,64 @@ async def sync_circulars(repo=Depends(get_repo)):
     same behaviour, same safety limits, just an on-demand trigger.
     """
     return await run_circular_sync(repo)
+
+
+_UPLOAD_CATEGORIES = {"road_status", "cancellation_order", "notice"}
+
+
+@admin_router.post("/upload-circular")
+async def upload_circular(
+        file: UploadFile = File(...),
+        title: str = Form(...),
+        category: str = Form("road_status"),
+        district: str | None = Form(None),
+        repo=Depends(get_repo),
+):
+    """
+    Manual ingestion path for circulars that never appear on the public
+    website — chiefly the road status report, which the Police Control
+    Room sends over WhatsApp and never publishes anywhere online. There is
+    no way to scrape something that was never published, so a person saves
+    the WhatsApp PDF/photo and uploads it here; everything downstream
+    (hash dedup, text extraction, storage) is identical to the automatic
+    scraper.
+
+    Accepts either a real PDF or a plain photo (jpg/png/webp) straight off
+    WhatsApp, since the road report is usually a photographed scan.
+    """
+    if category not in _UPLOAD_CATEGORIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"category must be one of: {', '.join(sorted(_UPLOAD_CATEGORIES))}",
+        )
+    if not title.strip():
+        raise HTTPException(status_code=400, detail="title is required.")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > settings.circulars_max_pdf_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds the {settings.circulars_max_pdf_bytes // (1024*1024)} MB limit.",
+        )
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    result = await ingest_uploaded_circular(
+        repo,
+        file_bytes=file_bytes,
+        title=title.strip(),
+        category=category,
+        source_url="manual-upload:whatsapp",
+        mime_type=file.content_type,
+        district=district,
+    )
+
+    if result["status"] == "rejected":
+        raise HTTPException(status_code=400, detail=result["detail"])
+    if result["status"] == "failed":
+        raise HTTPException(status_code=422, detail=result["detail"])
+
+    return result
 
 app.include_router(admin_router)
 
