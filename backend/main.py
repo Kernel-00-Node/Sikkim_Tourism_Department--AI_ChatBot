@@ -1,12 +1,12 @@
 """
 || Sikkim Tourism Assistant || — FastAPI Backend Entry Point.
-Now powered by LangChain + Qdrant RAG.
+Powered by LangChain + Qdrant RAG.
 
 Run locally:
-    uvicorn main:app --reload --port 8000
+    `uvicorn main:app --reload --port 8000`
 
 Or directly:
-    python main.py
+    `python main.py`
 """
 
 from __future__ import annotations

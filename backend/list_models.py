@@ -1,7 +1,7 @@
 """
 || Utility Script || — lists every Gemini model available to your API key.
 
-Run with: python list_models.py
+Run with: `python list_models.py`
 
 Useful for confirming the exact embedding dimension, model names available
 before setting GEMINI_MODEL & GEMINI_EMBEDDING_MODEL in `.env.`
