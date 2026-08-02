@@ -67,6 +67,31 @@ class DestinationSummary(BaseModel):
     longitude: float | None = None
 
 
+# ── Circular ─────────────────────────────────────────────────────────────
+
+class Circular(BaseModel):
+    """
+    An official notice/circular ingested from the department's website
+    (road status reports, cancellation orders, general notices).
+
+    Populated by the background scraper (app/services/circular_scraper.py),
+    never written directly by user-facing requests.
+    """
+
+    # None until save_circular() persists it and assigns the real primary key
+    # (auto-increment in MySQL, list index+1 in mock mode).
+    id: int | None = None
+    title: str
+    category: Literal["road_status", "cancellation_order", "notice"]
+    district: str | None = None
+    issue_date: str  # ISO date string (YYYY-MM-DD) — kept as str to avoid
+    # timezone edge cases when round-tripping through JSON/MySQL DATE columns.
+    source_url: str
+    pdf_hash: str  # sha256 of the PDF bytes — used to skip already-ingested files
+    extracted_text: str
+    ingested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 # ── Conversation ──────────────────────────────────────────────────────────
 
 class Conversation(BaseModel):
@@ -215,9 +240,9 @@ class ChatRequest(BaseModel):
             "image/jpeg": decoded.startswith(b"\xff\xd8\xff"),
             "image/png": decoded.startswith(b"\x89PNG\r\n\x1a\n"),
             "image/webp": (
-                len(decoded) >= 12
-                and decoded[:4] == b"RIFF"
-                and decoded[8:12] == b"WEBP"
+                    len(decoded) >= 12
+                    and decoded[:4] == b"RIFF"
+                    and decoded[8:12] == b"WEBP"
             ),
         }[self.image_mime_type]
         if not valid_signature:

@@ -53,6 +53,23 @@ class Settings(BaseSettings):
     allowed_methods: str = "GET,POST,OPTIONS"
     allowed_headers: str = "Content-Type,Authorization,X-Admin-Key"
 
+    # ── Circulars scraper (road status, cancellation orders, notices) ─────────
+    # SSRF guard: every URL the scraper touches (the listing page AND every
+    # PDF link found on it) must resolve to this exact host. Anything else —
+    # a redirect, a malicious link injected into the page, a typo — is
+    # rejected before any request is made.
+    circulars_allowed_host: str = "sikkimtourism.gov.in"
+    circulars_notice_url: str = "https://sikkimtourism.gov.in/updates/notice"
+    circulars_sync_interval_minutes: int = 45
+    # Hard ceiling on a single PDF's size, in bytes. Government circulars are
+    # a handful of pages — anything wildly larger is treated as suspicious
+    # and skipped rather than buffered fully into memory.
+    circulars_max_pdf_bytes: int = 15 * 1024 * 1024  # 15 MB
+    # Hard ceiling on how many new PDFs one sync run will process. Bounds
+    # worst-case run time/cost if the listing page ever returns far more
+    # links than expected.
+    circulars_max_per_run: int = 20
+
     # Admin access
     # Required to call POST /api/admin/sync. Left empty by default so the
     # endpoint FAILS CLOSED (rejects every request) until an operator sets
@@ -124,7 +141,7 @@ class Settings(BaseSettings):
         if self.environment == "production" and self.allowed_origins == "*":
             raise ValueError("ALLOWED_ORIGINS cannot be '*' in production.")
         if self.environment == "production" and any(
-            not origin.startswith("https://") for origin in self.origins_list
+                not origin.startswith("https://") for origin in self.origins_list
         ):
             raise ValueError("ALLOWED_ORIGINS must use HTTPS in production.")
         return self

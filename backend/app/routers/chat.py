@@ -62,6 +62,27 @@ _FULL_CATALOG_PHRASES = (
     "sightseeing",
 )
 
+# Questions matching these phrases get the freshest circulars injected
+# directly — same reasoning as _FULL_CATALOG_PHRASES above: this is
+# important enough that we don't want to gamble on vector similarity
+# happening to surface it.
+_LATEST_UPDATE_PHRASES = (
+    "latest update",
+    "latest news",
+    "any notice",
+    "recent notice",
+    "recent circular",
+    "road status",
+    "road situation",
+    "road block",
+    "road blocked",
+    "road open",
+    "road closed",
+    "is the road",
+    "cancellation order",
+    "any update",
+)
+
 
 def _messages_to_history(messages: list[Message]) -> list[dict]:
     """
@@ -86,6 +107,45 @@ def _is_valid_uuid(val: str) -> bool:
 
 def _needs_full_destination_context(message: str) -> bool:
     return any(phrase in " ".join(message.lower().split()) for phrase in _FULL_CATALOG_PHRASES)
+
+
+def _needs_latest_circulars(message: str) -> bool:
+    return any(phrase in " ".join(message.lower().split()) for phrase in _LATEST_UPDATE_PHRASES)
+
+
+async def _build_latest_circulars_context(repo: BaseRepository) -> str:
+    """
+    Inject the freshest official circulars (road status, cancellation orders,
+    notices) directly into the prompt, each stamped with its issue date and
+    source link, instead of relying on vector similarity to surface them.
+
+    This mirrors _build_official_destinations_context above: circulars are
+    time-sensitive, so we never want the model guessing at freshness — the
+    date is always handed to it explicitly, and the model is instructed to
+    state it in the answer so the tourist knows exactly how current the
+    information is.
+    """
+    try:
+        circulars = await repo.list_circulars(limit=5)
+    except Exception as exc:
+        logger.warning("Could not load circulars for extra_context: %s", exc)
+        return ""
+
+    if not circulars:
+        return ""
+
+    lines = [
+        "OFFICIAL SIKKIM TOURISM/POLICE CIRCULARS (most recent first — always "
+        "state the issue date when answering from these, since road status "
+        "changes daily):"
+    ]
+    for c in circulars:
+        district = f" ({c.district})" if c.district else ""
+        lines.append(
+            f"- [{c.issue_date}] {c.title}{district} — {c.extracted_text[:800]} "
+            f"(Source: {c.source_url})"
+        )
+    return "\n".join(lines)
 
 
 async def _build_official_destinations_context(repo: BaseRepository) -> str:
@@ -140,7 +200,7 @@ def _sse_response(event_generator):
 
 
 async def _replay_completed_turn(
-    repo: BaseRepository, conversation_id: str, user_message_id: str
+        repo: BaseRepository, conversation_id: str, user_message_id: str
 ):
     """Return the saved assistant answer for a completed idempotent retry."""
     messages = await repo.list_messages(conversation_id)
@@ -162,8 +222,8 @@ async def _replay_completed_turn(
 @router.post("", response_model=ConversationResponse)
 @limiter.limit("20/minute")
 async def create_conversation(
-    request: Request,
-    repo: BaseRepository = Depends(get_repo),
+        request: Request,
+        repo: BaseRepository = Depends(get_repo),
 ):
     conv = await repo.create_conversation()
     return ConversationResponse(conversation=conv, messages=[])
@@ -252,10 +312,18 @@ async def send_message(
                 )
             else:
                 # Text path — Groq / Llama. Broad catalogue questions get the
-                # full official list; focused questions use only RAG results.
-                extra_context = ""
+                # full official list; "latest update" questions get the
+                # freshest circulars; focused questions use only RAG results.
+                context_parts = []
                 if _needs_full_destination_context(body.message):
-                    extra_context = await _build_official_destinations_context(repo)
+                    dest_context = await _build_official_destinations_context(repo)
+                    if dest_context:
+                        context_parts.append(dest_context)
+                if _needs_latest_circulars(body.message):
+                    circular_context = await _build_latest_circulars_context(repo)
+                    if circular_context:
+                        context_parts.append(circular_context)
+                extra_context = "\n\n".join(context_parts)
                 stream = stream_rag_response(body.message, history, extra_context)
 
             async for chunk in stream:

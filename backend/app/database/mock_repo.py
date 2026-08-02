@@ -11,8 +11,8 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.database.base import BaseRepository, MessageRole
-from app.database.mock_data import DESTINATIONS
-from app.models.schemas import Conversation, Destination, Message
+from app.database.mock_data import CIRCULARS, DESTINATIONS
+from app.models.schemas import Circular, Conversation, Destination, Message
 
 
 class MockRepository(BaseRepository):
@@ -21,12 +21,35 @@ class MockRepository(BaseRepository):
         self._conversations: dict[str, Conversation] = {}
         self._messages: dict[str, list[Message]] = {}  # conversation_id → [Message]
 
+    # ── Circulars ──────────────────────────────────────────────────────────────
+
+    async def list_circulars(
+            self,
+            category: str | None = None,
+            limit: int = 10,
+    ) -> list[Circular]:
+        results = CIRCULARS
+        if category:
+            results = [c for c in results if c.category == category]
+        # Newest first — issue_date is an ISO string (YYYY-MM-DD), so plain
+        # string sort is already chronological.
+        results = sorted(results, key=lambda c: c.issue_date, reverse=True)
+        return results[:limit]
+
+    async def circular_exists(self, pdf_hash: str) -> bool:
+        return any(c.pdf_hash == pdf_hash for c in CIRCULARS)
+
+    async def save_circular(self, circular: Circular) -> Circular:
+        circular = circular.model_copy(update={"id": len(CIRCULARS) + 1})
+        CIRCULARS.append(circular)
+        return circular
+
     # ── Destinations ───────────────────────────────────────────────────────────
 
     async def list_destinations(
-        self,
-        search: str | None = None,
-        category: str | None = None,
+            self,
+            search: str | None = None,
+            category: str | None = None,
     ) -> list[Destination]:
         results = DESTINATIONS
         if category:
@@ -36,11 +59,11 @@ class MockRepository(BaseRepository):
             results = [
                 d for d in results
                 if q in d.name.lower()
-                or q in d.description.lower()
-                or q in d.location.lower()
-                or q in d.district.lower()
-                or any(q in t for t in d.tags)
-                or any(q in h.lower() for h in d.highlights)
+                   or q in d.description.lower()
+                   or q in d.location.lower()
+                   or q in d.district.lower()
+                   or any(q in t for t in d.tags)
+                   or any(q in h.lower() for h in d.highlights)
             ]
         return results
 
@@ -65,9 +88,9 @@ class MockRepository(BaseRepository):
             # keyword overlap
             words = set(q.split())
             score += sum(1 for w in words if len(w) > 3 and (
-                w in dest.name.lower()
-                or w in dest.description.lower()
-                or any(w in t for t in dest.tags)
+                    w in dest.name.lower()
+                    or w in dest.description.lower()
+                    or any(w in t for t in dest.tags)
             ))
             if score > 0:
                 scored.append((score, dest))
@@ -90,11 +113,11 @@ class MockRepository(BaseRepository):
     # ── Messages ───────────────────────────────────────────────────────────────
 
     async def add_message(
-        self,
-        conversation_id: str,
-        role: MessageRole,
-        content: str,
-        client_message_id: str | None = None,
+            self,
+            conversation_id: str,
+            role: MessageRole,
+            content: str,
+            client_message_id: str | None = None,
     ) -> Message:
         msg = Message(
             id=str(uuid4()),
@@ -108,7 +131,7 @@ class MockRepository(BaseRepository):
         return msg
 
     async def get_message_by_client_id(
-        self, conversation_id: str, client_message_id: str
+            self, conversation_id: str, client_message_id: str
     ) -> Message | None:
         return next(
             (

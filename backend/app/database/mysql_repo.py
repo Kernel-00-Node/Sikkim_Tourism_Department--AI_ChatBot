@@ -22,9 +22,24 @@ import mysql.connector
 import mysql.connector.pooling as mysql_pooling
 
 from app.database.base import BaseRepository, MessageRole
-from app.models.schemas import Conversation, Destination, Message
+from app.models.schemas import Circular, Conversation, Destination, Message
 
 logger = logging.getLogger(__name__)
+
+
+def _row_to_circular(row: dict) -> Circular:
+    issue_date = row["issue_date"]
+    return Circular(
+        id=row["id"],
+        title=row["title"],
+        category=row["category"],
+        district=row.get("district"),
+        issue_date=issue_date.isoformat() if hasattr(issue_date, "isoformat") else str(issue_date),
+        source_url=row["source_url"],
+        pdf_hash=row["pdf_hash"],
+        extracted_text=row["extracted_text"],
+        ingested_at=row["ingested_at"],
+    )
 
 
 def _row_to_destination(row: dict) -> Destination:
@@ -135,12 +150,69 @@ class MySQLRepository(BaseRepository):
         finally:
             conn.close()
 
+    # ── Circulars ──────────────────────────────────────────────────────────
+
+    async def list_circulars(
+            self,
+            category: str | None = None,
+            limit: int = 10,
+    ) -> list[Circular]:
+        clauses, params = [], []
+        if category:
+            clauses.append("category = %s")
+            params.append(category)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = await asyncio.to_thread(
+            self._query,
+            f"SELECT * FROM circulars {where} ORDER BY issue_date DESC LIMIT %s",
+            (*params, limit),
+        )
+        return [_row_to_circular(r) for r in rows]
+
+    async def circular_exists(self, pdf_hash: str) -> bool:
+        rows = await asyncio.to_thread(
+            self._query,
+            "SELECT id FROM circulars WHERE pdf_hash = %s LIMIT 1",
+            (pdf_hash,),
+        )
+        return bool(rows)
+
+    async def save_circular(self, circular: Circular) -> Circular:
+        def _insert() -> int:
+            conn = self._pool.get_connection()
+            try:
+                cursor = conn.cursor()
+                try:
+                    cursor.execute(
+                        "INSERT INTO circulars "
+                        "(title, category, district, issue_date, source_url, pdf_hash, extracted_text, ingested_at) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (
+                            circular.title,
+                            circular.category,
+                            circular.district,
+                            circular.issue_date,
+                            circular.source_url,
+                            circular.pdf_hash,
+                            circular.extracted_text,
+                            circular.ingested_at,
+                        ),
+                    )
+                    return cursor.lastrowid
+                finally:
+                    cursor.close()
+            finally:
+                conn.close()
+
+        new_id = await asyncio.to_thread(_insert)
+        return circular.model_copy(update={"id": new_id})
+
     # ── Destinations ────────────────────────────────────────────────────────
 
     async def list_destinations(
-        self,
-        search: str | None = None,
-        category: str | None = None,
+            self,
+            search: str | None = None,
+            category: str | None = None,
     ) -> list[Destination]:
         clauses = []
         params: list = []
@@ -216,11 +288,11 @@ class MySQLRepository(BaseRepository):
     # ── Messages ─────────────────────────────────────────────────────────
 
     async def add_message(
-        self,
-        conversation_id: str,
-        role: "MessageRole",
-        content: str,
-        client_message_id: str | None = None,
+            self,
+            conversation_id: str,
+            role: "MessageRole",
+            content: str,
+            client_message_id: str | None = None,
     ) -> Message:
         msg = Message(conversation_id=conversation_id, role=role, content=content)
         await asyncio.to_thread(
@@ -232,7 +304,7 @@ class MySQLRepository(BaseRepository):
         return msg
 
     async def get_message_by_client_id(
-        self, conversation_id: str, client_message_id: str
+            self, conversation_id: str, client_message_id: str
     ) -> Message | None:
         rows = await asyncio.to_thread(
             self._query,

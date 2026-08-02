@@ -12,7 +12,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Literal
 
-from app.models.schemas import Conversation, Destination, Message
+from app.models.schemas import Circular, Conversation, Destination, Message
 
 MessageRole = Literal["user", "assistant"]
 
@@ -20,10 +20,29 @@ class BaseRepository(ABC):
     """Common interface for all data storage backends (mock in-memory, MySQL, …)."""
 
     @abstractmethod
+    async def list_circulars(
+            self,
+            category: str | None = None,
+            limit: int = 10,
+    ) -> list[Circular]:
+        """Return the most recent circulars, newest first, optionally filtered by category."""
+        ...
+
+    @abstractmethod
+    async def circular_exists(self, pdf_hash: str) -> bool:
+        """True if a circular with this exact PDF hash has already been ingested."""
+        ...
+
+    @abstractmethod
+    async def save_circular(self, circular: Circular) -> Circular:
+        """Persist a newly-scraped circular and return it."""
+        ...
+
+    @abstractmethod
     async def list_destinations(
-        self,
-        search: str | None = None,
-        category: str | None = None,
+            self,
+            search: str | None = None,
+            category: str | None = None,
     ) -> list[Destination]:
         """Return all destinations, optionally filtered by free-text and/or category."""
         ...
@@ -51,18 +70,18 @@ class BaseRepository(ABC):
         ...
     @abstractmethod
     async def add_message(
-        self,
-        conversation_id: str,
-        role: MessageRole,
-        content: str,
-        client_message_id: str | None = None,
+            self,
+            conversation_id: str,
+            role: MessageRole,
+            content: str,
+            client_message_id: str | None = None,
     ) -> Message:
         """Persist and return a new message belonging to `conversation_id`."""
         ...
 
     @abstractmethod
     async def get_message_by_client_id(
-        self, conversation_id: str, client_message_id: str
+            self, conversation_id: str, client_message_id: str
     ) -> Message | None:
         """Return a previously accepted user message for an idempotent retry."""
         ...

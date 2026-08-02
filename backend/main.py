@@ -1,12 +1,12 @@
 """
 || Sikkim Tourism Assistant || — FastAPI Backend Entry Point.
-Powered by LangChain + Qdrant RAG.
+Now powered by LangChain + Qdrant RAG.
 
 Run locally:
-    `uvicorn main:app --reload --port 8000`
+    uvicorn main:app --reload --port 8000
 
 Or directly:
-    `python main.py`
+    python main.py
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -26,6 +27,7 @@ from app.database.factory import get_repo
 from app.dependencies import verify_admin_key
 from app.limiting import limiter
 from app.routers import chat, destinations
+from app.services.circular_scraper import run_circular_sync
 from app.startup import resync_vectorstore, populate_vectorstore
 
 logging.basicConfig(
@@ -38,7 +40,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    On startup: populate the Qdrant vector store from the active repository.
+    On startup: populate the Qdrant vector store from the active repository,
+    then run the circulars scraper once and start its recurring schedule.
 
     - USE_MOCK_DB=true  → reads mock_data.py destinations (default)
     - USE_MOCK_DB=false → reads live MySQL destinations
@@ -52,7 +55,34 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error("Vector store population failed (non-fatal): %s", exc)
         logger.warning("The chat service will continue without vector retrieval. Fix the error and restart.")
+
+    try:
+        summary = await run_circular_sync(repo)
+        logger.info("Initial circular sync complete: %s", summary)
+    except Exception as exc:
+        logger.error("Circular sync failed on startup (non-fatal): %s", exc)
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(
+        run_circular_sync,
+        "interval",
+        minutes=settings.circulars_sync_interval_minutes,
+        args=[repo],
+        id="circular_sync",
+        # If a run is somehow still in flight when the next tick fires,
+        # skip that tick instead of stacking overlapping scrapes.
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.start()
+    logger.info(
+        "Circular sync scheduler started — every %d minutes.",
+        settings.circulars_sync_interval_minutes,
+    )
+
     yield
+
+    scheduler.shutdown(wait=False)
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Apply browser protections consistently to every API response."""
 
@@ -77,9 +107,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "Cache-Control", "no-store, max-age=0, must-revalidate"
             )
         elif (
-            request.method == "GET"
-            and request.url.path.startswith("/api/destinations")
-            and response.status_code == 200
+                request.method == "GET"
+                and request.url.path.startswith("/api/destinations")
+                and response.status_code == 200
         ):
             # These records are public and change infrequently. Browser/CDN
             # caching avoids an unnecessary Vercel-to-backend round trip.
@@ -220,6 +250,16 @@ async def sync_vectorstore(repo=Depends(get_repo)):
     Useful after updating destinations in MySQL without restarting the server.
     """
     return await resync_vectorstore(repo)
+
+
+@admin_router.post("/sync-circulars")
+async def sync_circulars(repo=Depends(get_repo)):
+    """
+    Manually trigger a circulars scrape immediately instead of waiting for
+    the next scheduled tick. Same underlying function the scheduler calls —
+    same behaviour, same safety limits, just an on-demand trigger.
+    """
+    return await run_circular_sync(repo)
 
 app.include_router(admin_router)
 
