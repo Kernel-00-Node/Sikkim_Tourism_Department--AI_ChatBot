@@ -76,9 +76,24 @@ def _is_allowed_url(url: str) -> bool:
 
 
 async def _fetch_listing_page(client: httpx.AsyncClient) -> str:
-    resp = await client.get(settings.circulars_notice_url)
-    resp.raise_for_status()
-    return resp.text
+    """
+    The notices page is a JS-rendered SPA — the raw HTML httpx would get
+    back is an empty shell with no actual notice links in it. We render
+    it with a real (headless) browser instead, then hand the fully
+    built HTML to the existing BeautifulSoup parser below unchanged.
+    """
+    from playwright.async_api import async_playwright
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        try:
+            page = await browser.new_page(
+                user_agent="SikkimTourismAssistant-CircularSync/1.0"
+            )
+            await page.goto(settings.circulars_notice_url, wait_until="networkidle", timeout=20000)
+            return await page.content()
+        finally:
+            await browser.close()
 
 
 def _extract_pdf_links(html: str, base_url: str) -> list[tuple[str, str]]:

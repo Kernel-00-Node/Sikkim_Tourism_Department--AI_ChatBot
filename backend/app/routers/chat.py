@@ -109,8 +109,23 @@ def _needs_full_destination_context(message: str) -> bool:
     return any(phrase in " ".join(message.lower().split()) for phrase in _FULL_CATALOG_PHRASES)
 
 
-def _needs_latest_circulars(message: str) -> bool:
-    return any(phrase in " ".join(message.lower().split()) for phrase in _LATEST_UPDATE_PHRASES)
+def _needs_latest_circulars(message: str, history: list[dict] | None = None) -> bool:
+    """
+    True if the current message matches a road-status/circular keyword,
+    OR if the last couple of turns in this conversation were already about
+    circulars — so a bare follow-up like "okay of 27th" or "full details"
+    still gets the real circular data instead of falling through to the
+    model's general knowledge (which was inventing fake dates/roads).
+    """
+    text = " ".join(message.lower().split())
+    if any(phrase in text for phrase in _LATEST_UPDATE_PHRASES):
+        return True
+    if history:
+        for m in history[-4:]:
+            recent = " ".join(m.get("content", "").lower().split())
+            if any(phrase in recent for phrase in _LATEST_UPDATE_PHRASES):
+                return True
+    return False
 
 
 async def _build_latest_circulars_context(repo: BaseRepository) -> str:
@@ -319,7 +334,7 @@ async def send_message(
                     dest_context = await _build_official_destinations_context(repo)
                     if dest_context:
                         context_parts.append(dest_context)
-                if _needs_latest_circulars(body.message):
+                if _needs_latest_circulars(body.message, history):
                     circular_context = await _build_latest_circulars_context(repo)
                     if circular_context:
                         context_parts.append(circular_context)

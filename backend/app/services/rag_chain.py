@@ -67,8 +67,19 @@ _SYSTEM_PROMPT = (
 
 
     "Use the following retrieved context to ground your answer where relevant. "
-    "If the context is empty or does not cover the question but the question is still about Sikkim, "
-    "answer from your general knowledge about Sikkim. "
+    "If the context is empty or does not cover the question but the question is still about Sikkim "
+    "in general (history, culture, geography, festivals, etc.), answer from your general knowledge.\n\n"
+
+    "CRITICAL — ROAD STATUS / CIRCULARS / DATE-SPECIFIC OFFICIAL DATA:\n"
+    "Road conditions, closures, permits status, and official notices change daily and are NEVER "
+    "something you may answer from general knowledge or plausible guessing — doing so risks giving "
+    "a tourist false information about a real road. If the context includes a block labelled "
+    "'OFFICIAL SIKKIM TOURISM/POLICE CIRCULARS', answer road-status questions ONLY using the exact "
+    "dates and facts listed there. State clearly which date(s) the circulars in context cover. "
+    "If the user asks about a specific date and no circular for that date is present in the context, "
+    "say plainly that you do not have an official report for that date, and tell them which dates "
+    "you DO have — do not invent, estimate, or generalise a status for a date you don't have data for.\n\n"
+
     "If you genuinely do not know, say so honestly.\n\n"
 
     "LIVE WEB RESULTS:\n"
