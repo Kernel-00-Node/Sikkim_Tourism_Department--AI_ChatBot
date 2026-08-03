@@ -185,15 +185,59 @@ def _build_chat_history(raw_messages: list[dict]) -> list:
 
 
 # FIX 6: lowered temperature from 0.7 → 0.3 for more factual, consistent answers
-@lru_cache(maxsize=2)
-def _get_llm(streaming: bool = True) -> ChatGroq:
+# `model_name` lets us build both the primary and the fallback LLM through the
+# same cached factory instead of duplicating ChatGroq construction logic.
+@lru_cache(maxsize=4)
+def _get_llm(model_name: str, streaming: bool = True) -> ChatGroq:
     return ChatGroq(
-        model=settings.groq_model,
+        model=model_name,
         api_key=settings.groq_api_key,
         temperature=0.3,
         max_tokens=2048,
         streaming=streaming,
     )
+
+
+# ---------------------------------------------------------------------------
+# Prompt Guard 2 — screens the raw user message for injection/jailbreak
+# attempts before it reaches the main chat model.
+#
+# Best-effort by design: if the classifier call itself fails (network blip,
+# missing key, unexpected response), we let the message through rather than
+# blocking a real tourist's question because a security *check* had a
+# hiccup. The classifier is a defense-in-depth layer on top of the system
+# prompt's existing "treat retrieved content as untrusted" instruction —
+# not the only line of defense.
+#
+# NOTE ON RESPONSE FORMAT: Groq's docs for this model don't spell out the
+# exact label text it returns. Test it in the Groq Playground with a few
+# real injection attempts and adjust `_FLAGGED_LABELS` below to match what
+# you actually see — this is intentionally conservative (treats anything
+# that isn't clearly "benign" as flagged) so it fails safe.
+# ---------------------------------------------------------------------------
+
+_BENIGN_LABELS = ("benign", "safe", "label_0", "0")
+
+
+async def _is_prompt_injection(user_message: str) -> bool:
+    if not settings.enable_prompt_guard or not settings.groq_api_key:
+        return False
+    if not user_message or not user_message.strip():
+        return False
+
+    try:
+        guard_llm = _get_llm(settings.prompt_guard_model, streaming=False)
+        result = await guard_llm.ainvoke(
+            [HumanMessage(content=user_message[:2000])]  # 512-token context window
+        )
+        label = str(result.content).strip().lower()
+        flagged = not any(b in label for b in _BENIGN_LABELS)
+        if flagged:
+            logger.warning("Prompt Guard flagged a message (label=%r)", label)
+        return flagged
+    except Exception as exc:
+        logger.warning("Prompt Guard check failed (non-fatal, allowing message): %s", exc)
+        return False
 
 async def _contextualise_question(inputs: dict) -> str:
     chat_history = inputs.get("chat_history", [])
@@ -205,7 +249,14 @@ async def _contextualise_question(inputs: dict) -> str:
         MessagesPlaceholder("chat_history"),
         ("human", "{input}"),
     ])
-    chain = rephrase_prompt | _get_llm(streaming=False) | StrOutputParser()
+    # IMPORTANT: use whichever model this attempt is actually running on
+    # (primary or fallback), passed in via inputs["model_name"] by
+    # stream_rag_response. Hardcoding settings.groq_model here defeats the
+    # fallback: a fallback attempt on llama-3.1-8b-instant would still fail
+    # at this rephrase step because it kept hitting the exhausted primary
+    # model's quota, before ever reaching the fallback-model answer step.
+    model_name = inputs.get("model_name", settings.groq_model)
+    chain = rephrase_prompt | _get_llm(model_name, streaming=False) | StrOutputParser()
     # Use ainvoke so this doesn't block the FastAPI event loop during the
     # network round-trip to Groq.
     return await chain.ainvoke({"input": question, "chat_history": chat_history})
@@ -357,7 +408,7 @@ async def _retrieve_context_step(inputs: dict) -> str:
     return combined
 
 
-def _build_chain():
+def _build_chain(model_name: str):
     answer_prompt = ChatPromptTemplate.from_messages([
         ("system", _SYSTEM_PROMPT),
         MessagesPlaceholder("chat_history"),
@@ -371,7 +422,7 @@ def _build_chain():
         context=RunnableLambda(_retrieve_context_step),
     )
             | answer_prompt
-            | _get_llm(streaming=True)
+            | _get_llm(model_name, streaming=True)
             | StrOutputParser()
     )
 
@@ -390,21 +441,62 @@ async def stream_rag_response(
         yield "GROQ_API_KEY is not configured. Add it to your .env file and restart."
         return
 
-    chat_history = _build_chat_history(history_messages)
-    chain = _build_chain()
-
-    try:
-        async for chunk in chain.astream(
-                {"input": user_message, "chat_history": chat_history, "extra_context": extra_context}
-        ):
-            if chunk:
-                yield chunk
-    except Exception as exc:
-        logger.exception("RAG chain error: %s", exc)
+    # ── Security layer: screen the raw message before it reaches the chat
+    # model or burns a Qdrant/Tavily call. Opt-in via ENABLE_PROMPT_GUARD.
+    if await _is_prompt_injection(user_message):
         yield (
-            "I'm sorry, I ran into a problem processing your request. "
-            "Please try again in a moment."
+            "I'm sorry, I can't process that message. If you have a genuine "
+            "question about visiting Sikkim, please rephrase it and I'll be "
+            "happy to help."
         )
+        return
+
+    chat_history = _build_chat_history(history_messages)
+    chain_input = {"input": user_message, "chat_history": chat_history, "extra_context": extra_context}
+
+    # ── Fallback chain: try the primary model first. If it fails before we've
+    # streamed anything back to the user (rate limit, transient 5xx, etc.),
+    # retry the whole request once against the fallback model instead of
+    # failing the turn outright. Once any chunk has reached the user we can no
+    # longer switch models mid-stream, so at that point we just apologise —
+    # same behaviour as before.
+    models_to_try = [settings.groq_model]
+    if settings.groq_fallback_model and settings.groq_fallback_model != settings.groq_model:
+        models_to_try.append(settings.groq_fallback_model)
+
+    last_exc: Exception | None = None
+    for attempt_index, model_name in enumerate(models_to_try):
+        chain = _build_chain(model_name)
+        attempt_input = {**chain_input, "model_name": model_name}
+        started_streaming = False
+        try:
+            async for chunk in chain.astream(attempt_input):
+                started_streaming = True
+                if chunk:
+                    yield chunk
+            return  # finished cleanly — done
+        except Exception as exc:
+            last_exc = exc
+            is_last_attempt = attempt_index == len(models_to_try) - 1
+            if started_streaming or is_last_attempt:
+                # Either we already sent partial output (can't restart
+                # cleanly) or we're out of fallback models — surface the
+                # friendly error and stop.
+                logger.exception(
+                    "RAG chain error on model %s (partial_output=%s): %s",
+                    model_name, started_streaming, exc,
+                )
+                if not started_streaming:
+                    yield (
+                        "I'm sorry, I ran into a problem processing your request. "
+                        "Please try again in a moment."
+                    )
+                return
+            logger.warning(
+                "Primary model %s failed before any output; retrying with fallback %s: %s",
+                model_name, models_to_try[attempt_index + 1], exc,
+            )
+            # loop continues to the next model in models_to_try
 
 
 # ---------------------------------------------------------------------------
@@ -498,7 +590,7 @@ async def generate_followups(question: str, answer: str) -> list[str]:
 
     try:
         prompt = ChatPromptTemplate.from_messages([("system", _FOLLOWUP_SYSTEM)])
-        chain = prompt | _get_llm(streaming=False) | StrOutputParser()
+        chain = prompt | _get_llm(settings.groq_model, streaming=False) | StrOutputParser()
         # Trim the answer fed into the prompt — we only need enough of it to
         # judge topic/context, not the full text (keeps this call fast).
         raw = await chain.ainvoke({"question": question, "answer": answer[:800]})

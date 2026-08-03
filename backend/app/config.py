@@ -27,6 +27,20 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
 
+    # If the primary model errors (rate limit, transient outage), retry the
+    # same request once against this smaller/faster model instead of failing
+    # the whole turn. Set to "" to disable fallback entirely.
+    groq_fallback_model: str = "llama-3.1-8b-instant"
+
+    # Llama Prompt Guard 2 — a dedicated classifier model that screens
+    # incoming user messages for prompt-injection / jailbreak attempts
+    # before they ever reach the main chat model. Opt-in (like
+    # enable_followups) because it adds one extra Groq request per user
+    # message. Recommended = true for the public/official deployment,
+    # optional for personal testing.
+    enable_prompt_guard: bool = False
+    prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"
+
     # NOTE: "text-embedding-004" was retired by Google in late 2025. Use
     # "models/gemini-embedding-001" (3072-dim by default). vectorstore.py
     # detects the real output dimension at runtime, so this can be changed
