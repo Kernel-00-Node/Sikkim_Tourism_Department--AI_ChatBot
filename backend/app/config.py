@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     # worst-case run time/cost if the listing page ever returns far more
     # links than expected.
     circulars_max_per_run: int = 20
+    # Selenium/Firefox is intentionally opt-in because a headless browser can
+    # exceed small web-service memory limits (for example Render's 512 MiB
+    # tier). Manual admin uploads do not depend on this setting.
+    enable_circular_scraper: bool = False
 
     # Admin access
     # Required to call POST /api/admin/sync. Left empty by default so the

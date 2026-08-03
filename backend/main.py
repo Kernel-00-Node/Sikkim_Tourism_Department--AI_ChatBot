@@ -17,7 +17,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -30,7 +29,6 @@ from app.database.factory import get_repo
 from app.dependencies import verify_admin_key
 from app.limiting import limiter
 from app.routers import chat, destinations
-from app.services.circular_scraper import ingest_uploaded_circular, run_circular_sync
 from app.startup import resync_vectorstore, populate_vectorstore
 from app.models.schemas import Destination, DestinationWrite
 
@@ -60,33 +58,46 @@ async def lifespan(app: FastAPI):
         logger.error("Vector store population failed (non-fatal): %s", exc)
         logger.warning("The chat service will continue without vector retrieval. Fix the error and restart.")
 
-    try:
-        summary = await run_circular_sync(repo)
-        logger.info("Initial circular sync complete: %s", summary)
-    except Exception as exc:
-        logger.error("Circular sync failed on startup (non-fatal): %s", exc)
+    scheduler = None
+    if settings.enable_circular_scraper:
+        # Keep the browser/PDF scraper out of the normal API process.  Its
+        # optional dependencies (especially Selenium) substantially increase
+        # RSS on small Render instances even when no sync is running.
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from app.services.circular_scraper import run_circular_sync
 
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        run_circular_sync,
-        "interval",
-        minutes=settings.circulars_sync_interval_minutes,
-        args=[repo],
-        id="circular_sync",
-        # If a run is somehow still in flight when the next tick fires,
-        # skip that tick instead of stacking overlapping scrapes.
-        max_instances=1,
-        coalesce=True,
-    )
-    scheduler.start()
-    logger.info(
-        "Circular sync scheduler started — every %d minutes.",
-        settings.circulars_sync_interval_minutes,
-    )
+        try:
+            summary = await run_circular_sync(repo)
+            logger.info("Initial circular sync complete: %s", summary)
+        except Exception as exc:
+            logger.error("Circular sync failed on startup (non-fatal): %s", exc)
+
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(
+            run_circular_sync,
+            "interval",
+            minutes=settings.circulars_sync_interval_minutes,
+            args=[repo],
+            id="circular_sync",
+            # If a run is somehow still in flight when the next tick fires,
+            # skip that tick instead of stacking overlapping scrapes.
+            max_instances=1,
+            coalesce=True,
+        )
+        scheduler.start()
+        logger.info(
+            "Circular sync scheduler started — every %d minutes.",
+            settings.circulars_sync_interval_minutes,
+        )
+    else:
+        logger.info(
+            "Automatic circular scraper disabled; manual admin uploads remain available."
+        )
 
     yield
 
-    scheduler.shutdown(wait=False)
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Apply browser protections consistently to every API response."""
 
@@ -284,6 +295,13 @@ async def sync_circulars(repo=Depends(get_repo)):
     the next scheduled tick. Same underlying function the scheduler calls —
     same behaviour, same safety limits, just an on-demand trigger.
     """
+    if not settings.enable_circular_scraper:
+        return {
+            "status": "disabled",
+            "detail": "Automatic circular scraping is disabled on this deployment."
+        }
+    from app.services.circular_scraper import run_circular_sync
+
     return await run_circular_sync(repo)
 
 
@@ -392,14 +410,23 @@ async def upload_circular(
         if district and len(district) > 100:
             raise HTTPException(status_code=422, detail="district must be 100 characters or fewer.")
 
-    file_bytes = await file.read()
-    if len(file_bytes) > settings.circulars_max_pdf_bytes:
+    # UploadFile spools large multipart bodies to disk, but reading it without
+    # a bound would copy an attacker-controlled file into process memory before
+    # this size check runs.  Read at most one byte beyond the allowed limit.
+    max_upload_bytes = settings.circulars_max_pdf_bytes
+    file_bytes = await file.read(max_upload_bytes + 1)
+    if len(file_bytes) > max_upload_bytes:
         raise HTTPException(
             status_code=413,
-            detail=f"File exceeds the {settings.circulars_max_pdf_bytes // (1024*1024)} MB limit.",
+            detail=f"File exceeds the {max_upload_bytes // (1024*1024)} MB limit.",
         )
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    # This import is deliberately local: PDF/image processing is an admin-only
+    # feature and importing its native/browser stack at app startup can push a
+    # 512 MiB web service over its memory limit.
+    from app.services.circular_scraper import ingest_uploaded_circular
 
     result = await ingest_uploaded_circular(
         repo,

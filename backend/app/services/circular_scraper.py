@@ -40,11 +40,6 @@ from urllib.parse import urljoin, urlparse
 
 import fitz  # PyMuPDF
 import httpx
-from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.firefox.options import Options as FirefoxOptions
-from selenium.webdriver.support.ui import WebDriverWait
 
 from app.config import settings
 from app.database.base import BaseRepository
@@ -175,6 +170,14 @@ def _fetch_listing_page_sync() -> str:
     If both fail, the raised error includes a saved copy of the page
     HTML plus every anchor found on it, so the failure is self-diagnosing.
     """
+    # These packages are optional in the normal API deployment.  Import them
+    # only when the scheduled scraper is actually invoked, so manual uploads
+    # continue to work without Selenium/Firefox installed.
+    from selenium import webdriver
+    from selenium.common.exceptions import TimeoutException
+    from selenium.webdriver.firefox.options import Options as FirefoxOptions
+    from selenium.webdriver.support.ui import WebDriverWait
+
     options = FirefoxOptions()
     options.add_argument("-headless")
     # Deliberately NOT overriding the User-Agent. A prior version sent
@@ -272,6 +275,8 @@ async def _fetch_listing_page() -> str:
 
 def _extract_pdf_links(html: str, base_url: str) -> list[tuple[str, str]]:
     """Return [(absolute_url, visible_title), ...] for every PDF link found."""
+    from bs4 import BeautifulSoup
+
     soup = BeautifulSoup(html, "lxml")
     links: list[tuple[str, str]] = []
     for anchor in soup.find_all("a", href=True):

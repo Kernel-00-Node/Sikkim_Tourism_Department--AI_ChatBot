@@ -1,0 +1,8 @@
+# Optional automated circular scraper.  Install this only on a worker or a
+# service with enough RAM for headless Firefox; it is not needed for normal
+# API operation or manual circular uploads.
+-r requirements.txt
+beautifulsoup4>=4.12.0,<5.0.0
+lxml>=5.3.0,<6.0.0
+apscheduler>=3.10.0,<4.0.0
+selenium>=4.27.0,<5.0.0

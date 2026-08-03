@@ -6,10 +6,11 @@ pydantic>=2.9.0,<3.0.0
 pydantic-settings>=2.6.0,<3.0.0
 sse-starlette>=2.1.0,<4.0.0
 
-# ── LangChain_Ecosystem ────────────────────────────────────────────────────────
-langchain>=1.3.9,<2.0.0
+# ── LangChain components used by the application ─────────────────────────────
+# Do not add the umbrella `langchain` or `langchain-community` packages here:
+# neither is imported by this project, and they pull in LangGraph, NumPy,
+# SQLAlchemy and other packages that materially increase a small service's RSS.
 langchain-core>=1.2.22,<2.0.0
-langchain-community>=0.4.0,<1.0.0
 langchain-google-genai>=3.0.0,<5.0.0
 langchain-groq>=1.0.0,<2.0.0
 
@@ -20,8 +21,7 @@ langchain-qdrant>=1.0.0,<2.0.0
 # ── Modern_Async_HTTP_Client ─────────────────────────────────────────────────────
 httpx>=0.27.0,<1.0.0
 
-# ── Google_AI_ ─────────
-google-genai>=0.8.0,<2.0.0
+# `google-genai` is installed transitively by langchain-google-genai.
 python-dotenv>=1.0.0,<2.0.0
 
 # ── MySQL ──────────────────────────────────────────────────────────
@@ -30,21 +30,9 @@ mysql-connector-python>=9.0.0,<10.0.0
 # ── Rate Limiting (NEW - SECURITY) ─────────────────────────────────
 slowapi>=0.1.9,<0.2.0
 
-# ── Circulars_Scraper ──────────────────────────────────────────────
-beautifulsoup4>=4.12.0,<5.0.0
-lxml>=5.3.0,<6.0.0
+# ── Admin circular uploads ─────────────────────────────────────────
+# PyMuPDF is loaded only when an administrator uploads a PDF.  The scheduled
+# browser scraper is deliberately kept in requirements-circular-scraper.txt
+# so a normal 512 MiB Render web service never installs or imports Selenium.
 pymupdf>=1.24.0,<2.0.0
-apscheduler>=3.10.0,<4.0.0
-# Renders the JS-rendered notices SPA (see circular_scraper.py). Firefox,
-# not Chromium/WebKit — see that file's docstring for why. Selenium 4.6+
-# auto-manages geckodriver; Firefox itself must be installed separately
-# (see scripts/setup-*.sh).
-selenium>=4.27.0,<5.0.0
-
-# ── Development_or_Testing ────────────────────────────────────────────────────────
-pytest>=9.0.3,<10.0.0
-pytest-asyncio>=1.0.0,<2.0.0
-
-# ─────────────────────────────────────────────────────────────────
-# ─────────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────

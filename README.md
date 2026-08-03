@@ -270,6 +270,7 @@ The backend ships with a `pytest` suite covering health checks, chat, destinatio
 ```bash
 cd backend
 source v_env/bin/activate     # v_env\Scripts\activate.bat on Windows
+pip install -r requirements-dev.txt
 pytest
 ```
 
@@ -287,6 +288,12 @@ as the start command. The included `.python-version` pins Python 3.11. Set
 `ENVIRONMENT=production`, `ALLOWED_ORIGINS=https://<your-vercel-domain>`,
 `GEMINI_API_KEY`, `GROQ_API_KEY`, and a strong `ADMIN_API_KEY` in Render's
 environment settings. Do not commit real keys to the repository.
+
+Keep `ENABLE_CIRCULAR_SCRAPER=false` on a 512 MiB web service. The automated
+scraper starts a headless browser, so run it separately on a worker with more
+memory if it is needed. Install its extra packages with
+`pip install -r requirements-circular-scraper.txt`; normal API operation and
+manual circular uploads do not require those packages.
 
 ---
 
@@ -353,6 +360,7 @@ the frontend weather panels.
 | `ALLOWED_METHODS` | `GET,POST,OPTIONS`           | CORS allowed HTTP methods.                                                       |
 | `ALLOWED_HEADERS` | `Content-Type,Authorization` | CORS allowed request headers.                                                    |
 | `ENVIRONMENT`     | `development`                | Set to`production` to enable HSTS and other production-only behavior.            |
+| `ENABLE_CIRCULAR_SCRAPER` | `false` | Enables the scheduled Selenium/Firefox scraper. Leave off on a 512 MiB web service. |
 
 ### Admin / Security
 
