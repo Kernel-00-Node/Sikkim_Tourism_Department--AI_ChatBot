@@ -63,32 +63,40 @@ async def lifespan(app: FastAPI):
         # Keep the browser/PDF scraper out of the normal API process.  Its
         # optional dependencies (especially Selenium) substantially increase
         # RSS on small Render instances even when no sync is running.
-        from apscheduler.schedulers.asyncio import AsyncIOScheduler
-        from app.services.circular_scraper import run_circular_sync
-
         try:
-            summary = await run_circular_sync(repo)
-            logger.info("Initial circular sync complete: %s", summary)
-        except Exception as exc:
-            logger.error("Circular sync failed on startup (non-fatal): %s", exc)
+            from apscheduler.schedulers.asyncio import AsyncIOScheduler
+            from app.services.circular_scraper import run_circular_sync
+        except ModuleNotFoundError as exc:
+            logger.error(
+                "Automatic circular scraper requested but optional dependency %r "
+                "is not installed; continuing without it. Install "
+                "requirements-circular-scraper.txt on a dedicated worker to enable it.",
+                exc.name,
+            )
+        else:
+            try:
+                summary = await run_circular_sync(repo)
+                logger.info("Initial circular sync complete: %s", summary)
+            except Exception as exc:
+                logger.error("Circular sync failed on startup (non-fatal): %s", exc)
 
-        scheduler = AsyncIOScheduler()
-        scheduler.add_job(
-            run_circular_sync,
-            "interval",
-            minutes=settings.circulars_sync_interval_minutes,
-            args=[repo],
-            id="circular_sync",
-            # If a run is somehow still in flight when the next tick fires,
-            # skip that tick instead of stacking overlapping scrapes.
-            max_instances=1,
-            coalesce=True,
-        )
-        scheduler.start()
-        logger.info(
-            "Circular sync scheduler started — every %d minutes.",
-            settings.circulars_sync_interval_minutes,
-        )
+            scheduler = AsyncIOScheduler()
+            scheduler.add_job(
+                run_circular_sync,
+                "interval",
+                minutes=settings.circulars_sync_interval_minutes,
+                args=[repo],
+                id="circular_sync",
+                # If a run is somehow still in flight when the next tick fires,
+                # skip that tick instead of stacking overlapping scrapes.
+                max_instances=1,
+                coalesce=True,
+            )
+            scheduler.start()
+            logger.info(
+                "Circular sync scheduler started — every %d minutes.",
+                settings.circulars_sync_interval_minutes,
+            )
     else:
         logger.info(
             "Automatic circular scraper disabled; manual admin uploads remain available."
