@@ -2,7 +2,8 @@ import { lazy, Suspense, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Maximize2, Minimize2, MessageCircle } from "lucide-react";
 import { GOVT_LOGO_SRC } from "@/config/brand";
-import { useChatTheme, PRAYER_FLAGS } from "@/config/chat-theme";
+import { PrayerFlagBar } from "@/components/prayer-flag-bar";
+import { useChatTheme } from "@/config/chat-theme";
 import { useTypewriter } from "@/hooks/use-typewriter";
 import { withAlpha } from "@/lib/utils";
 
@@ -21,17 +22,6 @@ const GREETINGS = [
 ];
 
 
-
-/* Five-flag hairline that signals the Department brand without narrating it. */
-function PrayerFlagBar({ className = "" }: { className?: string }) {
-  return (
-    <div className={`flex h-[3px] w-full ${className}`} aria-hidden="true">
-      {PRAYER_FLAGS.map((c, i) => (
-        <div key={i} className="flex-1" style={{ background: c }} />
-      ))}
-    </div>
-  );
-}
 
 /* ── Main widget ─────────────────────────────────────────────────────────── */
 export function ChatWidget() {
@@ -250,7 +240,7 @@ export function ChatWidget() {
                 }}
               >
                 {/* Prayer flag strip — the only visible "flash" of colour. */}
-                <PrayerFlagBar />
+                <PrayerFlagBar thicknessClassName="h-[3px]" />
 
                 {/* Soft diagonal sheen — depth without noise or texture. */}
                 <div

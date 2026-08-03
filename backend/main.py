@@ -11,13 +11,14 @@ Or directly:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -31,6 +32,7 @@ from app.limiting import limiter
 from app.routers import chat, destinations
 from app.services.circular_scraper import ingest_uploaded_circular, run_circular_sync
 from app.startup import resync_vectorstore, populate_vectorstore
+from app.models.schemas import Destination, DestinationWrite
 
 logging.basicConfig(
     level=logging.INFO,
@@ -288,8 +290,75 @@ async def sync_circulars(repo=Depends(get_repo)):
 _UPLOAD_CATEGORIES = {"road_status", "cancellation_order", "notice"}
 
 
+@admin_router.get("/dashboard")
+async def admin_dashboard(repo=Depends(get_repo)):
+    """Return the small operational summary rendered by the admin console."""
+    destinations, circulars = await asyncio.gather(
+        repo.list_destinations(), repo.list_circulars(limit=5)
+    )
+    return {
+        "destination_count": len(destinations),
+        "recent_circulars": circulars,
+        "db_mode": settings.db_mode,
+        "qdrant_mode": settings.qdrant_mode,
+    }
+
+
+@admin_router.get("/destinations", response_model=list[Destination])
+async def admin_list_destinations(repo=Depends(get_repo)):
+    return await repo.list_destinations()
+
+
+@admin_router.post("/destinations", response_model=Destination, status_code=201)
+async def admin_create_destination(
+        destination: DestinationWrite, repo=Depends(get_repo)
+):
+    try:
+        return await repo.create_destination(destination)
+    except Exception as exc:
+        if "duplicate" in str(exc).lower():
+            raise HTTPException(status_code=409, detail="A destination with this slug already exists.")
+        raise
+
+
+@admin_router.put("/destinations/{destination_id}", response_model=Destination)
+async def admin_update_destination(
+        destination_id: int, destination: DestinationWrite, repo=Depends(get_repo)
+):
+    try:
+        updated = await repo.update_destination(destination_id, destination)
+    except Exception as exc:
+        if "duplicate" in str(exc).lower():
+            raise HTTPException(status_code=409, detail="A destination with this slug already exists.")
+        raise
+    if not updated:
+        raise HTTPException(status_code=404, detail="Destination not found.")
+    return updated
+
+
+@admin_router.delete("/destinations/{destination_id}", status_code=204)
+async def admin_delete_destination(destination_id: int, repo=Depends(get_repo)):
+    if not await repo.delete_destination(destination_id):
+        raise HTTPException(status_code=404, detail="Destination not found.")
+
+
+@admin_router.get("/circulars")
+async def admin_list_circulars(
+        limit: int = Query(100, ge=1, le=250), repo=Depends(get_repo)
+):
+    return await repo.list_circulars(limit=limit)
+
+
+@admin_router.delete("/circulars/{circular_id}", status_code=204)
+async def admin_delete_circular(circular_id: int, repo=Depends(get_repo)):
+    if not await repo.delete_circular(circular_id):
+        raise HTTPException(status_code=404, detail="Circular not found.")
+
+
 @admin_router.post("/upload-circular")
+@limiter.limit("10/minute")
 async def upload_circular(
+        request: Request,
         file: UploadFile = File(...),
         title: str = Form(...),
         category: str = Form("road_status"),
@@ -313,8 +382,15 @@ async def upload_circular(
             status_code=400,
             detail=f"category must be one of: {', '.join(sorted(_UPLOAD_CATEGORIES))}",
         )
-    if not title.strip():
+    title = title.strip()
+    if not title:
         raise HTTPException(status_code=400, detail="title is required.")
+    if len(title) > 300:
+        raise HTTPException(status_code=422, detail="title must be 300 characters or fewer.")
+    if district is not None:
+        district = district.strip() or None
+        if district and len(district) > 100:
+            raise HTTPException(status_code=422, detail="district must be 100 characters or fewer.")
 
     file_bytes = await file.read()
     if len(file_bytes) > settings.circulars_max_pdf_bytes:
@@ -328,7 +404,7 @@ async def upload_circular(
     result = await ingest_uploaded_circular(
         repo,
         file_bytes=file_bytes,
-        title=title.strip(),
+        title=title,
         category=category,
         source_url="manual-upload:whatsapp",
         mime_type=file.content_type,

@@ -26,7 +26,19 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     const text = await res.text().catch(() => res.statusText);
     throw new Error(`API error ${res.status}: ${text}`);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+async function adminFetch<T>(
+  path: string,
+  adminKey: string,
+  options?: RequestInit,
+): Promise<T> {
+  return apiFetch<T>(`/admin${path}`, {
+    ...options,
+    headers: { "X-Admin-Key": adminKey, ...options?.headers },
+  });
 }
 
 // ── Public TypeScript types (camelCase — used by components) ─────────────────
@@ -71,6 +83,28 @@ export interface DestinationSummary {
   longitude: number | null;
 }
 
+export interface AdminDestination extends RawDestination {}
+
+export type DestinationWrite = Omit<RawDestination, "id">;
+
+export interface Circular {
+  id: number;
+  title: string;
+  category: "road_status" | "cancellation_order" | "notice";
+  district: string | null;
+  issue_date: string;
+  source_url: string;
+  extracted_text: string;
+  ingested_at: string;
+}
+
+export interface AdminDashboard {
+  destination_count: number;
+  recent_circulars: Circular[];
+  db_mode: string;
+  qdrant_mode: string;
+}
+
 export interface Conversation {
   id: string;
   createdAt: string;
@@ -108,6 +142,7 @@ interface RawDestination {
   district: string;
   description: string;
   location: string;
+  altitude: string | null;
   best_time: string;
   entry_fee: string | null;
   permit_required: boolean;
@@ -246,6 +281,48 @@ export async function fetchDestination(id: number): Promise<Destination> {
 export async function fetchCategories(): Promise<string[]> {
   const res = await apiFetch<{ categories: string[] }>("/destinations/categories");
   return res.categories;
+}
+
+// ── Protected administration ────────────────────────────────────────────────
+
+export function fetchAdminDashboard(adminKey: string): Promise<AdminDashboard> {
+  return adminFetch("/dashboard", adminKey);
+}
+
+export function fetchAdminDestinations(adminKey: string): Promise<AdminDestination[]> {
+  return adminFetch("/destinations", adminKey);
+}
+
+export function saveAdminDestination(
+  adminKey: string,
+  destination: DestinationWrite,
+  id?: number,
+): Promise<AdminDestination> {
+  return adminFetch(id ? `/destinations/${id}` : "/destinations", adminKey, {
+    method: id ? "PUT" : "POST",
+    body: JSON.stringify(destination),
+  });
+}
+
+export async function deleteAdminDestination(adminKey: string, id: number): Promise<void> {
+  await adminFetch<void>(`/destinations/${id}`, adminKey, { method: "DELETE" });
+}
+
+export function fetchAdminCirculars(adminKey: string): Promise<Circular[]> {
+  return adminFetch("/circulars", adminKey);
+}
+
+export async function deleteAdminCircular(adminKey: string, id: number): Promise<void> {
+  await adminFetch<void>(`/circulars/${id}`, adminKey, { method: "DELETE" });
+}
+
+export function runAdminSync(
+  adminKey: string,
+  type: "destinations" | "circulars",
+): Promise<{ status: string; indexed?: number; new?: number; failed?: number }> {
+  return adminFetch(type === "destinations" ? "/sync" : "/sync-circulars", adminKey, {
+    method: "POST",
+  });
 }
 
 // ── Conversations ─────────────────────────────────────────────────────────────

@@ -379,7 +379,6 @@ async def _tavily_search(query: str) -> str:
 
 
 # FIX 3: merges injected extra_context (e.g. full destinations list) with RAG results
-# FIX 3: merges injected extra_context (e.g. full destinations list) with RAG results
 # FIX 7: also folds in live Tavily web search results (Sikkim-scoped only)
 # whenever the question looks time-sensitive.
 async def _retrieve_context_step(inputs: dict) -> str:

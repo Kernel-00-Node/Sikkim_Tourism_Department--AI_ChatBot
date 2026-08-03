@@ -163,10 +163,5 @@ export function useChatTheme(): ChatTheme {
   return theme;
 }
 
-/** Static lookup — useful for non-React callers (rare). */
-export function getChatThemeCached(isDark: boolean): ChatTheme {
-  return isDark ? DARK : LIGHT;
-}
-
 /** Five prayer-flag colours used in the header band hairline. */
 export const PRAYER_FLAGS = ["#E2B821", "#3FA45A", "#C73E2A", "#F1ECE0","#1E5AA8"];

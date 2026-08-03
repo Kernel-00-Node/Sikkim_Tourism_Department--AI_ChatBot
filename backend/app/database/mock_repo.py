@@ -7,12 +7,9 @@ Conversations and messages are held in plain Python dicts; they reset on every s
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from uuid import uuid4
-
 from app.database.base import BaseRepository, MessageRole
 from app.database.mock_data import CIRCULARS, DESTINATIONS
-from app.models.schemas import Circular, Conversation, Destination, Message
+from app.models.schemas import Circular, Conversation, Destination, DestinationWrite, Message
 
 
 class MockRepository(BaseRepository):
@@ -44,6 +41,13 @@ class MockRepository(BaseRepository):
         CIRCULARS.append(circular)
         return circular
 
+    async def delete_circular(self, circular_id: int) -> bool:
+        for index, circular in enumerate(CIRCULARS):
+            if circular.id == circular_id:
+                del CIRCULARS[index]
+                return True
+        return False
+
     # ── Destinations ───────────────────────────────────────────────────────────
 
     async def list_destinations(
@@ -69,6 +73,29 @@ class MockRepository(BaseRepository):
 
     async def get_destination(self, destination_id: int) -> Destination | None:
         return next((d for d in DESTINATIONS if d.id == destination_id), None)
+
+    async def create_destination(self, destination: DestinationWrite) -> Destination:
+        next_id = max((item.id for item in DESTINATIONS), default=0) + 1
+        created = Destination(id=next_id, **destination.model_dump())
+        DESTINATIONS.append(created)
+        return created
+
+    async def update_destination(
+            self, destination_id: int, destination: DestinationWrite
+    ) -> Destination | None:
+        for index, current in enumerate(DESTINATIONS):
+            if current.id == destination_id:
+                updated = Destination(id=destination_id, **destination.model_dump())
+                DESTINATIONS[index] = updated
+                return updated
+        return None
+
+    async def delete_destination(self, destination_id: int) -> bool:
+        for index, destination in enumerate(DESTINATIONS):
+            if destination.id == destination_id:
+                del DESTINATIONS[index]
+                return True
+        return False
 
     async def search_destinations_for_rag(self, query: str) -> list[Destination]:
         """
@@ -101,8 +128,7 @@ class MockRepository(BaseRepository):
     # ── Conversations ──────────────────────────────────────────────────────────
 
     async def create_conversation(self) -> Conversation:
-        # Use timezone-aware UTC — datetime.utcnow() is deprecated in Python 3.12+
-        conv = Conversation(id=str(uuid4()), created_at=datetime.now(timezone.utc))
+        conv = Conversation()
         self._conversations[conv.id] = conv
         self._messages[conv.id] = []
         return conv
@@ -120,12 +146,10 @@ class MockRepository(BaseRepository):
             client_message_id: str | None = None,
     ) -> Message:
         msg = Message(
-            id=str(uuid4()),
             conversation_id=conversation_id,
             role=role,
             content=content,
             client_message_id=client_message_id,
-            created_at=datetime.now(timezone.utc),
         )
         self._messages.setdefault(conversation_id, []).append(msg)
         return msg

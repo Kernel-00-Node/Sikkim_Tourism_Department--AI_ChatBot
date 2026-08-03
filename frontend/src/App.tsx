@@ -14,6 +14,7 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const Home = lazy(() => import("@/pages/home"));
 const Destinations = lazy(() => import("@/pages/destinations"));
 const Demo = lazy(() => import("@/pages/demo"));
+const Admin = lazy(() => import("@/pages/admin"));
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
             <Route path="/" component={Home} />
             <Route path="/destinations" component={Destinations} />
             <Route path="/demo" component={Demo} />
+            <Route path="/admin" component={Admin} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>

@@ -35,6 +35,13 @@ export default function Destinations() {
 
   const debouncedSearch = useDebounce(search, 350);
 
+  // The admin console opens this route with ?preview=<id>, letting an editor
+  // verify the exact public-facing destination view in a separate tab.
+  useEffect(() => {
+    const previewId = Number(new URLSearchParams(window.location.search).get("preview"));
+    if (Number.isInteger(previewId) && previewId > 0) setSelectedId(previewId);
+  }, []);
+
   useEffect(() => {
     fetchCategories()
         .then(setCategories)

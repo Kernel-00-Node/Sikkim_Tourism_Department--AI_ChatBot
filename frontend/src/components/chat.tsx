@@ -25,10 +25,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createConversation, fetchConversation, type Message } from "@/lib/api";
 import { GOVT_LOGO_SRC } from "@/config/brand";
+import { PrayerFlagBar } from "@/components/prayer-flag-bar";
 import { withAlpha } from "@/lib/utils";
 import {
     useChatTheme,
-    PRAYER_FLAGS,
     type ChatTheme,
 } from "@/config/chat-theme";
 
@@ -78,17 +78,6 @@ function formatTime(iso: string) {
     } catch {
         return "";
     }
-}
-
-/* ── The five prayer-flag colours, used as a single 2px hairline strip. ─── */
-function PrayerFlagBar({ className = "" }: { className?: string }) {
-    return (
-        <div className={`flex h-[2px] w-full ${className}`} aria-hidden="true">
-            {PRAYER_FLAGS.map((c, i) => (
-                <div key={i} className="flex-1" style={{ background: c }} />
-            ))}
-        </div>
-    );
 }
 
 /* ── Calm three-dot typing indicator. Shows a contextual label when image. ── */

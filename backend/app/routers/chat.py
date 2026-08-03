@@ -83,6 +83,13 @@ _LATEST_UPDATE_PHRASES = (
     "any update",
 )
 
+_CIRCULAR_INVENTORY_PHRASES = (
+    "how many road status", "how many road reports", "how many circular",
+    "how many report", "how many cancellation", "how many notice",
+    "list all road status", "list the road status",
+    "all road status reports", "which road status reports", "what dates",
+)
+
 
 def _messages_to_history(messages: list[Message]) -> list[dict]:
     """
@@ -128,7 +135,20 @@ def _needs_latest_circulars(message: str, history: list[dict] | None = None) -> 
     return False
 
 
-async def _build_latest_circulars_context(repo: BaseRepository) -> str:
+def _needs_circular_inventory(message: str) -> bool:
+    text = " ".join(message.lower().split())
+    if any(phrase in text for phrase in _CIRCULAR_INVENTORY_PHRASES):
+        return True
+    # Also tolerate small typing mistakes such as "road staturs report".
+    return "how many" in text and any(word in text for word in ("road", "report", "circular", "notice", "cancellation"))
+
+
+async def _build_latest_circulars_context(
+        repo: BaseRepository,
+        *,
+        limit: int = 5,
+        category: str | None = None,
+) -> str:
     """
     Inject the freshest official circulars (road status, cancellation orders,
     notices) directly into the prompt, each stamped with its issue date and
@@ -141,7 +161,7 @@ async def _build_latest_circulars_context(repo: BaseRepository) -> str:
     information is.
     """
     try:
-        circulars = await repo.list_circulars(limit=5)
+        circulars = await repo.list_circulars(category=category, limit=limit)
     except Exception as exc:
         logger.warning("Could not load circulars for extra_context: %s", exc)
         return ""
@@ -150,7 +170,7 @@ async def _build_latest_circulars_context(repo: BaseRepository) -> str:
         return ""
 
     lines = [
-        "OFFICIAL SIKKIM TOURISM/POLICE CIRCULARS (most recent first — always "
+        f"OFFICIAL SIKKIM TOURISM/POLICE CIRCULARS ({len(circulars)} records, most recent first — always "
         "state the issue date when answering from these, since road status "
         "changes daily):"
     ]
@@ -334,8 +354,14 @@ async def send_message(
                     dest_context = await _build_official_destinations_context(repo)
                     if dest_context:
                         context_parts.append(dest_context)
-                if _needs_latest_circulars(body.message, history):
-                    circular_context = await _build_latest_circulars_context(repo)
+                inventory = _needs_circular_inventory(body.message)
+                if _needs_latest_circulars(body.message, history) or inventory:
+                    road_status_inventory = inventory and "road" in body.message.lower()
+                    circular_context = await _build_latest_circulars_context(
+                        repo,
+                        limit=250 if inventory else 5,
+                        category="road_status" if road_status_inventory else None,
+                    )
                     if circular_context:
                         context_parts.append(circular_context)
                 extra_context = "\n\n".join(context_parts)

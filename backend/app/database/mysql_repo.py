@@ -22,7 +22,7 @@ import mysql.connector
 import mysql.connector.pooling as mysql_pooling
 
 from app.database.base import BaseRepository, MessageRole
-from app.models.schemas import Circular, Conversation, Destination, Message
+from app.models.schemas import Circular, Conversation, Destination, DestinationWrite, Message
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +69,30 @@ def _row_to_destination(row: dict) -> Destination:
         image_url=row.get("image_url"),
         latitude=row.get("latitude"),
         longitude=row.get("longitude"),
+    )
+
+
+def _destination_params(destination: DestinationWrite) -> tuple:
+    """Convert a validated admin payload into MySQL's column order."""
+    return (
+        destination.name,
+        destination.slug,
+        destination.category,
+        destination.description,
+        destination.location,
+        destination.district,
+        destination.altitude,
+        destination.best_time,
+        destination.entry_fee,
+        destination.permit_required,
+        destination.permit_info,
+        destination.how_to_reach,
+        json.dumps(destination.highlights),
+        json.dumps(destination.tags),
+        destination.image_placeholder,
+        destination.image_url,
+        destination.latitude,
+        destination.longitude,
     )
 
 
@@ -129,7 +153,7 @@ class MySQLRepository(BaseRepository):
         finally:
             conn.close()
 
-    def _execute(self, sql: str, params: tuple = ()) -> None:
+    def _execute(self, sql: str, params: tuple = ()) -> int:
         """
         Execute a write statement (INSERT / UPDATE / DELETE).
         Both the cursor and the connection are always returned to the pool,
@@ -142,6 +166,7 @@ class MySQLRepository(BaseRepository):
             cursor = conn.cursor()
             try:
                 cursor.execute(sql, params)
+                return cursor.rowcount
             finally:
                 # Close cursor inside its own try/finally so a failed
                 # execute() cannot prevent the connection from being
@@ -207,6 +232,12 @@ class MySQLRepository(BaseRepository):
         new_id = await asyncio.to_thread(_insert)
         return circular.model_copy(update={"id": new_id})
 
+    async def delete_circular(self, circular_id: int) -> bool:
+        deleted = await asyncio.to_thread(
+            self._execute, "DELETE FROM circulars WHERE id = %s", (circular_id,)
+        )
+        return deleted > 0
+
     # ── Destinations ────────────────────────────────────────────────────────
 
     async def list_destinations(
@@ -240,6 +271,48 @@ class MySQLRepository(BaseRepository):
             (destination_id,),
         )
         return _row_to_destination(rows[0]) if rows else None
+
+    async def create_destination(self, destination: DestinationWrite) -> Destination:
+        def _insert() -> int:
+            conn = self._pool.get_connection()
+            try:
+                cursor = conn.cursor()
+                try:
+                    cursor.execute(
+                        "INSERT INTO destinations "
+                        "(name, slug, category, description, location, district, altitude, best_time, "
+                        "entry_fee, permit_required, permit_info, how_to_reach, highlights, tags, "
+                        "image_placeholder, image_url, latitude, longitude) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                        _destination_params(destination),
+                    )
+                    return cursor.lastrowid
+                finally:
+                    cursor.close()
+            finally:
+                conn.close()
+
+        return Destination(id=await asyncio.to_thread(_insert), **destination.model_dump())
+
+    async def update_destination(
+            self, destination_id: int, destination: DestinationWrite
+    ) -> Destination | None:
+        updated = await asyncio.to_thread(
+            self._execute,
+            "UPDATE destinations SET "
+            "name = %s, slug = %s, category = %s, description = %s, location = %s, district = %s, "
+            "altitude = %s, best_time = %s, entry_fee = %s, permit_required = %s, permit_info = %s, "
+            "how_to_reach = %s, highlights = %s, tags = %s, image_placeholder = %s, image_url = %s, "
+            "latitude = %s, longitude = %s WHERE id = %s",
+            (*_destination_params(destination), destination_id),
+        )
+        return Destination(id=destination_id, **destination.model_dump()) if updated else None
+
+    async def delete_destination(self, destination_id: int) -> bool:
+        deleted = await asyncio.to_thread(
+            self._execute, "DELETE FROM destinations WHERE id = %s", (destination_id,)
+        )
+        return deleted > 0
 
     async def search_destinations_for_rag(self, query: str) -> list[Destination]:
         """Search the full-text index, then fall back to a literal LIKE query."""

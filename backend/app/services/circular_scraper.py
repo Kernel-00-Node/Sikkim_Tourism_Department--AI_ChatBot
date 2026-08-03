@@ -67,6 +67,14 @@ _CATEGORY_KEYWORDS: list[tuple[str, str]] = [
 # Vision fallback is capped to the first few pages — road/cancellation
 # notices are short, and this bounds both latency and Gemini cost per file.
 _MAX_VISION_PAGES = 5
+_MAX_PDF_PAGES = 50
+_MAX_STORED_TEXT_CHARS = 12_000
+_VISION_TRANSCRIPTION_PROMPT = (
+    "Read this scanned government circular carefully. Transcribe every readable word, "
+    "number, date, heading, and road name exactly as written. Preserve line breaks where "
+    "useful. Do not summarize or describe the image. Return only the transcription. "
+    "If there truly is no readable text, return exactly NO_TEXT."
+)
 
 
 def _classify_category(title: str) -> str:
@@ -243,7 +251,7 @@ def _fetch_listing_page_sync() -> str:
         driver.quit()
 
 
-async def _fetch_listing_page(client: httpx.AsyncClient) -> str:
+async def _fetch_listing_page() -> str:
     """
     The notices page is a JS-rendered SPA — the raw HTML httpx would get
     back is an empty shell with no actual notice links in it. We render
@@ -258,8 +266,6 @@ async def _fetch_listing_page(client: httpx.AsyncClient) -> str:
     a matching geckodriver automatically (Selenium Manager); the only
     prerequisite is having Firefox itself installed.
 
-    `client` is unused (the browser opens its own connection) — kept so
-    the call site in `run_circular_sync` doesn't need special-casing.
     """
     return await asyncio.to_thread(_fetch_listing_page_sync)
 
@@ -303,7 +309,8 @@ async def _download_pdf(client: httpx.AsyncClient, url: str) -> bytes | None:
 
 def _extract_text_pymupdf(pdf_bytes: bytes) -> str:
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        return "\n".join(page.get_text().strip() for page in doc).strip()
+        # Bound parser work for adversarial PDFs with thousands of pages.
+        return "\n".join(page.get_text().strip() for page in doc[:_MAX_PDF_PAGES]).strip()
 
 
 def _render_vision_pages_sync(pdf_bytes: bytes) -> list[str]:
@@ -331,33 +338,13 @@ async def _extract_text_vision(pdf_bytes: bytes) -> str:
         logger.warning("GEMINI_API_KEY not set — cannot OCR scanned circular via vision.")
         return ""
 
-    from langchain_google_genai import ChatGoogleGenerativeAI
-    from langchain_core.messages import HumanMessage
-
-    vision_llm = ChatGoogleGenerativeAI(
-        model=settings.gemini_model,
-        google_api_key=settings.gemini_api_key,
-        temperature=0.0,
-        max_output_tokens=8192,
-    )
-
     page_images = await asyncio.to_thread(_render_vision_pages_sync, pdf_bytes)
-
-    page_texts = []
+    vision_llm = _get_vision_transcriber()
+    page_texts: list[str] = []
     for image_b64 in page_images:
-        message = HumanMessage(content=[
-            {
-                "type": "text",
-                "text": (
-                    "Transcribe all readable text from this scanned government "
-                    "document page exactly as written. Return only the transcription."
-                ),
-            },
-            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
-        ])
-        result = await vision_llm.ainvoke([message])
-        page_texts.append(str(result.content))
-
+        page_texts.append(
+            await _transcribe_image(vision_llm, f"data:image/png;base64,{image_b64}")
+        )
     return "\n".join(page_texts).strip()
 
 
@@ -381,32 +368,106 @@ async def _extract_text_vision_raw_image(image_bytes: bytes, mime_type: str) -> 
 
     import base64
 
-    from langchain_google_genai import ChatGoogleGenerativeAI
-    from langchain_core.messages import HumanMessage
+    # Browsers and mobile clients occasionally send application/octet-stream or
+    # a slightly different MIME value even when the bytes are a valid image.
+    # Prefer the detected format so valid WhatsApp images are not discarded.
+    detected_mime = _detect_image_mime(image_bytes, mime_type)
+    image_b64 = base64.b64encode(image_bytes).decode()
+    try:
+        text = await _transcribe_image(
+            _get_vision_transcriber(), f"data:{detected_mime};base64,{image_b64}"
+        )
+        return _clean_ocr_text(text)
+    except Exception:
+        logger.exception("Gemini Vision OCR failed for uploaded image")
+        return ""
 
-    vision_llm = ChatGoogleGenerativeAI(
+
+def _detect_image_mime(image_bytes: bytes, declared_mime: str) -> str:
+    """Return a safe image MIME type based on magic bytes when possible."""
+    if image_bytes.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
+        return "image/webp"
+    return declared_mime if declared_mime in _ALLOWED_IMAGE_MIME_TYPES else "image/jpeg"
+
+
+def _clean_ocr_text(text: str) -> str:
+    """Treat Gemini's common no-text placeholders as an empty OCR result."""
+    import re
+
+    cleaned = "\n".join(line.rstrip() for line in (text or "").splitlines()).strip()
+    marker = re.sub(r"[^a-z0-9]+", "", cleaned.lower())
+    if not cleaned or marker in {"notext", "blank", "noreadabletext", "unreadable"}:
+        return ""
+    return cleaned
+
+
+def _get_vision_transcriber():
+    """Create the shared low-temperature Gemini OCR client."""
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    return ChatGoogleGenerativeAI(
         model=settings.gemini_model,
         google_api_key=settings.gemini_api_key,
         temperature=0.0,
         max_output_tokens=8192,
     )
 
-    image_b64 = base64.b64encode(image_bytes).decode()
+
+async def _transcribe_image(vision_llm, image_url: str) -> str:
+    """Transcribe one image with a configured Gemini OCR client."""
+    from langchain_core.messages import HumanMessage
+
     message = HumanMessage(content=[
-        {
-            "type": "text",
-            "text": (
-                "Transcribe all readable text from this scanned government "
-                "document page exactly as written. Return only the transcription."
-            ),
-        },
-        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_b64}"}},
+        {"type": "text", "text": _VISION_TRANSCRIPTION_PROMPT},
+        {"type": "image_url", "image_url": {"url": image_url}},
     ])
     result = await vision_llm.ainvoke([message])
-    return str(result.content).strip()
+    content = result.content
+    # Newer LangChain versions may return a list of content blocks rather than
+    # a plain string. Joining their text avoids persisting Python list syntax or
+    # an empty block as the circular's extracted text.
+    if isinstance(content, list):
+        parts = [
+            block.get("text", "") if isinstance(block, dict) else str(block)
+            for block in content
+        ]
+        return "\n".join(part for part in parts if part).strip()
+    return str(content or "").strip()
 
 
 _ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+async def _save_circular(
+    repo: BaseRepository,
+    *,
+    title: str,
+    category: str,
+    district: str | None,
+    source_url: str,
+    pdf_hash: str,
+    extracted_text: str,
+) -> Circular:
+    """Create and persist a circular after validation, deduplication, and OCR."""
+    return await repo.save_circular(
+        Circular(
+            title=title[:300],
+            category=category,
+            district=district,
+            issue_date=_guess_issue_date(title),
+            source_url=source_url,
+            pdf_hash=pdf_hash,
+            # Keep OCR/PDF text bounded before it reaches MySQL and the LLM
+            # prompt. A malformed PDF can otherwise expand into a very large
+            # database row and an expensive context payload.
+            extracted_text=extracted_text[:_MAX_STORED_TEXT_CHARS],
+            ingested_at=datetime.now(timezone.utc),
+        )
+    )
 
 
 async def ingest_uploaded_circular(
@@ -434,7 +495,8 @@ async def ingest_uploaded_circular(
     straight to Gemini Vision.
     """
     is_pdf = file_bytes.startswith(_PDF_MAGIC)
-    is_image = not is_pdf and (mime_type or "") in _ALLOWED_IMAGE_MIME_TYPES
+    detected_mime = _detect_image_mime(file_bytes, mime_type or "")
+    is_image = not is_pdf and detected_mime in _ALLOWED_IMAGE_MIME_TYPES
 
     if not is_pdf and not is_image:
         return {
@@ -455,7 +517,7 @@ async def ingest_uploaded_circular(
     if is_pdf:
         extracted_text = await _extract_text(file_bytes)
     else:
-        extracted_text = await _extract_text_vision_raw_image(file_bytes, mime_type or "image/jpeg")
+        extracted_text = await _extract_text_vision_raw_image(file_bytes, detected_mime)
 
     if not extracted_text:
         return {
@@ -463,17 +525,15 @@ async def ingest_uploaded_circular(
             "detail": "No text could be extracted from the file (Gemini Vision may be unconfigured).",
         }
 
-    circular = Circular(
+    saved = await _save_circular(
+        repo,
         title=title[:300],
         category=category,
         district=district,
-        issue_date=_guess_issue_date(title),
         source_url=source_url,
         pdf_hash=pdf_hash,
         extracted_text=extracted_text,
-        ingested_at=datetime.now(timezone.utc),
     )
-    saved = await repo.save_circular(circular)
     logger.info("Ingested manually-uploaded circular: %s", title[:80])
 
     return {
@@ -516,7 +576,7 @@ async def run_circular_sync(repo: BaseRepository) -> dict:
             headers={"User-Agent": "SikkimTourismAssistant-CircularSync/1.0"},
     ) as client:
         try:
-            html = await _fetch_listing_page(client)
+            html = await _fetch_listing_page()
         except Exception as exc:
             logger.error("Failed to fetch circulars listing page: %s", exc)
             return summary
@@ -542,17 +602,15 @@ async def run_circular_sync(repo: BaseRepository) -> dict:
                     summary["failed"] += 1
                     continue
 
-                circular = Circular(
-                    title=title[:300],
+                await _save_circular(
+                    repo,
+                    title=title,
                     category=_classify_category(title),
                     district=None,
-                    issue_date=_guess_issue_date(title),
                     source_url=url,
                     pdf_hash=pdf_hash,
                     extracted_text=extracted_text,
-                    ingested_at=datetime.now(timezone.utc),
                 )
-                await repo.save_circular(circular)
                 summary["new"] += 1
                 logger.info("Ingested new circular: %s", title[:80])
 

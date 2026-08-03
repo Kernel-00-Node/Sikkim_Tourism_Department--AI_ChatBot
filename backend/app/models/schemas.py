@@ -47,6 +47,29 @@ class Destination(BaseModel):
     longitude: float | None = None
 
 
+class DestinationWrite(BaseModel):
+    """Admin-managed destination fields, without a database-assigned ID."""
+
+    name: str = Field(min_length=1, max_length=200)
+    slug: str = Field(min_length=1, max_length=200, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    category: Literal["nature", "culture", "adventure", "pilgrimage", "wildlife"]
+    description: str = Field(min_length=1, max_length=20_000)
+    location: str = Field(min_length=1, max_length=300)
+    district: str = Field(min_length=1, max_length=100)
+    altitude: str | None = Field(default=None, max_length=100)
+    best_time: str = Field(min_length=1, max_length=200)
+    entry_fee: str | None = Field(default=None, max_length=100)
+    permit_required: bool = False
+    permit_info: str | None = Field(default=None, max_length=5_000)
+    how_to_reach: str = Field(min_length=1, max_length=10_000)
+    highlights: list[str] = Field(default_factory=list, max_length=50)
+    tags: list[str] = Field(default_factory=list, max_length=50)
+    image_placeholder: str = Field(default="#888888", max_length=20)
+    image_url: str | None = Field(default=None, max_length=300)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+
 class DestinationSummary(BaseModel):
     """Lightweight card payload used in list / search views."""
 

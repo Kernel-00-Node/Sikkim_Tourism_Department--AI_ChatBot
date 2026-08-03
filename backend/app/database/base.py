@@ -12,7 +12,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Literal
 
-from app.models.schemas import Circular, Conversation, Destination, Message
+from app.models.schemas import Circular, Conversation, Destination, DestinationWrite, Message
 
 MessageRole = Literal["user", "assistant"]
 
@@ -50,6 +50,28 @@ class BaseRepository(ABC):
     @abstractmethod
     async def get_destination(self, destination_id: int) -> Destination | None:
         """Return a single destination by Primary-Key-ID, or None if not found."""
+        ...
+
+    @abstractmethod
+    async def create_destination(self, destination: DestinationWrite) -> Destination:
+        """Persist a new destination and return its database-assigned ID."""
+        ...
+
+    @abstractmethod
+    async def update_destination(
+            self, destination_id: int, destination: DestinationWrite
+    ) -> Destination | None:
+        """Replace an existing destination, or return None when it does not exist."""
+        ...
+
+    @abstractmethod
+    async def delete_destination(self, destination_id: int) -> bool:
+        """Delete a destination and report whether a row was removed."""
+        ...
+
+    @abstractmethod
+    async def delete_circular(self, circular_id: int) -> bool:
+        """Delete a circular and report whether a row was removed."""
         ...
 
     @abstractmethod
