@@ -158,7 +158,7 @@ async def _extract_text_vision(pdf_bytes: bytes) -> str:
         model=settings.gemini_model,
         google_api_key=settings.gemini_api_key,
         temperature=0.0,
-        max_output_tokens=2048,
+        max_output_tokens=8192,
     )
 
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
@@ -209,7 +209,7 @@ async def _extract_text_vision_raw_image(image_bytes: bytes, mime_type: str) -> 
         model=settings.gemini_model,
         google_api_key=settings.gemini_api_key,
         temperature=0.0,
-        max_output_tokens=2048,
+        max_output_tokens=8192,
     )
 
     image_b64 = base64.b64encode(image_bytes).decode()
