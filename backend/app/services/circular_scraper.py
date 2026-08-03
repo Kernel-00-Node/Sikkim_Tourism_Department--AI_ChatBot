@@ -42,6 +42,7 @@ import fitz  # PyMuPDF
 import httpx
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -82,6 +83,63 @@ def _is_allowed_url(url: str) -> bool:
     return parsed.scheme == "https" and parsed.hostname == settings.circulars_allowed_host
 
 
+_CANDIDATE_LINK_TEXTS = [
+    "notice", "notices", "notice board", "notification", "notifications",
+    "circular", "circulars", "tender", "tenders", "notice & circular",
+    "notification & circular",
+]
+
+
+def _find_notice_link(driver):
+    """
+    Best-effort discovery of the in-page link to the notices route.
+    Tries an href match first (works regardless of link wording), then
+    falls back to visible-text matching against common nav labels.
+    Returns the Selenium WebElement, or None if nothing matched.
+    """
+    from selenium.webdriver.common.by import By
+
+    anchors = driver.find_elements(By.TAG_NAME, "a")
+    target_path = urlparse(settings.circulars_notice_url).path.rstrip("/").lower()
+
+    for a in anchors:
+        href = a.get_attribute("href") or ""
+        if href and urlparse(href).path.rstrip("/").lower() == target_path:
+            return a
+
+    for a in anchors:
+        text = (a.text or "").strip().lower()
+        if text and any(candidate in text for candidate in _CANDIDATE_LINK_TEXTS):
+            return a
+
+    return None
+
+
+def _dump_debug(driver, label: str) -> str:
+    """
+    Saves the current page source to disk and returns a short summary
+    (current URL + up to 40 anchor texts/hrefs) to fold into an exception
+    message — so a single failure carries everything needed to diagnose
+    it, instead of a multi-round back-and-forth to find out what the
+    page actually looked like.
+    """
+    import os
+
+    from selenium.webdriver.common.by import By
+
+    debug_dir = "/tmp/circular_scraper_debug"
+    os.makedirs(debug_dir, exist_ok=True)
+    path = os.path.join(debug_dir, f"{label}.html")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(driver.page_source)
+
+    anchors = driver.find_elements(By.TAG_NAME, "a")[:40]
+    listing = "; ".join(
+        f"{(a.text or '').strip()[:30]!r}->{a.get_attribute('href')}" for a in anchors
+    )
+    return f"[debug HTML saved to {path}] current_url={driver.current_url!r} anchors=[{listing}]"
+
+
 def _fetch_listing_page_sync() -> str:
     """
     Blocking Selenium/Firefox render of the notices page — see
@@ -89,49 +147,95 @@ def _fetch_listing_page_sync() -> str:
     Runs inside `asyncio.to_thread` since Selenium's WebDriver API has no
     async form.
 
-    Two-step navigation: the site bounces a cold, direct hit on the
-    notices sub-page back to the homepage — it only serves it once a
-    session cookie exists, which a real visitor gets for free by landing
-    on `/` first and clicking through. So we do the same: load the
-    homepage, then navigate to the notices URL in that same session.
+    The notices route is handled by a client-side SPA router, not a real
+    server-side URL — a fresh top-level page load (driver.get) resets the
+    JS app's in-memory state on every navigation, so hitting the notices
+    URL directly (even right after a warm-up visit to `/`) can reliably
+    land back on the homepage: a second driver.get() is itself a full
+    reload that throws away whatever state the warm-up visit built up.
+    The reliable path is to load `/` once and let the page's own router
+    perform the transition — i.e. click the nav link, the same way a
+    real visitor gets there.
+
+    Two-tier attempt:
+      1. Fast path — direct navigation. Cheap, and correct if the site's
+         routing ever changes to a real server URL. A slow/timed-out
+         load here isn't fatal — we just fall through to attempt 2.
+      2. Fallback — reload the homepage fresh and click the in-page
+         notices link, letting client-side routing do the transition.
+
+    If both fail, the raised error includes a saved copy of the page
+    HTML plus every anchor found on it, so the failure is self-diagnosing.
     """
     options = FirefoxOptions()
     options.add_argument("-headless")
-    options.set_preference("general.useragent.override", "SikkimTourismAssistant-CircularSync/1.0")
+    # Deliberately NOT overriding the User-Agent. A prior version sent
+    # "SikkimTourismAssistant-CircularSync/1.0" — a string no real browser
+    # emits. Government sites are commonly behind a WAF that silently
+    # redirects unrecognized/non-browser User-Agents back to "/", which
+    # would produce exactly the "bounced to homepage" symptom we saw.
+    # Firefox's real UA costs nothing here and removes that variable.
 
     driver = webdriver.Firefox(options=options)
     try:
-        driver.set_page_load_timeout(20)
+        # Generous timeout: a full top-level load of the notices route
+        # pulls in noticeably more than the homepage does, and this is a
+        # public government server with no latency guarantees.
+        driver.set_page_load_timeout(45)
 
-        homepage = f"https://{settings.circulars_allowed_host}/"
-        driver.get(homepage)
-        WebDriverWait(driver, 15).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
-
-        driver.get(settings.circulars_notice_url)
-
-        # SSRF guard (see module docstring): a browser follows redirects
-        # transparently, so validate where we actually landed before
-        # trusting anything on the page.
-        if not _is_allowed_url(driver.current_url):
-            raise RuntimeError(
-                f"Listing page redirected off-host to {driver.current_url!r} — aborting."
+        def _wait_ready() -> None:
+            WebDriverWait(driver, 20).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
             )
 
-        # The SPA finishes hydrating shortly after document.readyState
-        # flips to "complete"; give it a short grace window on top of that.
-        WebDriverWait(driver, 15).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
+        def _on_target() -> bool:
+            return (
+                    _is_allowed_url(driver.current_url)
+                    and driver.current_url.rstrip("/") == settings.circulars_notice_url.rstrip("/")
+            )
 
-        if driver.current_url.rstrip("/") != settings.circulars_notice_url.rstrip("/"):
-            # Bounced back to the homepage (or somewhere else on-host) even
-            # after the warm-up visit — treat as a failure rather than
-            # silently scraping the wrong page.
+        # --- Attempt 1: direct navigation ---
+        # A slow/timed-out load here isn't fatal — it just means we fall
+        # through to attempt 2 below instead of aborting the whole run.
+        try:
+            driver.get(settings.circulars_notice_url)
+            if not _is_allowed_url(driver.current_url):
+                raise RuntimeError(
+                    f"Listing page redirected off-host to {driver.current_url!r} — aborting."
+                )
+            _wait_ready()
+
+            if _on_target():
+                return driver.page_source
+        except TimeoutException:
+            logger.info(
+                "Direct navigation to the notices page timed out — "
+                "falling back to homepage + click-through."
+            )
+
+        # --- Attempt 2: click-through fallback ---
+        homepage = f"https://{settings.circulars_allowed_host}/"
+        driver.get(homepage)
+        if not _is_allowed_url(driver.current_url):
             raise RuntimeError(
-                f"Expected to land on {settings.circulars_notice_url!r}, "
-                f"got {driver.current_url!r} instead — site navigation flow may have changed."
+                f"Homepage redirected off-host to {driver.current_url!r} — aborting."
+            )
+        _wait_ready()
+
+        link = _find_notice_link(driver)
+        if link is None:
+            debug = _dump_debug(driver, "homepage_no_link_found")
+            raise RuntimeError(
+                f"Could not find a link to the notices page on the homepage. {debug}"
+            )
+
+        driver.execute_script("arguments[0].click();", link)
+        _wait_ready()
+
+        if not _on_target():
+            debug = _dump_debug(driver, "click_wrong_destination")
+            raise RuntimeError(
+                f"Clicked the notices link but ended up somewhere unexpected. {debug}"
             )
 
         return driver.page_source

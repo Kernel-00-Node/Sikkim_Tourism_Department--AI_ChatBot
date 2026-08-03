@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     # a redirect, a malicious link injected into the page, a typo — is
     # rejected before any request is made.
     circulars_allowed_host: str = "sikkimtourism.gov.in"
-    circulars_notice_url: str = "https://sikkimtourism.gov.in/Public/Index/NoticeHome"
+    circulars_notice_url: str = "https://sikkimtourism.gov.in/updates/notice"
     circulars_sync_interval_minutes: int = 45
     # Hard ceiling on a single PDF's size, in bytes. Government circulars are
     # a handful of pages — anything wildly larger is treated as suspicious
