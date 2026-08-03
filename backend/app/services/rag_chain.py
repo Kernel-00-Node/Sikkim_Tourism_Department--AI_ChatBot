@@ -10,6 +10,7 @@ Two public entry-points:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -210,17 +211,46 @@ async def _contextualise_question(inputs: dict) -> str:
     return await chain.ainvoke({"input": question, "chat_history": chat_history})
 
 
-async def _retrieve_context(standalone_question: str) -> str:
-    try:
-        vs = get_vectorstore()
-        retriever = vs.as_retriever(search_type="similarity", search_kwargs={"k": 4})
-        # Async retrieval — the previous sync `.invoke()` blocked the whole
-        # FastAPI event loop for the duration of the Qdrant + embedding call.
-        docs = await retriever.ainvoke(standalone_question)
-        return "\n\n".join(doc.page_content for doc in docs) if docs else ""
-    except Exception as exc:
-        logger.warning("Qdrant retrieval failed (empty context): %s", exc)
-        return ""
+async def _retrieve_context(standalone_question: str, max_attempts: int = 3) -> str:
+    """
+    Retrieve relevant context from Qdrant, retrying transient failures.
+
+    Gemini's embedding API occasionally returns a 500 under normal load —
+    this is Google's side, not ours, and it's usually gone by the very next
+    request. Retrying with a short backoff turns a real proportion of these
+    from "no context this turn" into "worked on the 2nd try", at the cost of
+    a small amount of extra latency only on the (uncommon) failure path.
+    """
+    vs = get_vectorstore()
+    retriever = vs.as_retriever(search_type="similarity", search_kwargs={"k": 4})
+
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            # Async retrieval — the previous sync `.invoke()` blocked the whole
+            # FastAPI event loop for the duration of the Qdrant + embedding call.
+            docs = await retriever.ainvoke(standalone_question)
+            return "\n\n".join(doc.page_content for doc in docs) if docs else ""
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_attempts:
+                # Short, increasing backoff: 0.5s, then 1s. Long enough to
+                # let a transient upstream blip clear, short enough that a
+                # user waiting on a chat reply doesn't notice the retry.
+                wait_seconds = 0.5 * attempt
+                logger.warning(
+                    "Qdrant retrieval attempt %d/%d failed, retrying in %.1fs: %s",
+                    attempt, max_attempts, wait_seconds, exc,
+                )
+                await asyncio.sleep(wait_seconds)
+
+    # All attempts exhausted — degrade gracefully, exactly as before.
+    logger.warning(
+        "Qdrant retrieval failed after %d attempts (empty context): %s",
+        max_attempts, last_exc,
+    )
+    return ""
+
 # ---------------------------------------------------------------------------
 # Live web search (Tavily) — only fired for questions that plausibly need
 # current/real-time info, and always scoped to Sikkim.
