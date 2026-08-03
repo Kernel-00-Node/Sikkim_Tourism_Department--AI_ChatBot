@@ -1085,18 +1085,25 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                             .reverse()
                             .find((m) => m.role === "assistant" && m.suggestions?.length);
 
-                        // Also preserve imageDataUrl on user messages — the backend
+// Also preserve imageDataUrl on user messages — the backend
                         // doesn't store it, so the refreshed list won't have it.
-                        const imageByIndex: Record<number, string> = {};
-                        prev.forEach((m, idx) => {
-                            if (m.role === "user" && m.imageDataUrl) {
-                                imageByIndex[idx] = m.imageDataUrl;
+                        // Keyed by clientMessageId (not array position) so a length
+                        // mismatch between the optimistic and server-authoritative
+                        // lists — e.g. a message that failed to persist, or a stale
+                        // fetch racing a new send — can't misattach an image to the
+                        // wrong message.
+                        const imageByClientId: Record<string, string> = {};
+                        prev.forEach((m) => {
+                            if (m.role === "user" && m.imageDataUrl && m.clientMessageId) {
+                                imageByClientId[m.clientMessageId] = m.imageDataUrl;
                             }
                         });
 
-                        let merged = res.messages.map((m, idx) => ({
+                        let merged = res.messages.map((m) => ({
                             ...m,
-                            imageDataUrl: imageByIndex[idx],
+                            imageDataUrl: m.clientMessageId
+                                ? imageByClientId[m.clientMessageId]
+                                : undefined,
                         }));
 
                         if (lastOptimistic) {

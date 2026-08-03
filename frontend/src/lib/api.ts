@@ -149,6 +149,7 @@ interface RawMessage {
   role: "user" | "assistant";
   content: string;
   created_at: string;
+  client_message_id?: string | null;
 }
 
 // ── Mappers (backend snake_case → frontend camelCase) ────────────────────────
@@ -206,6 +207,7 @@ function mapMessage(m: RawMessage): Message {
     role: m.role,
     content: m.content,
     createdAt: m.created_at,
+    clientMessageId: m.client_message_id ?? undefined,
   };
 }
 

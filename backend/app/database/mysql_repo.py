@@ -294,7 +294,12 @@ class MySQLRepository(BaseRepository):
             content: str,
             client_message_id: str | None = None,
     ) -> Message:
-        msg = Message(conversation_id=conversation_id, role=role, content=content)
+        msg = Message(
+            conversation_id=conversation_id,
+            role=role,
+            content=content,
+            client_message_id=client_message_id,
+        )
         await asyncio.to_thread(
             self._execute,
             "INSERT INTO messages (id, conversation_id, role, content, client_message_id, created_at) "

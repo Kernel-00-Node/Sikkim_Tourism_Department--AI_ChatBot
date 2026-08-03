@@ -11,9 +11,12 @@ only ever reads whatever this scraper has already saved via the repository.
 Security notes (read before changing the allowlist logic below):
   - SSRF guard: every URL fetched (the listing page AND every PDF link
     found on it) is validated against `settings.circulars_allowed_host`
-    before any request is made. Redirects are disabled entirely — a
-    same-host page could otherwise redirect a request off-host after the
-    check has already passed.
+    before any request is made. For the PDF downloads (plain httpx),
+    redirects are disabled entirely. The listing page is rendered by a
+    real browser (see `_fetch_listing_page`), which follows redirects
+    transparently by design — so instead we check `driver.current_url`
+    against the allowlist *after* navigation and abort if the browser
+    ended up off-host, before any of that page's HTML is trusted.
   - Size guard: PDFs are streamed with a hard byte ceiling
     (`circulars_max_pdf_bytes`) instead of being read fully into memory
     on trust — a compromised or misconfigured page shouldn't be able to
@@ -29,6 +32,7 @@ Security notes (read before changing the allowlist logic below):
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 from datetime import date, datetime, timezone
@@ -37,6 +41,9 @@ from urllib.parse import urljoin, urlparse
 import fitz  # PyMuPDF
 import httpx
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.support.ui import WebDriverWait
 
 from app.config import settings
 from app.database.base import BaseRepository
@@ -75,25 +82,82 @@ def _is_allowed_url(url: str) -> bool:
     return parsed.scheme == "https" and parsed.hostname == settings.circulars_allowed_host
 
 
+def _fetch_listing_page_sync() -> str:
+    """
+    Blocking Selenium/Firefox render of the notices page — see
+    `_fetch_listing_page` for why this exists and why Firefox specifically.
+    Runs inside `asyncio.to_thread` since Selenium's WebDriver API has no
+    async form.
+
+    Two-step navigation: the site bounces a cold, direct hit on the
+    notices sub-page back to the homepage — it only serves it once a
+    session cookie exists, which a real visitor gets for free by landing
+    on `/` first and clicking through. So we do the same: load the
+    homepage, then navigate to the notices URL in that same session.
+    """
+    options = FirefoxOptions()
+    options.add_argument("-headless")
+    options.set_preference("general.useragent.override", "SikkimTourismAssistant-CircularSync/1.0")
+
+    driver = webdriver.Firefox(options=options)
+    try:
+        driver.set_page_load_timeout(20)
+
+        homepage = f"https://{settings.circulars_allowed_host}/"
+        driver.get(homepage)
+        WebDriverWait(driver, 15).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
+
+        driver.get(settings.circulars_notice_url)
+
+        # SSRF guard (see module docstring): a browser follows redirects
+        # transparently, so validate where we actually landed before
+        # trusting anything on the page.
+        if not _is_allowed_url(driver.current_url):
+            raise RuntimeError(
+                f"Listing page redirected off-host to {driver.current_url!r} — aborting."
+            )
+
+        # The SPA finishes hydrating shortly after document.readyState
+        # flips to "complete"; give it a short grace window on top of that.
+        WebDriverWait(driver, 15).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
+
+        if driver.current_url.rstrip("/") != settings.circulars_notice_url.rstrip("/"):
+            # Bounced back to the homepage (or somewhere else on-host) even
+            # after the warm-up visit — treat as a failure rather than
+            # silently scraping the wrong page.
+            raise RuntimeError(
+                f"Expected to land on {settings.circulars_notice_url!r}, "
+                f"got {driver.current_url!r} instead — site navigation flow may have changed."
+            )
+
+        return driver.page_source
+    finally:
+        driver.quit()
+
+
 async def _fetch_listing_page(client: httpx.AsyncClient) -> str:
     """
     The notices page is a JS-rendered SPA — the raw HTML httpx would get
     back is an empty shell with no actual notice links in it. We render
     it with a real (headless) browser instead, then hand the fully
     built HTML to the existing BeautifulSoup parser below unchanged.
-    """
-    from playwright.async_api import async_playwright
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch()
-        try:
-            page = await browser.new_page(
-                user_agent="SikkimTourismAssistant-CircularSync/1.0"
-            )
-            await page.goto(settings.circulars_notice_url, wait_until="networkidle", timeout=20000)
-            return await page.content()
-        finally:
-            await browser.close()
+    Firefox (via Selenium + geckodriver) instead of Playwright/Chromium:
+    Firefox is the only major browser engine still receiving updates
+    across every OS this project needs to run on, dev machines on older
+    macOS releases included — Chrome dropped macOS 11 support in 2025 and
+    Safari dropped it back in 2023. Selenium 4.6+ resolves and downloads
+    a matching geckodriver automatically (Selenium Manager); the only
+    prerequisite is having Firefox itself installed.
+
+    `client` is unused (the browser opens its own connection) — kept so
+    the call site in `run_circular_sync` doesn't need special-casing.
+    """
+    return await asyncio.to_thread(_fetch_listing_page_sync)
 
 
 def _extract_pdf_links(html: str, base_url: str) -> list[tuple[str, str]]:
@@ -138,6 +202,20 @@ def _extract_text_pymupdf(pdf_bytes: bytes) -> str:
         return "\n".join(page.get_text().strip() for page in doc).strip()
 
 
+def _render_vision_pages_sync(pdf_bytes: bytes) -> list[str]:
+    """Blocking PyMuPDF render step for `_extract_text_vision` — page
+    rasterization is CPU-bound and must not run on the event loop thread.
+    Returns base64-encoded PNGs, one per page (up to `_MAX_VISION_PAGES`).
+    """
+    import base64
+
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        return [
+            base64.b64encode(page.get_pixmap(dpi=200).tobytes("png")).decode()
+            for page in doc[:_MAX_VISION_PAGES]
+        ]
+
+
 async def _extract_text_vision(pdf_bytes: bytes) -> str:
     """Fallback for scanned/photographed PDFs with no real text layer.
 
@@ -149,8 +227,6 @@ async def _extract_text_vision(pdf_bytes: bytes) -> str:
         logger.warning("GEMINI_API_KEY not set — cannot OCR scanned circular via vision.")
         return ""
 
-    import base64
-
     from langchain_google_genai import ChatGoogleGenerativeAI
     from langchain_core.messages import HumanMessage
 
@@ -161,29 +237,28 @@ async def _extract_text_vision(pdf_bytes: bytes) -> str:
         max_output_tokens=8192,
     )
 
-    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        page_texts = []
-        for page in doc[:_MAX_VISION_PAGES]:
-            pixmap = page.get_pixmap(dpi=200)
-            image_b64 = base64.b64encode(pixmap.tobytes("png")).decode()
-            message = HumanMessage(content=[
-                {
-                    "type": "text",
-                    "text": (
-                        "Transcribe all readable text from this scanned government "
-                        "document page exactly as written. Return only the transcription."
-                    ),
-                },
-                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
-            ])
-            result = await vision_llm.ainvoke([message])
-            page_texts.append(str(result.content))
+    page_images = await asyncio.to_thread(_render_vision_pages_sync, pdf_bytes)
+
+    page_texts = []
+    for image_b64 in page_images:
+        message = HumanMessage(content=[
+            {
+                "type": "text",
+                "text": (
+                    "Transcribe all readable text from this scanned government "
+                    "document page exactly as written. Return only the transcription."
+                ),
+            },
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
+        ])
+        result = await vision_llm.ainvoke([message])
+        page_texts.append(str(result.content))
 
     return "\n".join(page_texts).strip()
 
 
 async def _extract_text(pdf_bytes: bytes) -> str:
-    text = _extract_text_pymupdf(pdf_bytes)
+    text = await asyncio.to_thread(_extract_text_pymupdf, pdf_bytes)
     if len(text) >= 40:  # a real text layer — cheap and fast, use it
         return text
     logger.info("PDF has little/no text layer — falling back to Gemini Vision.")
