@@ -90,6 +90,27 @@ class DestinationWrite(BaseModel):
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
 
+    @field_validator("image_placeholder")
+    @classmethod
+    def validate_image_placeholder(cls, value: str) -> str:
+        """Allow only six-digit hex colours in inline card styles."""
+        if not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+            raise ValueError("image_placeholder must be a six-digit hex colour.")
+        return value.lower()
+
+    @field_validator("image_url")
+    @classmethod
+    def validate_image_url(cls, value: str | None) -> str | None:
+        """Permit only local destination images covered by the frontend CSP."""
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return None
+        if value.startswith("/images/"):
+            return value
+        raise ValueError("image_url must be a local /images/ path.")
+
 
 class DestinationSummary(BaseModel):
     """Lightweight card payload used in list / search views."""

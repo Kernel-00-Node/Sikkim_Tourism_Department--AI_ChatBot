@@ -59,17 +59,16 @@ async def lifespan(app: FastAPI):
 
     scheduler = None
     if settings.enable_circular_scraper:
-        # Keep the browser/PDF scraper out of the normal API process.  Its
-        # optional dependencies (especially Selenium) substantially increase
-        # RSS on small Render instances even when no sync is running.
+        # Keep the browser/PDF scraper out of the normal API process unless
+        # explicitly enabled; the browser itself is resource-intensive.
         try:
             from apscheduler.schedulers.asyncio import AsyncIOScheduler
             from app.services.circular_scraper import run_circular_sync
         except ModuleNotFoundError as exc:
             logger.error(
-                "Automatic circular scraper requested but optional dependency %r "
-                "is not installed; continuing without it. Install "
-                "requirements-circular-scraper.txt on a dedicated worker to enable it.",
+                "Automatic circular scraper requested but dependency %r "
+                "is not installed; continuing without it. Reinstall from "
+                "requirements.txt to enable it.",
                 exc.name,
             )
         else:

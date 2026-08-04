@@ -47,14 +47,6 @@ else
   info "Node.js found: $(node --version)"
 fi
 
-# ── 3b. Check Firefox (needed by the Selenium-based circular scraper) ───────
-if [ ! -d "/Applications/Firefox.app" ]; then
-  warn "Firefox not found. Installing via Homebrew..."
-  brew install --cask firefox
-else
-  info "Firefox found"
-fi
-
 # ── 4. Backend setup ────────────────────────────────────────────────────────
 echo ""
 info "Setting up backend..."
@@ -105,4 +97,6 @@ echo "  3. Start the frontend (new terminal):"
 echo "       cd frontend && npm run dev"
 echo ""
 echo "  4. Open http://localhost:5173"
+echo ""
+echo "  Optional: install Firefox before enabling ENABLE_CIRCULAR_SCRAPER=true."
 echo ""

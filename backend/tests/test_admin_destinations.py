@@ -48,3 +48,15 @@ def test_admin_can_manage_destination_records(client, admin_headers):
         f"/api/admin/destinations/{destination_id}", headers=admin_headers
     )
     assert deleted.status_code == 204
+
+
+def test_admin_destination_rejects_unsafe_image_values(client, admin_headers):
+    unsafe_url = _destination_payload() | {"image_url": "javascript:alert(1)"}
+    unsafe_colour = _destination_payload() | {"image_placeholder": "url(https://example.com)"}
+
+    assert client.post(
+        "/api/admin/destinations", json=unsafe_url, headers=admin_headers
+    ).status_code == 422
+    assert client.post(
+        "/api/admin/destinations", json=unsafe_colour, headers=admin_headers
+    ).status_code == 422

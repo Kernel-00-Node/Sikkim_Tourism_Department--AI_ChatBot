@@ -27,7 +27,7 @@ echo ""
 if command -v apt-get &>/dev/null; then
   info "Detected apt-based distro (Debian/Ubuntu)"
   sudo apt-get update -qq
-  sudo apt-get install -y python3.11 python3.11-venv python3-pip curl firefox -qq
+  sudo apt-get install -y python3.11 python3.11-venv python3-pip curl -qq
   # Install Node.js 20 via NodeSource if not present
   if ! command -v node &>/dev/null; then
     warn "Node.js not found. Installing Node.js 20 via NodeSource..."
@@ -36,12 +36,12 @@ if command -v apt-get &>/dev/null; then
   fi
 elif command -v dnf &>/dev/null; then
   info "Detected dnf-based distro (Fedora/RHEL)"
-  sudo dnf install -y python3.11 python3-pip nodejs curl firefox -q
+  sudo dnf install -y python3.11 python3-pip nodejs curl -q
 elif command -v pacman &>/dev/null; then
   info "Detected pacman-based distro (Arch)"
-  sudo pacman -Sy --noconfirm python nodejs npm firefox
+  sudo pacman -Sy --noconfirm python nodejs npm
 else
-  warn "Unknown distro — ensure Python 3.11+, Node.js 18+, and Firefox are installed manually"
+  warn "Unknown distro — ensure Python 3.11+ and Node.js 18+ are installed manually"
 fi
 
 info "Python: $(python3.11 --version 2>/dev/null || python3 --version)"
@@ -100,4 +100,6 @@ echo "  3. Start the frontend (new terminal):"
 echo "       cd frontend && npm run dev"
 echo ""
 echo "  4. Open http://localhost:5173"
+echo ""
+echo "  Optional: install Firefox before enabling ENABLE_CIRCULAR_SCRAPER=true."
 echo ""
