@@ -14,23 +14,22 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import uvicorn
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse, RedirectResponse
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.database.factory import get_repo
-from app.dependencies import verify_admin_key
+from app.dependencies import verify_admin_credentials, verify_admin_key
 from app.limiting import limiter
 from app.routers import chat, destinations
 from app.startup import resync_vectorstore, populate_vectorstore
-from app.models.schemas import Destination, DestinationWrite
+from app.models.schemas import AdminCredentials, AdminCredentialsChange, AdminUser, Destination, DestinationWrite
+from app.services.admin_auth import hash_password, validate_password, verify_password
 
 logging.basicConfig(
     level=logging.INFO,
@@ -210,16 +209,6 @@ app.add_middleware(
 
 app.state.limiter = limiter
 
-# Serves app/static/admin_upload.js for the admin upload page below.
-# Same-origin, so it's allowed under the default CSP's script-src 'self'
-# without needing any policy exception.
-app.mount(
-    "/admin/static",
-    StaticFiles(directory=Path(__file__).parent / "app" / "static"),
-    name="admin_static",
-)
-
-
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_exceeded_handler(request, exc: RateLimitExceeded):
     return JSONResponse(
@@ -270,21 +259,86 @@ def health():
 
 @app.get("/admin/upload-circular", include_in_schema=False)
 def admin_upload_page():
-    """
-    Simple browser form for manually uploading a circular (e.g. a road
-    status report forwarded over WhatsApp) — same-origin page, so its
-    fetch() call to POST /api/admin/upload-circular needs no CORS setup.
-    The page itself has no secrets in it; the admin key is only ever
-    typed in and sent at submit time, never stored.
-    """
-    return FileResponse(Path(__file__).parent / "app" / "static" / "admin_upload.html")
+    """Keep legacy bookmarks working while consolidating admin access."""
+    return RedirectResponse(url="/admin", status_code=307)
+
+
+admin_auth_router = APIRouter(prefix="/api/admin/auth", tags=["Admin authentication"])
+
+
+@admin_auth_router.get("/status")
+async def admin_auth_status(repo=Depends(get_repo)):
+    """Only indicates whether first-admin setup is needed; no account data leaks."""
+    return {"setup_required": not await repo.admin_user_exists()}
+
+
+@admin_auth_router.post("/setup")
+@limiter.limit("5/minute")
+async def setup_first_admin(
+        request: Request,
+        credentials: AdminCredentials,
+        repo=Depends(get_repo),
+        _=Depends(verify_admin_key),
+):
+    """Create the first password account, guarded by the server-only bootstrap key."""
+    if await repo.admin_user_exists():
+        raise HTTPException(status_code=409, detail="An admin account has already been configured.")
+    password_error = validate_password(credentials.password)
+    if password_error:
+        raise HTTPException(status_code=422, detail=password_error)
+    try:
+        password_hash = hash_password(credentials.password)
+        await repo.create_admin_user(
+            AdminUser(username=credentials.username.lower(), password_hash=password_hash)
+        )
+    except Exception as exc:
+        # The database unique constraint also closes the race between two setup
+        # requests. Do not expose database details to the browser.
+        logger.warning("First-admin setup failed: %s", exc)
+        raise HTTPException(status_code=409, detail="Admin setup is no longer available.") from exc
+    return {"status": "ok"}
+
+
+@admin_auth_router.post("/login")
+@limiter.limit("10/minute")
+async def admin_login(request: Request, credentials: AdminCredentials, repo=Depends(get_repo)):
+    """Authenticate without revealing whether a username exists."""
+    user = await repo.get_admin_user(credentials.username.lower())
+    if user is None or not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Incorrect username or password.")
+    return {"status": "ok"}
 
 
 admin_router = APIRouter(
     prefix="/api/admin",
     tags=["Admin"],
-    dependencies=[Depends(verify_admin_key)],
+    dependencies=[Depends(verify_admin_credentials)],
 )
+
+
+@admin_router.post("/auth/change-credentials")
+@limiter.limit("5/minute")
+async def change_admin_credentials(
+        request: Request,
+        credentials_change: AdminCredentialsChange,
+        username: str = Depends(verify_admin_credentials),
+        repo=Depends(get_repo),
+):
+    user = await repo.get_admin_user(username)
+    if user is None or not verify_password(credentials_change.current_password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Current password is incorrect.")
+    password_error = validate_password(credentials_change.new_password)
+    if password_error:
+        raise HTTPException(status_code=422, detail=password_error)
+    password_hash = hash_password(credentials_change.new_password)
+    try:
+        updated = await repo.update_admin_credentials(username, credentials_change.new_username, password_hash)
+    except Exception as exc:
+        logger.warning("Admin credential change failed: %s", exc)
+        raise HTTPException(status_code=409, detail="That username is already in use.") from exc
+    if not updated:
+        raise HTTPException(status_code=409, detail="That username is already in use.")
+    return {"status": "ok"}
 
 
 @admin_router.post("/sync")
@@ -454,6 +508,7 @@ async def upload_circular(
     return result
 
 app.include_router(admin_router)
+app.include_router(admin_auth_router)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

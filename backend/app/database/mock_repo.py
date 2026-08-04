@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from app.database.base import BaseRepository, MessageRole
 from app.database.mock_data import CIRCULARS, DESTINATIONS
-from app.models.schemas import Circular, Conversation, Destination, DestinationWrite, Message
+from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message
 
 
 class MockRepository(BaseRepository):
@@ -17,6 +17,33 @@ class MockRepository(BaseRepository):
         # In-memory stores — keyed by id
         self._conversations: dict[str, Conversation] = {}
         self._messages: dict[str, list[Message]] = {}  # conversation_id → [Message]
+        self._admin_users: dict[str, AdminUser] = {}
+
+    # ── Admin accounts ─────────────────────────────────────────────────────
+
+    async def admin_user_exists(self) -> bool:
+        return bool(self._admin_users)
+
+    async def get_admin_user(self, username: str) -> AdminUser | None:
+        return self._admin_users.get(username.lower())
+
+    async def create_admin_user(self, user: AdminUser) -> None:
+        self._admin_users[user.username.lower()] = user
+
+    async def update_admin_password(self, username: str, password_hash: str) -> bool:
+        current = await self.get_admin_user(username)
+        if current is None:
+            return False
+        self._admin_users[username.lower()] = current.model_copy(update={"password_hash": password_hash})
+        return True
+
+    async def update_admin_credentials(self, username: str, new_username: str, password_hash: str) -> bool:
+        current = await self.get_admin_user(username)
+        if current is None or (new_username.lower() != username.lower() and await self.get_admin_user(new_username)):
+            return False
+        del self._admin_users[username.lower()]
+        self._admin_users[new_username.lower()] = AdminUser(username=new_username.lower(), password_hash=password_hash)
+        return True
 
     # ── Circulars ──────────────────────────────────────────────────────────────
 

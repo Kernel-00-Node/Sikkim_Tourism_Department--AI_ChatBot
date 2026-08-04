@@ -22,7 +22,7 @@ import mysql.connector
 import mysql.connector.pooling as mysql_pooling
 
 from app.database.base import BaseRepository, MessageRole
-from app.models.schemas import Circular, Conversation, Destination, DestinationWrite, Message
+from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +174,45 @@ class MySQLRepository(BaseRepository):
                 cursor.close()
         finally:
             conn.close()
+
+    # ── Admin accounts ─────────────────────────────────────────────────────
+
+    async def admin_user_exists(self) -> bool:
+        rows = await asyncio.to_thread(
+            self._query, "SELECT 1 FROM admin_users LIMIT 1"
+        )
+        return bool(rows)
+
+    async def get_admin_user(self, username: str) -> AdminUser | None:
+        rows = await asyncio.to_thread(
+            self._query,
+            "SELECT username, password_hash FROM admin_users WHERE username = %s LIMIT 1",
+            (username.lower(),),
+        )
+        return AdminUser(**rows[0]) if rows else None
+
+    async def create_admin_user(self, user: AdminUser) -> None:
+        await asyncio.to_thread(
+            self._execute,
+            "INSERT INTO admin_users (username, password_hash) VALUES (%s, %s)",
+            (user.username.lower(), user.password_hash),
+        )
+
+    async def update_admin_password(self, username: str, password_hash: str) -> bool:
+        updated = await asyncio.to_thread(
+            self._execute,
+            "UPDATE admin_users SET password_hash = %s WHERE username = %s",
+            (password_hash, username.lower()),
+        )
+        return updated > 0
+
+    async def update_admin_credentials(self, username: str, new_username: str, password_hash: str) -> bool:
+        updated = await asyncio.to_thread(
+            self._execute,
+            "UPDATE admin_users SET username = %s, password_hash = %s WHERE username = %s",
+            (new_username.lower(), password_hash, username.lower()),
+        )
+        return updated > 0
 
     # ── Circulars ──────────────────────────────────────────────────────────
 

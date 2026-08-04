@@ -7,11 +7,11 @@ import {
 import {
   type AdminDashboard, type AdminDestination, type Circular, type DestinationWrite,
   deleteAdminCircular, deleteAdminDestination, fetchAdminCirculars,
-  fetchAdminDashboard, fetchAdminDestinations, runAdminSync, saveAdminDestination,
+  fetchAdminDashboard, fetchAdminDestinations, getAdminAuthStatus, loginAdmin,
+  runAdminSync, saveAdminDestination, setupAdmin,
 } from "@/lib/api";
 
 const CATEGORIES = ["nature", "culture", "adventure", "pilgrimage", "wildlife"];
-const SESSION_KEY = "sikkim-admin-key";
 
 const emptyDestination = (): DestinationWrite => ({
   name: "", slug: "", category: "nature", description: "", location: "", district: "",
@@ -22,10 +22,21 @@ const emptyDestination = (): DestinationWrite => ({
 
 const toList = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
 const errorMessage = (error: unknown) => error instanceof Error ? error.message.replace(/^API error \d+: /, "") : "Something went wrong. Please try again.";
+const passwordRequirements = (password: string) => [
+  { label: "At least 12 characters", met: password.length >= 12 },
+  { label: "At least one letter", met: /[A-Za-z]/.test(password) },
+  { label: "At least one number", met: /\d/.test(password) },
+];
 
 export default function Admin() {
-  const [key, setKey] = useState(() => sessionStorage.getItem(SESSION_KEY) ?? "");
-  const [keyDraft, setKeyDraft] = useState("");
+  // Credentials stay only in React memory. Closing or refreshing the tab
+  // requires the administrator to enter them again; nothing is persisted.
+  const [key, setKey] = useState("");
+  const [usernameDraft, setUsernameDraft] = useState("");
+  const [passwordDraft, setPasswordDraft] = useState("");
+  const [confirmPasswordDraft, setConfirmPasswordDraft] = useState("");
+  const [setupKeyDraft, setSetupKeyDraft] = useState("");
+  const [setupRequired, setSetupRequired] = useState<boolean | null>(null);
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [destinations, setDestinations] = useState<AdminDestination[]>([]);
   const [circulars, setCirculars] = useState<Circular[]>([]);
@@ -47,6 +58,12 @@ export default function Admin() {
     if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
   }, [filePreviewUrl]);
 
+  useEffect(() => {
+    getAdminAuthStatus()
+      .then((status) => setSetupRequired(status.setup_required))
+      .catch(() => setError("The admin sign-in service is unavailable. Please try again."));
+  }, []);
+
   const load = async () => {
     if (!key) return;
     setLoading(true); setError(null);
@@ -58,7 +75,7 @@ export default function Admin() {
       if (!hasCompletedInitialLoad) { setHasCompletedInitialLoad(true); setShowReady(true); }
     } catch (err) {
       setError(errorMessage(err));
-      if (String(err).includes("401")) { sessionStorage.removeItem(SESSION_KEY); setKey(""); }
+      if (String(err).includes("401")) setKey("");
     } finally { setLoading(false); }
   };
 
@@ -70,12 +87,28 @@ export default function Admin() {
   }, [showReady]);
   const sortedDestinations = useMemo(() => [...destinations].sort((a, b) => a.name.localeCompare(b.name)), [destinations]);
 
-  const unlock = (event: FormEvent) => {
+  const unlock = async (event: FormEvent) => {
     event.preventDefault();
-    const trimmed = keyDraft.trim();
-    if (!trimmed) return;
-    setHasCompletedInitialLoad(false); setShowReady(false);
-    sessionStorage.setItem(SESSION_KEY, trimmed); setKey(trimmed); setKeyDraft("");
+    if (setupRequired === null) return;
+    const username = usernameDraft.trim().toLowerCase();
+    if (!username || !passwordDraft) return;
+    if (setupRequired && passwordDraft !== confirmPasswordDraft) {
+      setError("The password confirmation does not match.");
+      return;
+    }
+    setLoading(true); setError(null); setHasCompletedInitialLoad(false); setShowReady(false);
+    try {
+      await (setupRequired
+        ? await setupAdmin(username, passwordDraft, setupKeyDraft)
+        : await loginAdmin(username, passwordDraft));
+      setKey(btoa(`${username}:${passwordDraft}`));
+      setPasswordDraft(""); setConfirmPasswordDraft(""); setSetupKeyDraft("");
+      if (setupRequired) setSetupRequired(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openEditor = (destination: AdminDestination | "new") => {
@@ -120,7 +153,7 @@ export default function Admin() {
     setLoading(true); setProcessingUpload(true); setError(null);
     try {
       const body = new FormData(); body.append("file", upload.file); body.append("title", upload.title); body.append("category", upload.category); if (upload.district) body.append("district", upload.district);
-      const response = await fetch("/api/admin/upload-circular", { method: "POST", headers: { "X-Admin-Key": key }, body });
+      const response = await fetch("/api/admin/upload-circular", { method: "POST", headers: { Authorization: `Basic ${key}` }, body });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail ?? "Upload failed.");
       const uploadedTitle = upload.title;
       clearSelectedFile(); setUpload({ file: null, title: "", category: "road_status", district: "" }); setNotice(`${uploadedTitle} uploaded and processed successfully.`); await load();
@@ -145,11 +178,11 @@ export default function Admin() {
     setUpload((current) => ({ ...current, file: null }));
   };
 
-  if (!key) return <main className="flex flex-1 items-center justify-center px-4 py-16"><motion.form initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} onSubmit={unlock} className="w-full max-w-md rounded-[2rem] border border-border bg-card/90 p-8 shadow-xl backdrop-blur-xl"><div className="mb-7 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><ShieldCheck /></div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Restricted operations</p><h1 className="mt-2 font-serif text-3xl font-bold">Admin Console</h1><p className="mt-3 text-sm leading-relaxed text-muted-foreground">Enter the department admin key to manage live destinations, circulars, and AI synchronization.</p><label className="mt-7 block text-sm font-semibold">Admin key<input autoFocus type="password" value={keyDraft} onChange={(event) => setKeyDraft(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-border bg-background px-3 outline-none ring-primary focus:ring-2" placeholder="Paste ADMIN_API_KEY" /></label><button className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5"><KeyRound className="h-4 w-4" />Open console</button></motion.form></main>;
+  if (!key) return <main className="flex flex-1 items-center justify-center px-4 py-16"><motion.form initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} onSubmit={unlock} className="w-full max-w-md rounded-[2rem] border border-border bg-card/90 p-8 shadow-xl backdrop-blur-xl"><div className="mb-7 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><ShieldCheck /></div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Restricted operations</p><h1 className="mt-2 font-serif text-3xl font-bold">{setupRequired ? "Set up admin access" : "Admin Console"}</h1><p className="mt-3 text-sm leading-relaxed text-muted-foreground">{setupRequired ? "Create the first administrator account. The one-time setup key is never stored in the browser." : "Sign in with your administrator username and password."}</p>{error && <p role="alert" className="mt-5 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}<label className="mt-7 block text-sm font-semibold">Username<input autoFocus required minLength={3} value={usernameDraft} onChange={(event) => setUsernameDraft(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-border bg-background px-3 outline-none ring-primary focus:ring-2" placeholder="e.g. tourism.admin" autoComplete="username" /></label><label className="mt-4 block text-sm font-semibold">Password<input required type="password" value={passwordDraft} onChange={(event) => setPasswordDraft(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-border bg-background px-3 outline-none ring-primary focus:ring-2" placeholder={setupRequired ? "At least 12 characters" : "Enter your password"} autoComplete={setupRequired ? "new-password" : "current-password"} aria-describedby={setupRequired ? "password-requirements" : undefined} /></label>{setupRequired && <><ul id="password-requirements" className="mt-2 space-y-1 text-xs" aria-live="polite">{passwordRequirements(passwordDraft).map(({ label, met }) => <li key={label} className={met ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}>{met ? "✓" : "○"} {label}</li>)}</ul><label className="mt-4 block text-sm font-semibold">Confirm password<input required type="password" value={confirmPasswordDraft} onChange={(event) => setConfirmPasswordDraft(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-border bg-background px-3 outline-none ring-primary focus:ring-2" autoComplete="new-password" /></label><label className="mt-4 block text-sm font-semibold">One-time setup key<input required type="password" value={setupKeyDraft} onChange={(event) => setSetupKeyDraft(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-border bg-background px-3 outline-none ring-primary focus:ring-2" placeholder="ADMIN_API_KEY" autoComplete="off" /></label></>}<button disabled={loading || setupRequired === null} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 disabled:opacity-50"><KeyRound className="h-4 w-4" />{loading ? "Please wait…" : setupRequired ? "Create admin account" : "Sign in"}</button></motion.form></main>;
 
   if (loading && !hasCompletedInitialLoad) return <AdminLoadingScreen />;
 
-  return <main className="flex-1 px-4 py-8 sm:px-6 lg:px-8"><div className="mx-auto max-w-7xl"><section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#103e35,#247969_55%,#cf8f2f)] p-6 text-white shadow-2xl sm:p-10"><div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" /><div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/65">Tourism & Civil Aviation Department</p><h1 className="mt-2 font-serif text-3xl font-bold sm:text-4xl">Operations Console</h1><p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/80">Live data management for destinations, official circulars, and AI search.</p></div><div className="flex gap-2"><button onClick={load} className="rounded-xl bg-white/12 p-3 transition hover:bg-white/20" aria-label="Refresh"><RefreshCw className={`h-5 w-5 ${loading ? "animate-spin" : ""}`} /></button><button onClick={() => { sessionStorage.removeItem(SESSION_KEY); setKey(""); }} className="rounded-xl border border-white/20 px-4 text-sm font-semibold hover:bg-white/10">Lock</button></div></div></section>
+  return <main className="flex-1 px-4 py-8 sm:px-6 lg:px-8"><div className="mx-auto max-w-7xl"><section className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#103e35,#247969_55%,#cf8f2f)] p-6 text-white shadow-2xl sm:p-10"><div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" /><div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/65">Tourism & Civil Aviation Department</p><h1 className="mt-2 font-serif text-3xl font-bold sm:text-4xl">Operations Console</h1><p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/80">Live data management for destinations, official circulars, and AI search.</p></div><div className="flex gap-2"><button onClick={load} className="rounded-xl bg-white/12 p-3 transition hover:bg-white/20" aria-label="Refresh"><RefreshCw className={`h-5 w-5 ${loading ? "animate-spin" : ""}`} /></button><button onClick={() => setKey("")} className="rounded-xl border border-white/20 px-4 text-sm font-semibold hover:bg-white/10">Lock</button></div></div></section>
 
   <div className="mt-6 flex gap-2 overflow-x-auto pb-1">{([ ["overview", Activity, "Overview"], ["destinations", MapPinned, "Destinations"], ["circulars", FileUp, "Circulars"] ] as const).map(([value, Icon, label]) => <button key={value} onClick={() => setTab(value)} className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === value ? "bg-primary text-primary-foreground shadow" : "border border-border bg-card hover:bg-muted"}`}><Icon className="h-4 w-4" />{label}</button>)}</div>
   {error && <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mt-5 flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"><AlertTriangle className="h-5 w-5 shrink-0" />{error}</motion.div>}{notice && <motion.div initial={{ opacity: 0, y: -8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="mt-5 flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm text-primary"><CheckCircle2 className="h-5 w-5 shrink-0" />{notice}<button className="ml-auto" onClick={() => setNotice(null)}><X className="h-4 w-4" /></button></motion.div>}

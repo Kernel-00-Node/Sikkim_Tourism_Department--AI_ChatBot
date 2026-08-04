@@ -17,6 +17,27 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
+class AdminUser(BaseModel):
+    username: str
+    password_hash: str
+
+
+class AdminCredentials(BaseModel):
+    username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AdminPasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=1, max_length=128)
+
+
+class AdminCredentialsChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    new_password: str = Field(min_length=1, max_length=128)
+
+
 # ── Destination ──────────────────────────────────────────────────────────
 
 class Destination(BaseModel):

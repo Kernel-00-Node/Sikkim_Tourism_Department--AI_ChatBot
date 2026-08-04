@@ -51,5 +51,21 @@ def client():
 
 
 @pytest.fixture
-def admin_headers():
-    return {"X-Admin-Key": os.environ["ADMIN_API_KEY"]}
+def admin_headers(client):
+    """Password credentials, matching the browser's per-request auth flow."""
+    status = client.get("/api/admin/auth/status")
+    if status.json()["setup_required"]:
+        response = client.post(
+            "/api/admin/auth/setup",
+            json={"username": "pytest.admin", "password": "PytestAdminPass123"},
+            headers={"X-Admin-Key": os.environ["ADMIN_API_KEY"]},
+        )
+    else:
+        response = client.post(
+            "/api/admin/auth/login",
+            json={"username": "pytest.admin", "password": "PytestAdminPass123"},
+        )
+    assert response.status_code == 200
+    import base64
+    credentials = base64.b64encode(b"pytest.admin:PytestAdminPass123").decode("ascii")
+    return {"Authorization": f"Basic {credentials}"}

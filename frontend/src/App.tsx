@@ -15,6 +15,7 @@ const Home = lazy(() => import("@/pages/home"));
 const Destinations = lazy(() => import("@/pages/destinations"));
 const Demo = lazy(() => import("@/pages/demo"));
 const Admin = lazy(() => import("@/pages/admin"));
+const AdminSecurity = lazy(() => import("@/pages/admin-security"));
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
             <Route path="/destinations" component={Destinations} />
             <Route path="/demo" component={Demo} />
             <Route path="/admin" component={Admin} />
+            <Route path="/admin/security" component={AdminSecurity} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>

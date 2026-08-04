@@ -12,12 +12,37 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Literal
 
-from app.models.schemas import Circular, Conversation, Destination, DestinationWrite, Message
+from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message
 
 MessageRole = Literal["user", "assistant"]
 
 class BaseRepository(ABC):
     """Common interface for all data storage backends (mock in-memory, MySQL, …)."""
+
+    @abstractmethod
+    async def admin_user_exists(self) -> bool:
+        """Return whether the first password-based admin account exists."""
+        ...
+
+    @abstractmethod
+    async def get_admin_user(self, username: str) -> AdminUser | None:
+        """Return an admin's password record, if present."""
+        ...
+
+    @abstractmethod
+    async def create_admin_user(self, user: AdminUser) -> None:
+        """Persist the first admin account."""
+        ...
+
+    @abstractmethod
+    async def update_admin_password(self, username: str, password_hash: str) -> bool:
+        """Replace an existing admin password hash."""
+        ...
+
+    @abstractmethod
+    async def update_admin_credentials(self, username: str, new_username: str, password_hash: str) -> bool:
+        """Atomically replace an existing admin username and password hash."""
+        ...
 
     @abstractmethod
     async def list_circulars(

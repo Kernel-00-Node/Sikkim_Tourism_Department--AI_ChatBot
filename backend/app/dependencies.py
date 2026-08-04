@@ -8,10 +8,13 @@ later (e.g. an internal-service auth check).
 from __future__ import annotations
 
 import hmac
+import base64
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 
 from app.config import settings
+from app.database.factory import get_repo
+from app.services.admin_auth import verify_password
 
 
 async def verify_admin_key(x_admin_key: str | None = Header(default=None)) -> None:
@@ -46,5 +49,33 @@ async def verify_admin_key(x_admin_key: str | None = Header(default=None)) -> No
     if not x_admin_key or not hmac.compare_digest(x_admin_key, settings.admin_api_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing admin credentials.",
+            detail="Invalid setup credentials.",
         )
+
+
+async def verify_admin_credentials(
+        authorization: str | None = Header(default=None), repo=Depends(get_repo),
+) -> str:
+    """Authorize every admin request with the supplied username and password."""
+    if not authorization or not authorization.startswith("Basic "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin credentials.",
+        )
+    try:
+        decoded = base64.b64decode(authorization.removeprefix("Basic ").strip(), validate=True).decode("utf-8")
+        username, separator, password = decoded.partition(":")
+    except (ValueError, UnicodeDecodeError):
+        username = separator = password = ""
+    if not separator or not username or not password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin credentials.",
+        )
+    user = await repo.get_admin_user(username.lower())
+    if user is None or not verify_password(password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin credentials.",
+        )
+    return user.username

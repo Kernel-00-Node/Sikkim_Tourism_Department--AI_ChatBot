@@ -89,9 +89,8 @@ class Settings(BaseSettings):
     enable_circular_scraper: bool = False
 
     # Admin access
-    # Required to call POST /api/admin/sync. Left empty by default so the
-    # endpoint FAILS CLOSED (rejects every request) until an operator sets
-    # a real key — an unset secret must never mean "no auth required".
+    # Required only to bootstrap the first password account. Left empty by
+    # default so setup fails closed until an operator sets a real key.
     # Generate one with: python -c "import secrets; print(secrets.token_urlsafe(32))"
     admin_api_key: str = ""
 

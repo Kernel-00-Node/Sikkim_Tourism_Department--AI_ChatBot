@@ -365,9 +365,9 @@ the frontend weather panels.
 ### Admin / Security
 
 
-| Variable        | Default   | Description                                                                                                                                                                                                                                       |
-| --------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ADMIN_API_KEY` | _(empty)_ | Required to call`POST /api/admin/sync`. If unset, admin endpoints are **disabled (fail-closed)** rather than left open. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"` and send it as the `X-Admin-Key` header. |
+| Variable               | Default   | Description |
+| ---------------------- | --------- | ----------- |
+| `ADMIN_API_KEY`        | _(empty)_ | One-time server-side bootstrap key for creating the first administrator. Generate it with `python -c "import secrets; print(secrets.token_urlsafe(32))"`; it is never retained by the browser. |
 
 ---
 
@@ -379,7 +379,7 @@ The API ships with several hardening measures on by default:
 | Feature              | Detail                                                                                                                                                                                                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Rate limiting**    | Conversation creation is capped at 20/minute and chat turns at 30/minute per IP (`slowapi`).                                                                                                                                            |
-| **Admin auth**       | `/api/admin/sync` requires an `X-Admin-Key` header matching `ADMIN_API_KEY`, compared using a constant-time check (`hmac.compare_digest`) to avoid timing attacks. The endpoint fails closed (503) if no key is configured.          |
+| **Admin auth**       | The first account requires the server-only `ADMIN_API_KEY`; ordinary admin operations re-check the supplied username and password on every request. Passwords use salted scrypt hashes, and login/setup are rate-limited. |
 | **Security headers** | Every response includes`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP, and a restrictive `Permissions-Policy`. `Strict-Transport-Security` is added automatically when `ENVIRONMENT=production`. |
 | **Locked-down CORS** | Allowed origins, methods, and headers are all explicitly configurable — no wildcard`*` origin by default.                                                                                                                           |
 
@@ -399,7 +399,7 @@ Interactive docs available at **http://localhost:8000/api/docs** (Swagger UI) af
 | `POST` | `/api/conversations/`          | Create a new conversation                                                                                                               |
 | `GET`  | `/api/conversations/{id}`      | Fetch conversation + message history                                                                                                    |
 | `POST` | `/api/conversations/{id}/chat` | Send a message →**SSE stream** of AI tokens                                                                                            |
-| `POST` | `/api/admin/sync`              | Re-index Qdrant from the current database without restarting — requires`X-Admin-Key` header (see [Admin / Security](#admin--security)) |
+| `POST` | `/api/admin/sync`              | Re-index Qdrant from the current database without restarting — requires authenticated admin credentials (see [Admin / Security](#admin--security)) |
 
 ### Chat endpoint — SSE format
 

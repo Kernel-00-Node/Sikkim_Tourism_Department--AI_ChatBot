@@ -19,12 +19,24 @@ const BASE = "/api";
  */
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
     ...options,
+    // Keep JSON content type when a call also supplies an auth header.
+    // (The old order let `options.headers` replace this entire object.)
+    headers: { "Content-Type": "application/json", ...options?.headers },
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(`API error ${res.status}: ${text}`);
+    let detail = text;
+    try {
+      const body = JSON.parse(text) as { detail?: unknown };
+      if (typeof body.detail === "string") detail = body.detail;
+      else if (Array.isArray(body.detail)) {
+        detail = body.detail
+          .map((item) => typeof item === "object" && item && "msg" in item ? String(item.msg) : String(item))
+          .join(" ");
+      }
+    } catch { /* Non-JSON error responses retain their text. */ }
+    throw new Error(`API error ${res.status}: ${detail || res.statusText}`);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -32,12 +44,44 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 async function adminFetch<T>(
   path: string,
-  adminKey: string,
+  encodedCredentials: string,
   options?: RequestInit,
 ): Promise<T> {
   return apiFetch<T>(`/admin${path}`, {
     ...options,
-    headers: { "X-Admin-Key": adminKey, ...options?.headers },
+    headers: { Authorization: `Basic ${encodedCredentials}`, ...options?.headers },
+  });
+}
+
+export interface AdminAuthStatus { setup_required: boolean }
+export interface AdminAuthResult { status: string }
+
+export function getAdminAuthStatus(): Promise<AdminAuthStatus> {
+  return apiFetch<AdminAuthStatus>("/admin/auth/status");
+}
+
+export function loginAdmin(username: string, password: string): Promise<AdminAuthResult> {
+  return apiFetch<AdminAuthResult>("/admin/auth/login", {
+    method: "POST", body: JSON.stringify({ username, password }),
+  });
+}
+
+export function setupAdmin(
+  username: string, password: string, setupKey: string,
+): Promise<AdminAuthResult> {
+  return apiFetch<AdminAuthResult>("/admin/auth/setup", {
+    method: "POST", body: JSON.stringify({ username, password }),
+    headers: { "X-Admin-Key": setupKey },
+  });
+}
+
+export function changeAdminCredentials(
+  encodedCredentials: string, currentPassword: string, newUsername: string, newPassword: string,
+): Promise<AdminAuthResult> {
+  return adminFetch<AdminAuthResult>("/auth/change-credentials", encodedCredentials, {
+    method: "POST", body: JSON.stringify({
+      current_password: currentPassword, new_username: newUsername, new_password: newPassword,
+    }),
   });
 }
 
