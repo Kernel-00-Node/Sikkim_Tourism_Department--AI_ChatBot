@@ -60,7 +60,10 @@ async def lifespan(app: FastAPI):
         else:
             try:
                 summary = await run_circular_sync(repo)
-                logger.info("Startup: Circular scraper ran successfully. %d new circulars processed.", summary["new_circulars"])
+                logger.info(
+                    "Startup: Circular scraper ran successfully. %d new circulars processed.",
+                    summary["new"],
+                )
             except Exception as exc:
                 logger.error("Startup: Circular scraper failed to run (non-fatal): %s", exc)
                 logger.warning("The circular scraper will not run. Please check the configuration and dependencies.")
