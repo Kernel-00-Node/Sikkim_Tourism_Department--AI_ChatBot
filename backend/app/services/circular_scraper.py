@@ -81,9 +81,15 @@ def _classify_category(title: str) -> str:
 
 
 def _is_allowed_url(url: str) -> bool:
-    """SSRF guard — the URL must be https and match the configured host exactly."""
+    """SSRF guard — only HTTPS on the configured host's default port is valid."""
     parsed = urlparse(url)
-    return parsed.scheme == "https" and parsed.hostname == settings.circulars_allowed_host
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname == settings.circulars_allowed_host
+        and parsed.port in (None, 443)
+        and not parsed.username
+        and not parsed.password
+    )
 
 
 _CANDIDATE_LINK_TEXTS = [

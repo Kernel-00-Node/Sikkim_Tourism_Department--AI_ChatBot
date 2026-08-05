@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     circulars_max_pdf_bytes: int = 15 * 1024 * 1024
     circulars_max_per_run: int = 20
     enable_circular_scraper: bool = False
+    # Includes multipart boundaries/metadata in addition to the file limit.
+    max_admin_upload_request_bytes: int = 16 * 1024 * 1024
 
     # Administrator_Authentication--Conf.
     admin_api_key: str = ""
@@ -87,7 +89,7 @@ class Settings(BaseSettings):
     # Database_Mode--Validator
     @property
     def db_mode(self) -> str:
-        return "Mock_Database" if self.use_mock_db else "MySQL_Database"
+        return "mock" if self.use_mock_db else "mysql"
 
     # Origins_List--Validator
     @property
@@ -117,9 +119,11 @@ class Settings(BaseSettings):
     def validate_production_security(self):
         """Reject unsafe browser-access settings before a production server starts."""
         if self.environment == "production" and self.allowed_origins == "*":
-            raise ValueError("In production, allowed origins cannot be '*'. Please specify allowed origins for security reasons.")
+            raise ValueError("ALLOWED_ORIGINS cannot be '*' in production. Please specify explicit origins.")
         if self.environment == "production" and any(not origin.startswith("https://") for origin in self.origins_list):
             raise ValueError("In production, all allowed origins must use 'HTTPS' for security reasons.")
+        if self.max_admin_upload_request_bytes < self.circulars_max_pdf_bytes:
+            raise ValueError("MAX_ADMIN_UPLOAD_REQUEST_BYTES must be at least CIRCULARS_MAX_PDF_BYTES.")
         return self
 
 

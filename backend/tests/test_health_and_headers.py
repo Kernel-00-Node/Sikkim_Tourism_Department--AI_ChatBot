@@ -7,6 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.config import Settings
+from app.services.circular_scraper import _is_allowed_url
 
 
 def test_health_reports_mock_db_mode(client):
@@ -51,6 +52,27 @@ def test_docs_csp_allows_only_the_assets_fastapi_docs_need(client):
     csp = resp.headers["content-security-policy"]
     assert "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net" in csp
     assert "connect-src 'self'" in csp
+
+
+def test_oversized_admin_upload_is_rejected_before_multipart_parsing(client, monkeypatch):
+    """The early guard prevents file spooling before authentication/handling."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "max_admin_upload_request_bytes", 1)
+    response = client.post(
+        "/api/admin/upload-circular",
+        content=b"xx",
+        headers={"Content-Length": "2", "Content-Type": "multipart/form-data"},
+    )
+    assert response.status_code == 413
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "no-store" in response.headers["cache-control"]
+
+
+def test_scraper_allowlist_rejects_credentials_and_nonstandard_ports():
+    assert _is_allowed_url("https://sikkimtourism.gov.in/updates/notice")
+    assert not _is_allowed_url("https://sikkimtourism.gov.in:8443/private")
+    assert not _is_allowed_url("https://user@sikkimtourism.gov.in/private")
 
 
 def test_production_rejects_wildcard_cors():

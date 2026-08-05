@@ -235,6 +235,13 @@ In production, OpenAPI documentation will remain hidden, and the Vercel
 configuration will apply Content-Security-Policy, HSTS, anti-framing,
 no-sniff, referrer, and permissions headers to every frontend response.
 
+The backend must be deployed behind a reverse proxy/WAF that enforces HTTPS,
+a 16 MiB maximum request body (`client_max_body_size 16m` for Nginx), and a
+restrictive outbound-egress policy. When the optional Selenium scraper is
+enabled, permit browser traffic only to the configured government host: an
+application-level redirect check cannot stop a browser's first request to a
+malicious redirect target.
+
 ---
 
 Department staff will access `/admin` on the frontend to create the first

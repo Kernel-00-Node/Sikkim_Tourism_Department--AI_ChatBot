@@ -1,6 +1,5 @@
 """
 || Sikkim Tourism Assistant || — FastAPI Backend Entry Point.
-Now powered by LangChain + Qdrant RAG.
 
 Run locally:
     uvicorn main:app --reload --port 8000
@@ -38,45 +37,33 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# ── FastAPI_Lifespan_Function ───────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    On startup: populate the Qdrant vector store from the active repository,
-    then run the circulars scraper once and start its recurring schedule.
 
-    - USE_MOCK_DB=true  → reads mock_data.py destinations (default)
-    - USE_MOCK_DB=false → reads live MySQL destinations
-
-    Switching modes only requires a server restart — no manual steps.
-    """
     repo = get_repo()
     try:
         indexed = await populate_vectorstore(repo)
-        logger.info("Startup complete. Destinations indexed: %d", indexed)
+        logger.info("Startup: Vectorstore populated with %d documents.", indexed)
     except Exception as exc:
-        logger.error("Vector store population failed (non-fatal): %s", exc)
-        logger.warning("The chat service will continue without vector retrieval. Fix the error and restart.")
+        logger.error("Startup: Failed to populate vectorstore (non-fatal): %s", exc)
+        logger.warning("The chat service will start without a populated vectorstore. This may lead to degraded performance or missing information.")
 
     scheduler = None
     if settings.enable_circular_scraper:
-        # Keep the browser/PDF scraper out of the normal API process unless
-        # explicitly enabled; the browser itself is resource-intensive.
         try:
             from apscheduler.schedulers.asyncio import AsyncIOScheduler
             from app.services.circular_scraper import run_circular_sync
         except ModuleNotFoundError as exc:
-            logger.error(
-                "Automatic circular scraper requested but dependency %r "
-                "is not installed; continuing without it. Reinstall from "
-                "requirements.txt to enable it.",
-                exc.name,
-            )
+            logger.error("Startup: Failed to import circular scraper dependencies (non-fatal): %s", exc.name)
+            logger.warning("The circular scraper will not run. Please ensure all dependencies are installed.")
         else:
             try:
                 summary = await run_circular_sync(repo)
-                logger.info("Initial circular sync complete: %s", summary)
+                logger.info("Startup: Circular scraper ran successfully. %d new circulars processed.", summary["new_circulars"])
             except Exception as exc:
-                logger.error("Circular sync failed on startup (non-fatal): %s", exc)
+                logger.error("Startup: Circular scraper failed to run (non-fatal): %s", exc)
+                logger.warning("The circular scraper will not run. Please check the configuration and dependencies.")
 
             scheduler = AsyncIOScheduler()
             scheduler.add_job(
@@ -91,23 +78,39 @@ async def lifespan(app: FastAPI):
                 coalesce=True,
             )
             scheduler.start()
-            logger.info(
-                "Circular sync scheduler started — every %d minutes.",
-                settings.circulars_sync_interval_minutes,
-            )
+        logger.info("Startup: Circular scraper scheduled to run every %d minutes.", settings.circulars_sync_interval_minutes)
     else:
-        logger.info(
-            "Automatic circular scraper disabled; manual admin uploads remain available."
-        )
+       logger.info("Startup: Circular scraper is disabled. No scheduled tasks will run. Manual Upload of circulars is still possible via the /circulars/upload endpoint.")
 
     yield
 
     if scheduler is not None:
         scheduler.shutdown(wait=False)
+
+# ── Browser_Securities ───────────────────────────────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Apply browser protections consistently to every API response."""
+    """Applied Browser Protections consistently to every API response."""
 
     async def dispatch(self, request, call_next):
+        # File fields are spooled before the endpoint handler runs. Reject
+        # declared oversized multipart requests before they consume temp disk.
+        # The deployment proxy must impose the same limit for chunked bodies.
+        if request.url.path == "/api/admin/upload-circular":
+            content_length = request.headers.get("content-length")
+            if content_length:
+                try:
+                    if int(content_length) > settings.max_admin_upload_request_bytes:
+                        response = JSONResponse(
+                            status_code=413,
+                            content={"detail": "Upload request exceeds the server limit."},
+                        )
+                        return self._secure_rejection_response(request, response)
+                except ValueError:
+                    response = JSONResponse(
+                        status_code=400,
+                        content={"detail": "Invalid Content-Length header."},
+                    )
+                    return self._secure_rejection_response(request, response)
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -115,14 +118,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Content-Security-Policy"] = _content_security_policy(
             request.url.path
         )
-        # Allow microphone for Web Speech API (voice input).
-        # Camera is not used directly (images are file-uploaded, not captured).
+        # Microphone_Access--Web_Speech_API
+        # Camera--not used directly (images are file-uploaded, not captured).
         response.headers["Permissions-Policy"] = (
             "geolocation=(), microphone=(self), camera=()"
         )
 
-        # Conversation IDs are bearer-like capabilities. Never allow their
-        # history (or authenticated admin responses) into browser/proxy caches.
+        # Conversation IDs are bearer-like capabilities.
+        # Cache_Control_Mechanism
         if request.url.path.startswith(("/api/conversations", "/api/admin")):
             response.headers.setdefault(
                 "Cache-Control", "no-store, max-age=0, must-revalidate"
@@ -132,19 +135,32 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 and request.url.path.startswith("/api/destinations")
                 and response.status_code == 200
         ):
-            # These records are public and change infrequently. Browser/CDN
-            # caching avoids an unnecessary Vercel-to-backend round trip.
+            # These records are public and change infrequently.
+            # Browser/CDN Caching
             response.headers.setdefault(
                 "Cache-Control", "public, max-age=300, s-maxage=3600"
             )
 
-        # HSTS is meaningful only when the site is always served over HTTPS.
+        # HTTPS_Strict_Transport_Security (HSTS)
         if settings.environment == "production":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
         return response
 
+    @staticmethod
+    def _secure_rejection_response(request: Request, response: JSONResponse) -> JSONResponse:
+        """Keep early request-size rejections covered by the normal headers."""
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = _content_security_policy(request.url.path)
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(self), camera=()"
+        response.headers["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        if settings.environment == "production":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
 
+# ── Content_Security_Policy_Header--Helper_Function ───────────────────────────────────────────────────
 def _content_security_policy(path: str) -> str:
     """Return the least-permissive policy needed for the requested endpoint.
 
@@ -177,27 +193,31 @@ def _content_security_policy(path: str) -> str:
     )
 
 app = FastAPI(
-    title="Sikkim Tourism Assistant API",
+    title="Sikkim Tourism AI Assistant API Endpoints Console Page",
     description=(
-        "AI-powered tourism assistant for the Tourism and Civil Aviation Department, Government of Sikkim. "
+        "This API provides endpoints for interacting with the Sikkim Tourism AI Assistant,"
+        "AI-powered Tourism Assistant for the Tourism and Civil Aviation Department, Government of Sikkim."
         "Powered by LangChain + Qdrant RAG + Google Gemini."
     ),
     version="2.0.0",
-    # Interactive docs are useful locally but unnecessarily expose the API
-    # surface in production. Keep the machine-readable schema private too.
+    # Locally -> All_API_Endpoints_Accessible
+    # Production -> Some_Endpoints_remain_Sensitive
     docs_url="/api/docs" if settings.environment != "production" else None,
     redoc_url="/api/redoc" if settings.environment != "production" else None,
     openapi_url="/api/openapi.json" if settings.environment != "production" else None,
     lifespan=lifespan,
 )
 
+# Adds_Security_MiddleWare
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Reads_CORS_Settings
 origins = settings.origins_list
 methods = settings.methods_list
 headers = settings.headers_list
 allow_credentials = origins != ["*"]
 
+# Registration_of_CORS_MiddleWare
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -206,6 +226,7 @@ app.add_middleware(
     allow_headers=headers,
 )
 
+# Rate_Limiter
 app.state.limiter = limiter
 
 @app.exception_handler(RateLimitExceeded)
@@ -314,9 +335,13 @@ admin_router = APIRouter(
     dependencies=[Depends(verify_admin_credentials)],
 )
 
+# This wrapper runs before dependency resolution, avoiding unbounded scrypt
+# verification attempts. One shared scope covers every authenticated admin URL.
+_ADMIN_RATE_LIMIT = limiter.shared_limit("20/minute", scope="authenticated-admin")
+
 
 @admin_router.post("/auth/change-credentials")
-@limiter.limit("5/minute")
+@_ADMIN_RATE_LIMIT
 async def change_admin_credentials(
         request: Request,
         credentials_change: AdminCredentialsChange,
@@ -341,7 +366,8 @@ async def change_admin_credentials(
 
 
 @admin_router.post("/sync")
-async def sync_vectorstore(repo=Depends(get_repo)):
+@_ADMIN_RATE_LIMIT
+async def sync_vectorstore(request: Request, repo=Depends(get_repo)):
     """
     Manually re-sync the Qdrant vector store with the active repository.
     Useful after updating destinations in MySQL without restarting the server.
@@ -350,7 +376,8 @@ async def sync_vectorstore(repo=Depends(get_repo)):
 
 
 @admin_router.post("/sync-circulars")
-async def sync_circulars(repo=Depends(get_repo)):
+@_ADMIN_RATE_LIMIT
+async def sync_circulars(request: Request, repo=Depends(get_repo)):
     """
     Manually trigger a circulars scrape immediately instead of waiting for
     the next scheduled tick. Same underlying function the scheduler calls —
@@ -370,7 +397,8 @@ _UPLOAD_CATEGORIES = {"road_status", "cancellation_order", "notice"}
 
 
 @admin_router.get("/dashboard")
-async def admin_dashboard(repo=Depends(get_repo)):
+@_ADMIN_RATE_LIMIT
+async def admin_dashboard(request: Request, repo=Depends(get_repo)):
     """Return the small operational summary rendered by the admin console."""
     destinations, circulars = await asyncio.gather(
         repo.list_destinations(), repo.list_circulars(limit=5)
@@ -384,13 +412,15 @@ async def admin_dashboard(repo=Depends(get_repo)):
 
 
 @admin_router.get("/destinations", response_model=list[Destination])
-async def admin_list_destinations(repo=Depends(get_repo)):
+@_ADMIN_RATE_LIMIT
+async def admin_list_destinations(request: Request, repo=Depends(get_repo)):
     return await repo.list_destinations()
 
 
 @admin_router.post("/destinations", response_model=Destination, status_code=201)
+@_ADMIN_RATE_LIMIT
 async def admin_create_destination(
-        destination: DestinationWrite, repo=Depends(get_repo)
+        request: Request, destination: DestinationWrite, repo=Depends(get_repo)
 ):
     try:
         return await repo.create_destination(destination)
@@ -401,8 +431,9 @@ async def admin_create_destination(
 
 
 @admin_router.put("/destinations/{destination_id}", response_model=Destination)
+@_ADMIN_RATE_LIMIT
 async def admin_update_destination(
-        destination_id: int, destination: DestinationWrite, repo=Depends(get_repo)
+        destination_id: int, request: Request, destination: DestinationWrite, repo=Depends(get_repo)
 ):
     try:
         updated = await repo.update_destination(destination_id, destination)
@@ -416,26 +447,29 @@ async def admin_update_destination(
 
 
 @admin_router.delete("/destinations/{destination_id}", status_code=204)
-async def admin_delete_destination(destination_id: int, repo=Depends(get_repo)):
+@_ADMIN_RATE_LIMIT
+async def admin_delete_destination(destination_id: int, request: Request, repo=Depends(get_repo)):
     if not await repo.delete_destination(destination_id):
         raise HTTPException(status_code=404, detail="Destination not found.")
 
 
 @admin_router.get("/circulars")
+@_ADMIN_RATE_LIMIT
 async def admin_list_circulars(
-        limit: int = Query(100, ge=1, le=250), repo=Depends(get_repo)
+        request: Request, limit: int = Query(100, ge=1, le=250), repo=Depends(get_repo)
 ):
     return await repo.list_circulars(limit=limit)
 
 
 @admin_router.delete("/circulars/{circular_id}", status_code=204)
-async def admin_delete_circular(circular_id: int, repo=Depends(get_repo)):
+@_ADMIN_RATE_LIMIT
+async def admin_delete_circular(circular_id: int, request: Request, repo=Depends(get_repo)):
     if not await repo.delete_circular(circular_id):
         raise HTTPException(status_code=404, detail="Circular not found.")
 
 
 @admin_router.post("/upload-circular")
-@limiter.limit("10/minute")
+@_ADMIN_RATE_LIMIT
 async def upload_circular(
         request: Request,
         file: UploadFile = File(...),
