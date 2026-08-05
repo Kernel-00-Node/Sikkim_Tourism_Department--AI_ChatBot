@@ -3,6 +3,8 @@
 No Hardcoded Credentials within this File ...
 """
 
+from urllib.parse import urlparse
+
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -117,13 +119,28 @@ class Settings(BaseSettings):
     # CORS_&_HTTPS--Validator
     @model_validator(mode="after")
     def validate_production_security(self):
-        """Reject unsafe browser-access settings before a production server starts."""
+        """Reject unsafe browser-access and official-scraper settings."""
         if self.environment == "production" and self.allowed_origins == "*":
             raise ValueError("ALLOWED_ORIGINS cannot be '*' in production. Please specify explicit origins.")
         if self.environment == "production" and any(not origin.startswith("https://") for origin in self.origins_list):
             raise ValueError("In production, all allowed origins must use 'HTTPS' for security reasons.")
         if self.max_admin_upload_request_bytes < self.circulars_max_pdf_bytes:
             raise ValueError("MAX_ADMIN_UPLOAD_REQUEST_BYTES must be at least CIRCULARS_MAX_PDF_BYTES.")
+        # This is an official-data feed, not a general web crawler. Keep the
+        # network boundary fixed even if a deployment variable is mis-set.
+        if self.circulars_allowed_host != "sikkimtourism.gov.in":
+            raise ValueError("CIRCULARS_ALLOWED_HOST must be sikkimtourism.gov.in.")
+        notice_url = urlparse(self.circulars_notice_url)
+        if (
+            notice_url.scheme != "https"
+            or notice_url.hostname != "sikkimtourism.gov.in"
+            or notice_url.port not in (None, 443)
+            or notice_url.username
+            or notice_url.password
+        ):
+            raise ValueError(
+                "CIRCULARS_NOTICE_URL must be an HTTPS URL on sikkimtourism.gov.in."
+            )
         return self
 
 

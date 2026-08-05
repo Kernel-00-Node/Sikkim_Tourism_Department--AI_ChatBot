@@ -89,3 +89,11 @@ def test_environment_is_normalised_before_security_checks():
     settings = Settings(environment=" Production ", allowed_origins="https://example.com ")
     assert settings.environment == "production"
     assert settings.origins_list == ["https://example.com"]
+
+
+def test_circular_scraper_is_locked_to_the_official_tourism_domain():
+    with pytest.raises(ValidationError, match="CIRCULARS_ALLOWED_HOST"):
+        Settings(circulars_allowed_host="www.sikkim.gov.in")
+
+    with pytest.raises(ValidationError, match="CIRCULARS_NOTICE_URL"):
+        Settings(circulars_notice_url="https://www.sikkim.gov.in/notices")
