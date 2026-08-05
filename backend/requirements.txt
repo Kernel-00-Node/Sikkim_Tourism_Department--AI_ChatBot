@@ -1,7 +1,4 @@
-# Sikkim Tourism Assistant — complete backend dependency manifest.
-# This is the single install target for the application, scraper, and tests.
-
-# ── API and configuration ──────────────────────────────────────────────
+# ── API_&_Configuration ──────────────────────────────────────────────
 fastapi>=0.115.0,<1.0.0
 uvicorn[standard]>=0.32.0,<1.0.0
 python-multipart>=0.0.9,<1.0.0
@@ -9,7 +6,7 @@ pydantic>=2.9.0,<3.0.0
 pydantic-settings>=2.6.0,<3.0.0
 sse-starlette>=2.1.0,<4.0.0
 
-# ── AI and retrieval ───────────────────────────────────────────────────
+# ── AI_&_Retrieval ───────────────────────────────────────────────────
 langchain-core>=1.2.22,<2.0.0
 langchain-google-genai>=3.0.0,<5.0.0
 langchain-groq>=1.0.0,<2.0.0
@@ -19,18 +16,19 @@ langchain-qdrant>=1.0.0,<2.0.0
 httpx>=0.27.0,<1.0.0
 python-dotenv>=1.0.0,<2.0.0
 
-# ── Persistence and security ───────────────────────────────────────────
+# ── Persistence_&_Security ───────────────────────────────────────────
 mysql-connector-python>=9.0.0,<10.0.0
 slowapi>=0.1.9,<0.2.0
 
-# ── Circular ingestion ─────────────────────────────────────────────────
+# ── Circular_Ingestion ─────────────────────────────────────────────────
 pymupdf>=1.24.0,<2.0.0
 beautifulsoup4>=4.12.0,<5.0.0
-# PYSEC-2026-87 affects lxml 5.4.0; 6.1.0 is the first fixed release.
+
+# PYSEC-2026-87 affects lxml 5.4.0 []  6.1.0 is the first fixed release.
 lxml>=6.1.0,<7.0.0
 apscheduler>=3.10.0,<4.0.0
 selenium>=4.27.0,<5.0.0
 
-# ── Test suite ─────────────────────────────────────────────────────────
+# ── Test_Suite ─────────────────────────────────────────────────────────
 pytest>=9.0.3,<10.0.0
 pytest-asyncio>=1.0.0,<2.0.0
