@@ -8,8 +8,16 @@ Conversations and messages are held in plain Python dicts; they reset on every s
 from __future__ import annotations
 
 from app.database.base import BaseRepository, MessageRole
-from app.database.mock_data import CIRCULARS, DESTINATIONS
-from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message
+from app.database.mock_data import CIRCULARS, DESTINATIONS, TRAVEL_AGENCIES
+from app.models.schemas import (
+    AdminUser,
+    Circular,
+    Conversation,
+    Destination,
+    DestinationWrite,
+    Message,
+    TravelAgency,
+)
 
 
 class MockRepository(BaseRepository):
@@ -74,6 +82,52 @@ class MockRepository(BaseRepository):
                 del CIRCULARS[index]
                 return True
         return False
+
+    # ── Travel Agencies ───────────────────────────────────────────────────────
+
+    async def list_travel_agencies(
+            self,
+            district: str | None = None,
+            limit: int = 100,
+    ) -> list[TravelAgency]:
+        results = TRAVEL_AGENCIES
+        if district:
+            results = [a for a in results if (a.district or "").lower() == district.lower()]
+        return results[:limit]
+
+    async def count_travel_agencies(self, district: str | None = None) -> int:
+        results = TRAVEL_AGENCIES
+        if district:
+            results = [a for a in results if (a.district or "").lower() == district.lower()]
+        return len(results)
+
+    async def search_travel_agencies(self, query: str, limit: int = 5) -> list[TravelAgency]:
+        # Simple token-overlap ranking — good enough for "email for bayul
+        # tours" style lookups without pulling in a fuzzy-match dependency.
+        tokens = [t for t in query.lower().split() if len(t) > 2]
+        if not tokens:
+            return []
+        scored: list[tuple[int, TravelAgency]] = []
+        for agency in TRAVEL_AGENCIES:
+            haystack = f"{agency.name} {agency.proprietor or ''}".lower()
+            score = sum(1 for t in tokens if t in haystack)
+            if score:
+                scored.append((score, agency))
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return [agency for _, agency in scored[:limit]]
+
+    async def agency_exists(self, registration_number: str) -> bool:
+        return any(a.registration_number == registration_number for a in TRAVEL_AGENCIES)
+
+    async def save_travel_agency(self, agency: TravelAgency) -> TravelAgency:
+        for index, existing in enumerate(TRAVEL_AGENCIES):
+            if existing.registration_number == agency.registration_number:
+                updated = agency.model_copy(update={"id": existing.id})
+                TRAVEL_AGENCIES[index] = updated
+                return updated
+        saved = agency.model_copy(update={"id": len(TRAVEL_AGENCIES) + 1})
+        TRAVEL_AGENCIES.append(saved)
+        return saved
 
     # ── Destinations ───────────────────────────────────────────────────────────
 

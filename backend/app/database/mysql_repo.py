@@ -22,7 +22,15 @@ import mysql.connector
 import mysql.connector.pooling as mysql_pooling
 
 from app.database.base import BaseRepository, MessageRole
-from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message
+from app.models.schemas import (
+    AdminUser,
+    Circular,
+    Conversation,
+    Destination,
+    DestinationWrite,
+    Message,
+    TravelAgency,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +47,24 @@ def _row_to_circular(row: dict) -> Circular:
         pdf_hash=row["pdf_hash"],
         extracted_text=row["extracted_text"],
         ingested_at=row["ingested_at"],
+    )
+
+
+def _row_to_travel_agency(row: dict) -> TravelAgency:
+    synced_at = row["synced_at"]
+    return TravelAgency(
+        id=row["id"],
+        name=row["name"],
+        registration_number=row["registration_number"],
+        proprietor=row.get("proprietor"),
+        address=row.get("address"),
+        district=row.get("district"),
+        grade=row.get("grade"),
+        contact=row.get("contact"),
+        email_or_website=row.get("email_or_website"),
+        date_of_issue=row.get("date_of_issue"),
+        renewed_upto=row.get("renewed_upto"),
+        synced_at=synced_at,
     )
 
 
@@ -276,6 +302,104 @@ class MySQLRepository(BaseRepository):
             self._execute, "DELETE FROM circulars WHERE id = %s", (circular_id,)
         )
         return deleted > 0
+
+    # ── Travel Agencies ────────────────────────────────────────────────────
+
+    async def list_travel_agencies(
+            self,
+            district: str | None = None,
+            limit: int = 100,
+    ) -> list[TravelAgency]:
+        clauses, params = [], []
+        if district:
+            clauses.append("district = %s")
+            params.append(district)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = await asyncio.to_thread(
+            self._query,
+            f"SELECT * FROM travel_agencies {where} ORDER BY name ASC LIMIT %s",
+            (*params, limit),
+        )
+        return [_row_to_travel_agency(r) for r in rows]
+
+    async def count_travel_agencies(self, district: str | None = None) -> int:
+        clauses, params = [], []
+        if district:
+            clauses.append("district = %s")
+            params.append(district)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = await asyncio.to_thread(
+            self._query,
+            f"SELECT COUNT(*) AS total FROM travel_agencies {where}",
+            tuple(params),
+        )
+        return int(rows[0]["total"]) if rows else 0
+
+    async def search_travel_agencies(self, query: str, limit: int = 5) -> list[TravelAgency]:
+        tokens = [t for t in query.lower().split() if len(t) > 2][:6]
+        if not tokens:
+            return []
+        clauses = []
+        params: list = []
+        for token in tokens:
+            like = f"%{token}%"
+            clauses.append("(LOWER(name) LIKE %s OR LOWER(proprietor) LIKE %s)")
+            params.extend([like, like])
+        where = " OR ".join(clauses)
+        rows = await asyncio.to_thread(
+            self._query,
+            f"SELECT * FROM travel_agencies WHERE {where} LIMIT %s",
+            (*params, limit),
+        )
+        return [_row_to_travel_agency(r) for r in rows]
+
+    async def agency_exists(self, registration_number: str) -> bool:
+        rows = await asyncio.to_thread(
+            self._query,
+            "SELECT id FROM travel_agencies WHERE registration_number = %s LIMIT 1",
+            (registration_number,),
+        )
+        return bool(rows)
+
+    async def save_travel_agency(self, agency: TravelAgency) -> TravelAgency:
+        def _upsert() -> int:
+            conn = self._pool.get_connection()
+            try:
+                cursor = conn.cursor()
+                try:
+                    cursor.execute(
+                        "INSERT INTO travel_agencies "
+                        "(name, registration_number, proprietor, address, district, grade, "
+                        "contact, email_or_website, date_of_issue, renewed_upto, synced_at) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                        "ON DUPLICATE KEY UPDATE "
+                        "name=VALUES(name), proprietor=VALUES(proprietor), address=VALUES(address), "
+                        "district=VALUES(district), grade=VALUES(grade), contact=VALUES(contact), "
+                        "email_or_website=VALUES(email_or_website), date_of_issue=VALUES(date_of_issue), "
+                        "renewed_upto=VALUES(renewed_upto), synced_at=VALUES(synced_at), "
+                        "id=LAST_INSERT_ID(id)",
+                        (
+                            agency.name,
+                            agency.registration_number,
+                            agency.proprietor,
+                            agency.address,
+                            agency.district,
+                            agency.grade,
+                            agency.contact,
+                            agency.email_or_website,
+                            agency.date_of_issue,
+                            agency.renewed_upto,
+                            agency.synced_at,
+                        ),
+                    )
+                    return cursor.lastrowid
+                finally:
+                    cursor.close()
+            finally:
+                conn.close()
+
+        new_id = await asyncio.to_thread(_upsert)
+        return agency.model_copy(update={"id": new_id})
 
     # ── Destinations ────────────────────────────────────────────────────────
 

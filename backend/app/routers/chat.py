@@ -83,6 +83,96 @@ _LATEST_UPDATE_PHRASES = (
     "any update",
 )
 
+_AGENCY_LOOKUP_PHRASES = (
+    "travel agency", "travel agencies", "tour operator", "tour operators",
+    "registration number", "regd no", "reg no", "reg. no",
+    "email for", "email of", "email address of", "email address for",
+    "contact for", "contact of", "contact details of", "contact number of",
+    "phone number for", "phone number of", "agency email", "agency contact",
+)
+
+# Bare words that mean this is very likely about a specific registered
+# agency, regardless of how the rest of the sentence is phrased — e.g.
+# "give me full data of bayul tours and travels" has none of the exact
+# phrases above, but "tours"/"travels" + an info-seeking word is exactly
+# what a real-world agency lookup looks like.
+_AGENCY_ENTITY_WORDS = ("agency", "agencies", "agent", "agents", "tour", "tours", "travels", "travel")
+_AGENCY_INTENT_WORDS = (
+    "email", "contact", "phone", "number", "registration", "detail",
+    "details", "data", "info", "information", "address", "website",
+    "proprietor", "owner", "grade",
+)
+
+
+def _needs_agency_lookup(message: str) -> bool:
+    """
+    True when the question looks like it's asking about a specific
+    registered travel agency (name, email, phone, registration number) —
+    the kind of lookup that RAG/web-search can't answer since agencies
+    aren't in the vector store, and previously fell through with a made-up
+    or missing answer.
+
+    Two tiers: an exact-phrase match ("travel agency", "email for X"), or
+    the looser pattern of an agency-ish word ("tours", "travels", "agent")
+    combined with an info-seeking word ("data", "details", "contact", ...)
+    — people rarely say "travel agency" literally, they say "X tours and
+    travels" and ask for its "full data".
+    """
+    text = " ".join(message.lower().split())
+    if any(phrase in text for phrase in _AGENCY_LOOKUP_PHRASES):
+        return True
+    if "agency" in text or "agencies" in text:
+        return True
+    has_entity_word = any(w in text for w in _AGENCY_ENTITY_WORDS)
+    has_intent_word = any(w in text for w in _AGENCY_INTENT_WORDS)
+    return has_entity_word and has_intent_word
+
+
+# District labels the scraper actually stores (see travel_agency_scraper.py —
+# these are the six official post-2021 Sikkim districts, which happen to
+# match the source's own file names). Old-style names ("East Sikkim") map
+# to their new-district equivalent so either phrasing resolves correctly.
+_DISTRICT_ALIASES: dict[str, str] = {
+    "east sikkim": "Gangtok",
+    "west sikkim": "Gyalshing",
+    "south sikkim": "Namchi",
+    "north sikkim": "Mangan",
+    "gangtok": "Gangtok",
+    "mangan": "Mangan",
+    "namchi": "Namchi",
+    "soreng": "Soreng",
+    "gyalshing": "Gyalshing",
+    "pakyong": "Pakyong",
+}
+
+_AGENCY_LISTING_PHRASES = (
+    "list all", "list agencies", "list travel agencies", "list the agencies",
+    "how many agencies", "how many travel agencies", "how many agency",
+    "all agencies", "all travel agencies", "agencies in", "travel agencies in",
+    "agencies registered in", "agencies are there", "agencies operate",
+)
+
+
+def _needs_agency_directory_listing(message: str) -> bool:
+    """
+    True for a "how many / list all agencies [in <district>]" style
+    question — distinct from _needs_agency_lookup, which is about one
+    specific named agency. This path returns a real total count instead
+    of silently truncating to search_travel_agencies' 5-result cap and
+    letting the model present that as if it were the complete list.
+    """
+    text = " ".join(message.lower().split())
+    return any(phrase in text for phrase in _AGENCY_LISTING_PHRASES)
+
+
+def _extract_district(message: str) -> str | None:
+    text = message.lower()
+    for alias, canonical in _DISTRICT_ALIASES.items():
+        if alias in text:
+            return canonical
+    return None
+
+
 _CIRCULAR_INVENTORY_PHRASES = (
     "how many road status", "how many road reports", "how many circular",
     "how many report", "how many cancellation", "how many notice",
@@ -180,6 +270,74 @@ async def _build_latest_circulars_context(
             f"- [{c.issue_date}] {c.title}{district} — {c.extracted_text} "
             f"(Source: {c.source_url})"
         )
+    return "\n".join(lines)
+
+
+async def _build_agency_context(repo: BaseRepository, message: str, *, limit: int = 5) -> str:
+    """
+    Direct name-search against the locally synced travel_agencies table
+    (see app/services/travel_agency_scraper.py) so a question like "email
+    for bayul tours" resolves to a real registered agency instead of
+    falling through to RAG/web-search, which either missed it entirely or
+    invented an answer.
+    """
+    try:
+        agencies = await repo.search_travel_agencies(message, limit=limit)
+    except Exception as exc:
+        logger.warning("Could not search travel agencies for extra_context: %s", exc)
+        return ""
+
+    if not agencies:
+        return ""
+
+    lines = [
+        "REGISTERED SIKKIM TRAVEL AGENCIES matching this question (official "
+        "department directory — prefer this over any other source for "
+        "agency name, contact, email, or registration details):"
+    ]
+    for a in agencies:
+        district = f", {a.district}" if a.district else ""
+        contact = a.contact or "not on file"
+        email = a.email_or_website or "not on file"
+        grade = f", grade {a.grade}" if a.grade else ""
+        lines.append(
+            f"- {a.name} (Reg. No. {a.registration_number}{district}{grade}) — "
+            f"Proprietor: {a.proprietor or 'not on file'}. Contact: {contact}. "
+            f"Email/Website: {email}. Address: {a.address or 'not on file'}."
+        )
+    return "\n".join(lines)
+
+
+async def _build_agency_directory_context(
+        repo: BaseRepository, message: str, *, sample_limit: int = 15,
+) -> str:
+    """
+    "How many / list all agencies [in <district>]" path — uses a real
+    COUNT query so the model states the true total, instead of running
+    the same 5-result fuzzy search used for single-agency lookups and
+    presenting that truncated sample as if it were everything.
+    """
+    district = _extract_district(message)
+    try:
+        total = await repo.count_travel_agencies(district=district)
+        sample = await repo.list_travel_agencies(district=district, limit=sample_limit)
+    except Exception as exc:
+        logger.warning("Could not load travel agency directory for extra_context: %s", exc)
+        return ""
+
+    if total == 0:
+        return ""
+
+    scope = f" in {district}" if district else ""
+    lines = [
+        f"REGISTERED SIKKIM TRAVEL AGENCIES{scope}: {total} agencies are on file in the "
+        f"official department directory — state this exact total ({total}) when answering "
+        f"'how many' questions, do not undercount it to the sample below. Showing the first "
+        f"{len(sample)} alphabetically as examples; tell the user they can ask about any "
+        f"specific agency by name for its full contact details:"
+    ]
+    for a in sample:
+        lines.append(f"- {a.name} (Reg. No. {a.registration_number})")
     return "\n".join(lines)
 
 
@@ -364,6 +522,14 @@ async def send_message(
                     )
                     if circular_context:
                         context_parts.append(circular_context)
+                if _needs_agency_directory_listing(body.message):
+                    directory_context = await _build_agency_directory_context(repo, body.message)
+                    if directory_context:
+                        context_parts.append(directory_context)
+                elif _needs_agency_lookup(body.message):
+                    agency_context = await _build_agency_context(repo, body.message)
+                    if agency_context:
+                        context_parts.append(agency_context)
                 extra_context = "\n\n".join(context_parts)
                 stream = stream_rag_response(body.message, history, extra_context)
 

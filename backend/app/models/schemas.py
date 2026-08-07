@@ -157,6 +157,34 @@ class Circular(BaseModel):
     ingested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+# ── Travel Agency ────────────────────────────────────────────────────────
+
+class TravelAgency(BaseModel):
+    """
+    A registered Sikkim travel agency, synced from the department's public
+    district-wise JSON directory (see app/services/travel_agency_scraper.py).
+
+    All fields except name/registration_number are nullable — the source
+    JSON files are inconsistent (many records omit district, contact is
+    sometimes spelled "conatct" in the source, a few rows are placeholders).
+    """
+
+    # None until save_travel_agency() persists it and assigns the real
+    # primary key (auto-increment in MySQL, list index+1 in mock mode).
+    id: int | None = None
+    name: str
+    registration_number: str
+    proprietor: str | None = None
+    address: str | None = None
+    district: str | None = None
+    grade: str | None = None
+    contact: str | None = None
+    email_or_website: str | None = None
+    date_of_issue: str | None = None
+    renewed_upto: str | None = None
+    synced_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 # ── Conversation ──────────────────────────────────────────────────────────
 
 class Conversation(BaseModel):

@@ -12,7 +12,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Literal
 
-from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message
+from app.models.schemas import (
+    AdminUser,
+    Circular,
+    Conversation,
+    Destination,
+    DestinationWrite,
+    Message,
+    TravelAgency,
+)
 
 MessageRole = Literal["user", "assistant"]
 
@@ -61,6 +69,37 @@ class BaseRepository(ABC):
     @abstractmethod
     async def save_circular(self, circular: Circular) -> Circular:
         """Persist a newly-scraped circular and return it."""
+        ...
+
+    @abstractmethod
+    async def list_travel_agencies(
+            self,
+            district: str | None = None,
+            limit: int = 100,
+    ) -> list[TravelAgency]:
+        """Return registered travel agencies, optionally filtered by district."""
+        ...
+
+    @abstractmethod
+    async def count_travel_agencies(self, district: str | None = None) -> int:
+        """Return the true total number of registered agencies (optionally by district) —
+        used to answer 'how many agencies' honestly instead of reporting a truncated
+        sample size as if it were the total."""
+        ...
+
+    @abstractmethod
+    async def search_travel_agencies(self, query: str, limit: int = 5) -> list[TravelAgency]:
+        """Free-text lookup (name/proprietor) used to answer 'email/contact for X' questions."""
+        ...
+
+    @abstractmethod
+    async def agency_exists(self, registration_number: str) -> bool:
+        """True if an agency with this registration number has already been synced."""
+        ...
+
+    @abstractmethod
+    async def save_travel_agency(self, agency: TravelAgency) -> TravelAgency:
+        """Insert or update (upsert, keyed by registration_number) and return it."""
         ...
 
     @abstractmethod

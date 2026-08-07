@@ -2,13 +2,18 @@
 Seeded in-memory Sikkim destination data used by MockRepository.
 Replace / extend freely — this is the single source of truth for mock mode.
 """
-from app.models.schemas import Circular, Destination
+from app.models.schemas import Circular, Destination, TravelAgency
 
 # Filled at runtime by the circular scraper (app/services/circular_scraper.py).
 # Empty on a fresh boot — this is the mock-mode equivalent of the `circulars`
 # MySQL table; nothing here is hand-seeded like DESTINATIONS below, since
 # circulars only ever come from the department's live website.
 CIRCULARS: list[Circular] = []
+
+# Filled at runtime by the travel agency scraper
+# (app/services/travel_agency_scraper.py). Empty on a fresh boot — this is
+# the mock-mode equivalent of the `travel_agencies` MySQL table.
+TRAVEL_AGENCIES: list[TravelAgency] = []
 
 DESTINATIONS: list[Destination] = [
     Destination(

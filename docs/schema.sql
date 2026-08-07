@@ -62,6 +62,27 @@ CREATE TABLE IF NOT EXISTS circulars (
     INDEX idx_circulars_category_date (category, issue_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ── Travel Agencies ───────────────────────────────────────────────────────────
+-- See docs/migrations/005_add_travel_agencies_table.sql for notes.
+CREATE TABLE IF NOT EXISTS travel_agencies (
+                                               id                  INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+                                               name                VARCHAR(300)  NOT NULL,
+    registration_number VARCHAR(100)  NOT NULL,
+    proprietor          VARCHAR(200)  NULL,
+    address             VARCHAR(500)  NULL,
+    district            VARCHAR(100)  NULL,
+    grade               VARCHAR(20)   NULL,
+    contact             VARCHAR(200)  NULL,
+    email_or_website    VARCHAR(300)  NULL,
+    date_of_issue       VARCHAR(50)   NULL,
+    renewed_upto        VARCHAR(50)   NULL,
+    synced_at           DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_travel_agencies_registration_number (registration_number),
+    INDEX idx_travel_agencies_district (district),
+    FULLTEXT KEY ft_travel_agencies (name, proprietor)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ── Conversations ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS conversations (
                                              id         CHAR(36)   NOT NULL,

@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI):
             scheduler.start()
         logger.info("Startup: Circular scraper scheduled to run every %d minutes.", settings.circulars_sync_interval_minutes)
     else:
-       logger.info("Startup: Circular scraper is disabled. No scheduled tasks will run. Manual Upload of circulars is still possible via the /circulars/upload endpoint.")
+        logger.info("Startup: Circular scraper is disabled. No scheduled tasks will run. Manual Upload of circulars is still possible via the /circulars/upload endpoint.")
 
     yield
 
@@ -396,6 +396,20 @@ async def sync_circulars(request: Request, repo=Depends(get_repo)):
     return await run_circular_sync(repo)
 
 
+@admin_router.post("/sync-agencies")
+@_ADMIN_RATE_LIMIT
+async def sync_agencies(request: Request, repo=Depends(get_repo)):
+    """
+    Manually trigger a travel-agency directory sync — pulls the six
+    department district JSON files and upserts every valid record.
+    Unlike circulars this isn't scheduled automatically (the directory
+    changes rarely); this on-demand trigger is the only way it runs today.
+    """
+    from app.services.travel_agency_scraper import run_travel_agency_sync
+
+    return await run_travel_agency_sync(repo)
+
+
 _UPLOAD_CATEGORIES = {"road_status", "cancellation_order", "notice"}
 
 
@@ -403,12 +417,13 @@ _UPLOAD_CATEGORIES = {"road_status", "cancellation_order", "notice"}
 @_ADMIN_RATE_LIMIT
 async def admin_dashboard(request: Request, repo=Depends(get_repo)):
     """Return the small operational summary rendered by the admin console."""
-    destinations, circulars = await asyncio.gather(
-        repo.list_destinations(), repo.list_circulars(limit=5)
+    destinations, circulars, agencies = await asyncio.gather(
+        repo.list_destinations(), repo.list_circulars(limit=5), repo.list_travel_agencies(limit=1000)
     )
     return {
         "destination_count": len(destinations),
         "recent_circulars": circulars,
+        "travel_agency_count": len(agencies),
         "db_mode": settings.db_mode,
         "qdrant_mode": settings.qdrant_mode,
     }
@@ -469,6 +484,17 @@ async def admin_list_circulars(
 async def admin_delete_circular(circular_id: int, request: Request, repo=Depends(get_repo)):
     if not await repo.delete_circular(circular_id):
         raise HTTPException(status_code=404, detail="Circular not found.")
+
+
+@admin_router.get("/travel-agencies")
+@_ADMIN_RATE_LIMIT
+async def admin_list_travel_agencies(
+        request: Request,
+        district: str | None = Query(None),
+        limit: int = Query(100, ge=1, le=2000),
+        repo=Depends(get_repo),
+):
+    return await repo.list_travel_agencies(district=district, limit=limit)
 
 
 @admin_router.post("/upload-circular")
