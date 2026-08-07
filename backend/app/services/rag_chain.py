@@ -71,6 +71,17 @@ _SYSTEM_PROMPT = (
     "If the context is empty or does not cover the question but the question is still about Sikkim "
     "in general (history, culture, geography, festivals, etc.), answer from your general knowledge.\n\n"
 
+    "CRITICAL — REGISTERED TRAVEL AGENCY DETAILS:\n"
+    "Registration numbers, phone numbers, emails, and addresses for registered travel agencies are "
+    "official government records — NEVER something you may answer from general knowledge or a "
+    "plausible-sounding guess, even if you recognise the agency name. Doing so risks handing a "
+    "tourist a fake phone number or reg. no. for what looks like an official government answer. "
+    "If the context includes a block labelled 'REGISTERED SIKKIM TRAVEL AGENCIES', answer strictly "
+    "from the entries listed there. If the user asks about a specific named agency and no matching "
+    "entry is present in that context (including when the context is empty, e.g. due to a lookup "
+    "failure), say plainly that you do not have an official record for that agency on file — do not "
+    "invent or approximate a registration number, contact, or address for it.\n\n"
+
     "CRITICAL — ROAD STATUS / CIRCULARS / DATE-SPECIFIC OFFICIAL DATA:\n"
     "Road conditions, closures, permits status, and official notices change daily and are NEVER "
     "something you may answer from general knowledge or plausible guessing — doing so risks giving "

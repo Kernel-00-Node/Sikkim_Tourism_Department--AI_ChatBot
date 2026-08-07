@@ -103,6 +103,15 @@ _AGENCY_INTENT_WORDS = (
     "proprietor", "owner", "grade",
 )
 
+# Words that signal this is a GENERAL tourism question ("best tour package",
+# "places to visit") rather than a lookup of one specific named business —
+# used to keep the bare-name tier below from over-triggering on those.
+_AGENCY_GENERIC_WORDS = (
+    "best", "how", "what", "where", "when", "which", "why", "recommend",
+    "recommended", "suggest", "package", "packages", "itinerary", "plan",
+    "places", "place", "destination", "destinations", "visit",
+)
+
 
 def _needs_agency_lookup(message: str) -> bool:
     """
@@ -112,11 +121,16 @@ def _needs_agency_lookup(message: str) -> bool:
     aren't in the vector store, and previously fell through with a made-up
     or missing answer.
 
-    Two tiers: an exact-phrase match ("travel agency", "email for X"), or
-    the looser pattern of an agency-ish word ("tours", "travels", "agent")
-    combined with an info-seeking word ("data", "details", "contact", ...)
-    — people rarely say "travel agency" literally, they say "X tours and
-    travels" and ask for its "full data".
+    Three tiers: an exact-phrase match ("travel agency", "email for X");
+    an agency-ish word ("tours", "travels", "agent") combined with an
+    info-seeking word ("data", "details", "contact", ...) — people rarely
+    say "travel agency" literally, they say "X tours and travels" and ask
+    for its "full data"; or, a short bare business name with no info-word
+    at all (e.g. just "dikcha tours and travels" typed on its own) — a
+    tourist pasting/typing just the name is still asking "tell me about
+    this agency", and without this tier that message previously got zero
+    agency context and let the model invent a fake official record instead
+    of saying it has no match.
     """
     text = " ".join(message.lower().split())
     if any(phrase in text for phrase in _AGENCY_LOOKUP_PHRASES):
@@ -125,7 +139,17 @@ def _needs_agency_lookup(message: str) -> bool:
         return True
     has_entity_word = any(w in text for w in _AGENCY_ENTITY_WORDS)
     has_intent_word = any(w in text for w in _AGENCY_INTENT_WORDS)
-    return has_entity_word and has_intent_word
+    if has_entity_word and has_intent_word:
+        return True
+    # Bare-name tier: short message, has an agency-ish word, and doesn't
+    # look like a generic tourism question.
+    if (
+            has_entity_word
+            and len(text.split()) <= 6
+            and not any(w in text for w in _AGENCY_GENERIC_WORDS)
+    ):
+        return True
+    return False
 
 
 # District labels the scraper actually stores (see travel_agency_scraper.py —
