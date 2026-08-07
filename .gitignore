@@ -46,8 +46,6 @@ Thumbs.db
 *.sqlite
 *.db
 zipFile.zip
-.replit
-replit.nix
 .cache/
 .config/
 .upm/
