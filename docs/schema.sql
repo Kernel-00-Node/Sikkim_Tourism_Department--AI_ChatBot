@@ -62,6 +62,22 @@ CREATE TABLE IF NOT EXISTS circulars (
     INDEX idx_circulars_category_date (category, issue_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ── Site_Pages ─────────────────────────────────────────────────────────────────
+-- See docs/migrations/005_add_site_pages_table.sql for notes.
+CREATE TABLE IF NOT EXISTS site_pages (
+                                          id              INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    url             VARCHAR(500)  NOT NULL,
+    title           VARCHAR(300)  NOT NULL,
+    text_hash       CHAR(64)      NOT NULL,
+    extracted_text  LONGTEXT      NOT NULL,
+    depth           SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    chunk_count     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    last_crawled_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_site_pages_url (url),
+    INDEX idx_site_pages_last_crawled (last_crawled_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ── Conversations ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS conversations (
                                              id         CHAR(36)   NOT NULL,

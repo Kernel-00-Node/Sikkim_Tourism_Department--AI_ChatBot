@@ -22,7 +22,7 @@ import mysql.connector
 import mysql.connector.pooling as mysql_pooling
 
 from app.database.base import BaseRepository, MessageRole
-from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message
+from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message, SitePage
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,19 @@ def _row_to_circular(row: dict) -> Circular:
         pdf_hash=row["pdf_hash"],
         extracted_text=row["extracted_text"],
         ingested_at=row["ingested_at"],
+    )
+
+
+def _row_to_site_page(row: dict) -> SitePage:
+    return SitePage(
+        id=row["id"],
+        url=row["url"],
+        title=row["title"],
+        text_hash=row["text_hash"],
+        extracted_text=row["extracted_text"],
+        depth=row["depth"],
+        chunk_count=row["chunk_count"],
+        last_crawled_at=row["last_crawled_at"],
     )
 
 
@@ -274,6 +287,66 @@ class MySQLRepository(BaseRepository):
     async def delete_circular(self, circular_id: int) -> bool:
         deleted = await asyncio.to_thread(
             self._execute, "DELETE FROM circulars WHERE id = %s", (circular_id,)
+        )
+        return deleted > 0
+
+    # ── Site pages ─────────────────────────────────────────────────────────
+
+    async def list_site_pages(self, limit: int = 100) -> list[SitePage]:
+        rows = await asyncio.to_thread(
+            self._query,
+            "SELECT * FROM site_pages ORDER BY last_crawled_at DESC LIMIT %s",
+            (limit,),
+        )
+        return [_row_to_site_page(r) for r in rows]
+
+    async def get_site_page_by_url(self, url: str) -> SitePage | None:
+        rows = await asyncio.to_thread(
+            self._query,
+            "SELECT * FROM site_pages WHERE url = %s LIMIT 1",
+            (url,),
+        )
+        return _row_to_site_page(rows[0]) if rows else None
+
+    async def save_site_page(self, page: SitePage) -> SitePage:
+        # Upsert by URL: a re-crawl of the same page updates its existing row
+        # in place instead of accumulating a duplicate on every sync.
+        def _upsert() -> int:
+            conn = self._pool.get_connection()
+            try:
+                cursor = conn.cursor()
+                try:
+                    cursor.execute(
+                        "INSERT INTO site_pages "
+                        "(url, title, text_hash, extracted_text, depth, chunk_count, last_crawled_at) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                        "ON DUPLICATE KEY UPDATE "
+                        "title = VALUES(title), text_hash = VALUES(text_hash), "
+                        "extracted_text = VALUES(extracted_text), depth = VALUES(depth), "
+                        "chunk_count = VALUES(chunk_count), last_crawled_at = VALUES(last_crawled_at), "
+                        "id = LAST_INSERT_ID(id)",
+                        (
+                            page.url,
+                            page.title,
+                            page.text_hash,
+                            page.extracted_text,
+                            page.depth,
+                            page.chunk_count,
+                            page.last_crawled_at,
+                        ),
+                    )
+                    return cursor.lastrowid
+                finally:
+                    cursor.close()
+            finally:
+                conn.close()
+
+        new_id = await asyncio.to_thread(_upsert)
+        return page.model_copy(update={"id": new_id})
+
+    async def delete_site_page(self, page_id: int) -> bool:
+        deleted = await asyncio.to_thread(
+            self._execute, "DELETE FROM site_pages WHERE id = %s", (page_id,)
         )
         return deleted > 0
 

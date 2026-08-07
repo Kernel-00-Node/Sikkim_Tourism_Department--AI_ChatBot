@@ -63,6 +63,16 @@ class Settings(BaseSettings):
     # Includes multipart boundaries/metadata in addition to the file limit.
     max_admin_upload_request_bytes: int = 16 * 1024 * 1024
 
+    # Site_Scraper--Conf. (whole-site crawl, app/services/site_scraper.py)
+    site_scraper_allowed_host: str = "sikkimtourism.gov.in"
+    site_scraper_start_url: str = "https://sikkimtourism.gov.in/"
+    site_scraper_sync_interval_minutes: int = 1440  # daily — a full crawl is heavier than circulars-only
+    site_scraper_max_pages: int = 150
+    site_scraper_max_depth: int = 5
+    site_scraper_page_timeout_ms: int = 30_000
+    site_scraper_politeness_delay_seconds: float = 1.0
+    enable_site_scraper: bool = False
+
     # Administrator_Authentication--Conf.
     admin_api_key: str = ""
 
@@ -141,7 +151,23 @@ class Settings(BaseSettings):
             raise ValueError(
                 "CIRCULARS_NOTICE_URL must be an HTTPS URL on sikkimtourism.gov.in."
             )
+        # Same fixed-boundary reasoning as the circulars guard above: the
+        # whole-site scraper is still a feed of ONE official site, not a
+        # general crawler, even if a deployment variable is mis-set.
+        if self.site_scraper_allowed_host != "sikkimtourism.gov.in":
+            raise ValueError("SITE_SCRAPER_ALLOWED_HOST must be sikkimtourism.gov.in.")
+        start_url = urlparse(self.site_scraper_start_url)
+        if (
+            start_url.scheme != "https"
+            or start_url.hostname != "sikkimtourism.gov.in"
+            or start_url.port not in (None, 443)
+            or start_url.username
+            or start_url.password
+        ):
+            raise ValueError(
+                "SITE_SCRAPER_START_URL must be an HTTPS URL on sikkimtourism.gov.in."
+            )
         return self
 
 
-settings = Settings()
+settings = Settings()   

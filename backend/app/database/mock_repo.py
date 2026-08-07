@@ -8,8 +8,8 @@ Conversations and messages are held in plain Python dicts; they reset on every s
 from __future__ import annotations
 
 from app.database.base import BaseRepository, MessageRole
-from app.database.mock_data import CIRCULARS, DESTINATIONS
-from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message
+from app.database.mock_data import CIRCULARS, DESTINATIONS, SITE_PAGES
+from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message, SitePage
 
 
 class MockRepository(BaseRepository):
@@ -72,6 +72,32 @@ class MockRepository(BaseRepository):
         for index, circular in enumerate(CIRCULARS):
             if circular.id == circular_id:
                 del CIRCULARS[index]
+                return True
+        return False
+
+    # ── Site pages ─────────────────────────────────────────────────────────────
+
+    async def list_site_pages(self, limit: int = 100) -> list[SitePage]:
+        results = sorted(SITE_PAGES, key=lambda p: p.last_crawled_at, reverse=True)
+        return results[:limit]
+
+    async def get_site_page_by_url(self, url: str) -> SitePage | None:
+        return next((p for p in SITE_PAGES if p.url == url), None)
+
+    async def save_site_page(self, page: SitePage) -> SitePage:
+        for index, existing in enumerate(SITE_PAGES):
+            if existing.url == page.url:
+                page = page.model_copy(update={"id": existing.id})
+                SITE_PAGES[index] = page
+                return page
+        page = page.model_copy(update={"id": len(SITE_PAGES) + 1})
+        SITE_PAGES.append(page)
+        return page
+
+    async def delete_site_page(self, page_id: int) -> bool:
+        for index, page in enumerate(SITE_PAGES):
+            if page.id == page_id:
+                del SITE_PAGES[index]
                 return True
         return False
 

@@ -85,10 +85,43 @@ async def lifespan(app: FastAPI):
     else:
        logger.info("Startup: Circular scraper is disabled. No scheduled tasks will run. Manual Upload of circulars is still possible via the /circulars/upload endpoint.")
 
+    site_scheduler = None
+    if settings.enable_site_scraper:
+        try:
+            from apscheduler.schedulers.asyncio import AsyncIOScheduler as _SiteScheduler
+            from app.services.site_scraper import run_site_sync
+        except ModuleNotFoundError as exc:
+            logger.error("Startup: Failed to import site scraper dependencies (non-fatal): %s", exc.name)
+            logger.warning("The site scraper will not run. Install Playwright (`pip install playwright` + `playwright install chromium`).")
+        else:
+            # Deliberately NOT run synchronously at startup like the circular
+            # scraper — a full-site crawl (potentially 100+ page loads) is
+            # much heavier than the circulars-only scrape, so it only runs
+            # on its own schedule or when an admin explicitly triggers it.
+            site_scheduler = _SiteScheduler()
+            site_scheduler.add_job(
+                run_site_sync,
+                "interval",
+                minutes=settings.site_scraper_sync_interval_minutes,
+                args=[repo],
+                id="site_sync",
+                max_instances=1,
+                coalesce=True,
+            )
+            site_scheduler.start()
+            logger.info(
+                "Startup: Site scraper scheduled to run every %d minutes.",
+                settings.site_scraper_sync_interval_minutes,
+            )
+    else:
+        logger.info("Startup: Site scraper is disabled. Trigger it manually via POST /api/admin/sync-site once enabled.")
+
     yield
 
     if scheduler is not None:
         scheduler.shutdown(wait=False)
+    if site_scheduler is not None:
+        site_scheduler.shutdown(wait=False)
 
 # ── Browser_Securities ───────────────────────────────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -394,6 +427,42 @@ async def sync_circulars(request: Request, repo=Depends(get_repo)):
     from app.services.circular_scraper import run_circular_sync
 
     return await run_circular_sync(repo)
+
+
+@admin_router.post("/sync-site")
+@_ADMIN_RATE_LIMIT
+async def sync_site(request: Request, repo=Depends(get_repo)):
+    """
+    Manually trigger a full-site crawl immediately instead of waiting for
+    the next scheduled tick. Same underlying function the scheduler calls —
+    same behaviour, same safety limits, just an on-demand trigger.
+
+    A full crawl is heavier than the circulars-only scrape (potentially
+    100+ page loads) — use this deliberately, not on every admin page load.
+    """
+    if not settings.enable_site_scraper:
+        return {
+            "status": "disabled",
+            "detail": "Automatic site scraping is disabled on this deployment."
+        }
+    from app.services.site_scraper import run_site_sync
+
+    return await run_site_sync(repo)
+
+
+@admin_router.get("/site-pages")
+@_ADMIN_RATE_LIMIT
+async def admin_list_site_pages(
+        request: Request, limit: int = Query(100, ge=1, le=250), repo=Depends(get_repo)
+):
+    return await repo.list_site_pages(limit=limit)
+
+
+@admin_router.delete("/site-pages/{page_id}", status_code=204)
+@_ADMIN_RATE_LIMIT
+async def admin_delete_site_page(page_id: int, request: Request, repo=Depends(get_repo)):
+    if not await repo.delete_site_page(page_id):
+        raise HTTPException(status_code=404, detail="Site page not found.")
 
 
 _UPLOAD_CATEGORIES = {"road_status", "cancellation_order", "notice"}

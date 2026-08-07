@@ -12,7 +12,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Literal
 
-from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message
+from app.models.schemas import AdminUser, Circular, Conversation, Destination, DestinationWrite, Message, SitePage
 
 MessageRole = Literal["user", "assistant"]
 
@@ -97,6 +97,26 @@ class BaseRepository(ABC):
     @abstractmethod
     async def delete_circular(self, circular_id: int) -> bool:
         """Delete a circular and report whether a row was removed."""
+        ...
+
+    @abstractmethod
+    async def list_site_pages(self, limit: int = 100) -> list[SitePage]:
+        """Return the most recently crawled site pages, newest first."""
+        ...
+
+    @abstractmethod
+    async def get_site_page_by_url(self, url: str) -> SitePage | None:
+        """Return the stored record for a crawled page, or None if never crawled."""
+        ...
+
+    @abstractmethod
+    async def save_site_page(self, page: SitePage) -> SitePage:
+        """Create or update (upsert by URL) a crawled page record and return it."""
+        ...
+
+    @abstractmethod
+    async def delete_site_page(self, page_id: int) -> bool:
+        """Delete a crawled page record and report whether a row was removed."""
         ...
 
     @abstractmethod

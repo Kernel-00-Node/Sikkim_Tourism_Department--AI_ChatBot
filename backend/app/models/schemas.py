@@ -157,6 +157,32 @@ class Circular(BaseModel):
     ingested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+# ── SitePage ─────────────────────────────────────────────────────────────
+
+class SitePage(BaseModel):
+    """
+    One crawled page from the department's live website
+    (sikkimtourism.gov.in), populated by the background whole-site scraper
+    (app/services/site_scraper.py), never written directly by user-facing
+    requests.
+
+    `text_hash` and `chunk_count` let a re-crawl detect whether a page's
+    content actually changed (skip re-embedding if not) and clean up any
+    now-orphaned vector chunks if the page shrank since the last crawl.
+    """
+
+    # None until save_site_page() persists it and assigns the real primary
+    # key (auto-increment in MySQL, list index+1 in mock mode).
+    id: int | None = None
+    url: str
+    title: str
+    text_hash: str  # sha256 of extracted_text — used to skip unchanged pages
+    extracted_text: str
+    depth: int = 0  # BFS depth from the crawl's start URL
+    chunk_count: int = 0  # number of embedded vector chunks for this page
+    last_crawled_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 # ── Conversation ──────────────────────────────────────────────────────────
 
 class Conversation(BaseModel):
