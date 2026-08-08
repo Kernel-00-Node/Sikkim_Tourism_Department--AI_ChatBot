@@ -35,6 +35,15 @@ from app.models.schemas import (
 
 logger = logging.getLogger(__name__)
 
+# Common English words that would otherwise pass search_travel_agencies()'s
+# `len(t) > 2` token filter and match almost every row in the table (e.g.
+# "the"), starving out the unordered/unindexed candidate_pool LIMIT before
+# a genuinely matching agency is ever scored. See search_travel_agencies()
+# for the full explanation.
+_SEARCH_STOP_WORDS = frozenset({
+    "the", "and", "for", "of", "in", "on", "at", "to", "a", "an",
+})
+
 
 def _row_to_circular(row: dict) -> Circular:
     issue_date = row["issue_date"]
@@ -406,46 +415,57 @@ class MySQLRepository(BaseRepository):
         new_id = await asyncio.to_thread(_upsert)
         return agency.model_copy(update={"id": new_id})
 
-async def search_travel_agencies(self, query: str, limit: int = 5) -> list[TravelAgency]:
-    # NOTE: the WHERE clause below is deliberately broad (OR across all
-    # tokens) just to pull a candidate pool from the DB — it is NOT the
-    # final ranking. Words like "tour"/"tours"/"travel"/"travels" appear
-    # in nearly every registered agency's name, so if we returned rows
-    # straight from an unordered "LIMIT 5" against that OR clause, a
-    # query like "bayul tours and travels" would almost never surface
-    # Bayul specifically: MySQL would just hand back whichever 5 rows
-    # it scanned first (lowest primary key), all matching on the
-    # generic "tours"/"travels" tokens instead of the distinctive
-    # "bayul" one. We fetch a wider pool, then score/sort by real
-    # token overlap in Python (same approach as mock_repo.py) before
-    # slicing to `limit`, so the actually-matching agency wins.
-    tokens = [t for t in query.lower().split() if len(t) > 2][:6]
-    if not tokens:
-        return []
-    clauses = []
-    params: list = []
-    for token in tokens:
-        escaped_token = token.replace("!", "!!").replace("%", "!%").replace("_", "!_")
-        like = f"%{escaped_token}%"
-        clauses.append("(LOWER(name) LIKE %s ESCAPE '!' OR LOWER(proprietor) LIKE %s ESCAPE '!')")
-        params.extend([like, like])
-    where = " OR ".join(clauses)
-    candidate_pool = max(limit * 40, 200)
-    rows = await asyncio.to_thread(
-        self._query,
-        f"SELECT * FROM travel_agencies WHERE {where} LIMIT %s",
-        (*params, candidate_pool),
-    )
-    agencies = [_row_to_travel_agency(r) for r in rows]
+    async def search_travel_agencies(self, query: str, limit: int = 5) -> list[TravelAgency]:
+        # NOTE: the WHERE clause below is deliberately broad (OR across all
+        # tokens) just to pull a candidate pool from the DB — it is NOT the
+        # final ranking. Words like "tour"/"tours"/"travel"/"travels" appear
+        # in nearly every registered agency's name, so if we returned rows
+        # straight from an unordered "LIMIT 5" against that OR clause, a
+        # query like "bayul tours and travels" would almost never surface
+        # Bayul specifically: MySQL would just hand back whichever 5 rows
+        # it scanned first (lowest primary key), all matching on the
+        # generic "tours"/"travels" tokens instead of the distinctive
+        # "bayul" one. We fetch a wider pool, then score/sort by real
+        # token overlap in Python (same approach as mock_repo.py) before
+        # slicing to `limit`, so the actually-matching agency wins.
+        #
+        # Stop-words (e.g. "the") are excluded here: they pass the plain
+        # len(t) > 2 check and match almost every row's name/proprietor,
+        # which can push a genuinely matching row (e.g. "The Kyilkhor Adv.
+        # Tours & Treks") out of the unordered `candidate_pool` LIMIT
+        # before it's ever scored, since the LIKE clauses can't use an
+        # index (leading wildcard) and MySQL returns rows in unspecified
+        # scan order with no ORDER BY.
+        tokens = [
+            t for t in query.lower().split()
+            if len(t) > 2 and t not in _SEARCH_STOP_WORDS
+        ][:6]
+        if not tokens:
+            return []
+        clauses = []
+        params: list = []
+        for token in tokens:
+            escaped_token = token.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+            like = f"%{escaped_token}%"
+            clauses.append("(LOWER(name) LIKE %s ESCAPE '!' OR LOWER(proprietor) LIKE %s ESCAPE '!')")
+            params.extend([like, like])
+        where = " OR ".join(clauses)
+        candidate_pool = max(limit * 40, 200)
+        rows = await asyncio.to_thread(
+            self._query,
+            f"SELECT * FROM travel_agencies WHERE {where} LIMIT %s",
+            (*params, candidate_pool),
+        )
+        agencies = [_row_to_travel_agency(r) for r in rows]
 
-    scored: list[tuple[int, TravelAgency]] = []
-    for agency in agencies:
-        haystack = f"{agency.name} {agency.proprietor or ''}".lower()
-        score = sum(1 for t in tokens if t in haystack)
-        if score:
-            scored.append((score, agency))
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    return [agency for _, agency in scored[:limit]]
+        scored: list[tuple[int, TravelAgency]] = []
+        for agency in agencies:
+            haystack = f"{agency.name} {agency.proprietor or ''}".lower()
+            score = sum(1 for t in tokens if t in haystack)
+            if score:
+                scored.append((score, agency))
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return [agency for _, agency in scored[:limit]]
 
     # ── Destinations ────────────────────────────────────────────────────────
 
