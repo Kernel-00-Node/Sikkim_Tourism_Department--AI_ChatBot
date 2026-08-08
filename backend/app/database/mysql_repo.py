@@ -22,6 +22,7 @@ import mysql.connector
 import mysql.connector.pooling as mysql_pooling
 
 from app.database.base import BaseRepository, MessageRole
+from app.districts import district_filter_values, normalize_district
 from app.models.schemas import (
     AdminUser,
     Circular,
@@ -58,7 +59,7 @@ def _row_to_travel_agency(row: dict) -> TravelAgency:
         registration_number=row["registration_number"],
         proprietor=row.get("proprietor"),
         address=row.get("address"),
-        district=row.get("district"),
+        district=normalize_district(row.get("district")),
         grade=row.get("grade"),
         contact=row.get("contact"),
         email_or_website=row.get("email_or_website"),
@@ -146,17 +147,31 @@ class MySQLRepository(BaseRepository):
     the duration of each round-trip to MySQL.
     """
 
-    def __init__(self, host: str, port: int, user: str, password: str, database: str) -> None:
+    def __init__(
+            self,
+            host: str,
+            port: int,
+            user: str,
+            password: str,
+            database: str,
+            ssl_ca: str | None = None,
+            require_tls: bool = False,
+    ) -> None:
         try:
+            connection_options = {
+                "pool_name": "sikkim_tourism_pool",
+                "pool_size": 5,
+                "host": host,
+                "port": port,
+                "user": user,
+                "password": password,
+                "database": database,
+                "autocommit": True,
+            }
+            if require_tls:
+                connection_options.update({"ssl_ca": ssl_ca, "ssl_verify_cert": True})
             self._pool = mysql_pooling.MySQLConnectionPool(
-                pool_name="sikkim_tourism_pool",
-                pool_size=5,
-                host=host,
-                port=port,
-                user=user,
-                password=password,
-                database=database,
-                autocommit=True,
+                **connection_options,
             )
             logger.info("MySQLRepository connected to %s:%s/%s", host, port, database)
         except mysql.connector.Error as exc:
@@ -312,8 +327,12 @@ class MySQLRepository(BaseRepository):
     ) -> list[TravelAgency]:
         clauses, params = [], []
         if district:
-            clauses.append("district = %s")
-            params.append(district)
+            district_values = district_filter_values(district)
+            if not district_values:
+                return []
+            placeholders = ", ".join(["%s"] * len(district_values))
+            clauses.append(f"LOWER(TRIM(district)) IN ({placeholders})")
+            params.extend(district_values)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         rows = await asyncio.to_thread(
             self._query,
@@ -325,8 +344,12 @@ class MySQLRepository(BaseRepository):
     async def count_travel_agencies(self, district: str | None = None) -> int:
         clauses, params = [], []
         if district:
-            clauses.append("district = %s")
-            params.append(district)
+            district_values = district_filter_values(district)
+            if not district_values:
+                return 0
+            placeholders = ", ".join(["%s"] * len(district_values))
+            clauses.append(f"LOWER(TRIM(district)) IN ({placeholders})")
+            params.extend(district_values)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         rows = await asyncio.to_thread(
             self._query,
@@ -354,8 +377,9 @@ class MySQLRepository(BaseRepository):
         clauses = []
         params: list = []
         for token in tokens:
-            like = f"%{token}%"
-            clauses.append("(LOWER(name) LIKE %s OR LOWER(proprietor) LIKE %s)")
+            escaped_token = token.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+            like = f"%{escaped_token}%"
+            clauses.append("(LOWER(name) LIKE %s ESCAPE '!' OR LOWER(proprietor) LIKE %s ESCAPE '!')")
             params.extend([like, like])
         where = " OR ".join(clauses)
         candidate_pool = max(limit * 40, 200)
@@ -436,10 +460,9 @@ class MySQLRepository(BaseRepository):
             clauses.append("category = %s")
             params.append(category)
         if search:
-            clauses.append(
-                "(name LIKE %s OR description LIKE %s OR district LIKE %s OR location LIKE %s)"
-            )
-            like = f"%{search}%"
+            escaped_search = search.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+            like = f"%{escaped_search}%"
+            clauses.append("(name LIKE %s ESCAPE '!' OR description LIKE %s ESCAPE '!' OR district LIKE %s ESCAPE '!' OR location LIKE %s ESCAPE '!')")
             params.extend([like, like, like, like])
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         rows = await asyncio.to_thread(

@@ -90,7 +90,7 @@ async def lifespan(app: FastAPI):
     if scheduler is not None:
         scheduler.shutdown(wait=False)
 
-# ── Browser_Securities ───────────────────────────────────────────────────
+# Browser security headers
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Applied Browser Protections consistently to every API response."""
 
@@ -121,14 +121,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Content-Security-Policy"] = _content_security_policy(
             request.url.path
         )
-        # Microphone_Access--Web_Speech_API
-        # Camera--not used directly (images are file-uploaded, not captured).
+        # Camera is not used; microphone is limited to the same origin.
         response.headers["Permissions-Policy"] = (
             "geolocation=(), microphone=(self), camera=()"
         )
 
-        # Conversation IDs are bearer-like capabilities.
-        # Cache_Control_Mechanism
+        # Conversation IDs act like bearer tokens and must not be cached.
         if request.url.path.startswith(("/api/conversations", "/api/admin")):
             response.headers.setdefault(
                 "Cache-Control", "no-store, max-age=0, must-revalidate"
@@ -144,7 +142,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "Cache-Control", "public, max-age=300, s-maxage=3600"
             )
 
-        # HTTPS_Strict_Transport_Security (HSTS)
+        # HSTS is only sent for production deployments.
         if settings.environment == "production":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
@@ -203,8 +201,7 @@ app = FastAPI(
         "Powered by LangChain + Qdrant RAG + Google Gemini."
     ),
     version="2.0.0",
-    # Locally -> All_API_Endpoints_Accessible
-    # Production -> Some_Endpoints_remain_Sensitive
+    # Keep interactive API documentation out of production.
     docs_url="/api/docs" if settings.environment != "production" else None,
     redoc_url="/api/redoc" if settings.environment != "production" else None,
     openapi_url="/api/openapi.json" if settings.environment != "production" else None,
@@ -214,13 +211,13 @@ app = FastAPI(
 # Adds_Security_MiddleWare
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Reads_CORS_Settings
+# CORS settings
 origins = settings.origins_list
 methods = settings.methods_list
 headers = settings.headers_list
 allow_credentials = origins != ["*"]
 
-# Registration_of_CORS_MiddleWare
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

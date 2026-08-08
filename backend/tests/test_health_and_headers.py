@@ -45,6 +45,18 @@ def test_public_destinations_are_cacheable(client):
     assert "s-maxage=3600" in response.headers["cache-control"]
 
 
+def test_admin_cors_preflight_allows_existing_edit_and_delete_requests(client):
+    response = client.options(
+        "/api/admin/destinations/1",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "DELETE",
+        },
+    )
+    assert response.status_code == 200
+    assert "DELETE" in response.headers["access-control-allow-methods"]
+
+
 def test_docs_csp_allows_only_the_assets_fastapi_docs_need(client):
     resp = client.get("/api/docs")
 

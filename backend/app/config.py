@@ -4,6 +4,7 @@ No Hardcoded Credentials within this File ...
 """
 
 from urllib.parse import urlparse
+from pathlib import Path
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,6 +21,7 @@ class Settings(BaseSettings):
     mysql_user: str = "root"
     mysql_password: str = ""
     mysql_database: str = "sikkim_tourism"
+    mysql_ssl_ca: str = "certs/ca.pem"
 
     # Gemini--Conf.
     gemini_api_key: str = ""
@@ -50,7 +52,7 @@ class Settings(BaseSettings):
 
     # Cross_Origin_Resource_Sharing--Conf
     allowed_origins: str = "http://localhost:5173"
-    allowed_methods: str = "GET, POST, OPTIONS"
+    allowed_methods: str = "GET, POST, PUT, DELETE, OPTIONS"
     allowed_headers: str = "Content-Type, Authorization, X-Admin-Key"
 
     # Circular_Scraper--Conf.
@@ -93,6 +95,14 @@ class Settings(BaseSettings):
     def db_mode(self) -> str:
         return "mock" if self.use_mock_db else "mysql"
 
+    @property
+    def mysql_ssl_ca_path(self) -> str:
+        """Resolve the bundled CA path regardless of the process directory."""
+        path = Path(self.mysql_ssl_ca)
+        if not path.is_absolute():
+            path = Path(__file__).resolve().parents[1] / path
+        return str(path)
+
     # Origins_List--Validator
     @property
     def origins_list(self) -> list[str]:
@@ -104,7 +114,11 @@ class Settings(BaseSettings):
     # HTTP_Methods--Validator
     @property
     def methods_list(self) -> list[str]:
-        return [m.strip() for m in self.allowed_methods.split(",") if m.strip()]
+        methods = [m.strip().upper() for m in self.allowed_methods.split(",") if m.strip()]
+        allowed = {"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+        if any(method not in allowed for method in methods):
+            raise ValueError("ALLOWED_METHODS contains an unsupported HTTP method.")
+        return methods
 
     # HTTP_Headers--Validator
     @property
@@ -126,6 +140,9 @@ class Settings(BaseSettings):
             raise ValueError("In production, all allowed origins must use 'HTTPS' for security reasons.")
         if self.max_admin_upload_request_bytes < self.circulars_max_pdf_bytes:
             raise ValueError("MAX_ADMIN_UPLOAD_REQUEST_BYTES must be at least CIRCULARS_MAX_PDF_BYTES.")
+        if not self.use_mock_db and self.mysql_host not in {"localhost", "127.0.0.1", "::1"}:
+            if not Path(self.mysql_ssl_ca_path).is_file():
+                raise ValueError("MYSQL_SSL_CA must point to a CA certificate for remote MySQL.")
         # This is an official-data feed, not a general web crawler. Keep the
         # network boundary fixed even if a deployment variable is mis-set.
         if self.circulars_allowed_host != "sikkimtourism.gov.in":

@@ -36,9 +36,6 @@ _SYSTEM_PROMPT = (
     "You are the Sikkim Tourism Assistant, the official virtual guide of the Tourism and Civil "
     "Aviation Department, Government of Sikkim. Speak in first person as this assistant — never "
     "say you are a generic AI or language model.\n\n"
-
-
-    # FIX 1 & 2: explicit scope rules — replaces the old "Use ONLY retrieved info" restriction
     "SCOPE — what you answer:\n"
     "You may answer ANY question that is about Sikkim or is directly relevant to visiting Sikkim — "
     "destinations, permits, entry fees, best times to visit, how to reach places, accommodation, "
@@ -195,9 +192,7 @@ def _build_chat_history(raw_messages: list[dict]) -> list:
     return msgs
 
 
-# FIX 6: lowered temperature from 0.7 → 0.3 for more factual, consistent answers
-# `model_name` lets us build both the primary and the fallback LLM through the
-# same cached factory instead of duplicating ChatGroq construction logic.
+# Share the cached client between the primary and fallback models.
 @lru_cache(maxsize=4)
 def _get_llm(model_name: str, streaming: bool = True) -> ChatGroq:
     return ChatGroq(
@@ -389,9 +384,7 @@ async def _tavily_search(query: str) -> str:
     return "\n".join(parts)
 
 
-# FIX 3: merges injected extra_context (e.g. full destinations list) with RAG results
-# FIX 7: also folds in live Tavily web search results (Sikkim-scoped only)
-# whenever the question looks time-sensitive.
+# Combine route-provided records, retrieval results, and current Sikkim web data.
 async def _retrieve_context_step(inputs: dict) -> str:
     question = inputs["standalone_question"]
     rag = await _retrieve_context(question)
@@ -429,8 +422,8 @@ def _build_chain(model_name: str):
                 standalone_question=RunnableLambda(_contextualise_question),
             )
             | RunnablePassthrough.assign(
-        context=RunnableLambda(_retrieve_context_step),
-    )
+                context=RunnableLambda(_retrieve_context_step),
+            )
             | answer_prompt
             | _get_llm(model_name, streaming=True)
             | StrOutputParser()
@@ -440,8 +433,6 @@ def _build_chain(model_name: str):
 # Public API — text-only path (Groq / Llama)
 # ---------------------------------------------------------------------------
 
-# FIX 4: added extra_context parameter so the chat router can inject the
-# full destinations list for broad listing queries
 async def stream_rag_response(
         user_message: str,
         history_messages: list[dict],
@@ -451,8 +442,7 @@ async def stream_rag_response(
         yield "GROQ_API_KEY is not configured. Add it to your .env file and restart."
         return
 
-    # ── Security layer: screen the raw message before it reaches the chat
-    # model or burns a Qdrant/Tavily call. Opt-in via ENABLE_PROMPT_GUARD.
+    # Screen the raw message before it reaches external services.
     if await _is_prompt_injection(user_message):
         yield (
             "I'm sorry, I can't process that message. If you have a genuine "

@@ -25,4 +25,6 @@ def get_repo() -> BaseRepository:
             user=settings.mysql_user,
             password=settings.mysql_password,
             database=settings.mysql_database,
+            ssl_ca=settings.mysql_ssl_ca_path,
+            require_tls=settings.mysql_host not in {"localhost", "127.0.0.1", "::1"},
         )

@@ -44,6 +44,7 @@ import httpx
 
 from app.config import settings
 from app.database.base import BaseRepository
+from app.districts import normalize_district
 from app.models.schemas import TravelAgency
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,10 @@ def _normalize_record(raw: dict, district_label: str) -> TravelAgency:
         registration_number=registration_number,
         proprietor=_clean(raw.get("proprietor")),
         address=_clean(raw.get("address")),
-        district=_clean(raw.get("district")) or district_label,
+        # The source file is the authoritative district classification. Some
+        # records contain legacy or copied district labels, which previously
+        # made one district's data unfindable through an exact DB filter.
+        district=normalize_district(district_label),
         grade=_clean(raw.get("grade")),
         contact=contact,
         email_or_website=_clean(raw.get("email_or_website")),

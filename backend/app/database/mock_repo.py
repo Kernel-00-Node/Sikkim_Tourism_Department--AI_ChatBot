@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from app.database.base import BaseRepository, MessageRole
 from app.database.mock_data import CIRCULARS, DESTINATIONS, TRAVEL_AGENCIES
+from app.districts import normalize_district
 from app.models.schemas import (
     AdminUser,
     Circular,
@@ -92,13 +93,15 @@ class MockRepository(BaseRepository):
     ) -> list[TravelAgency]:
         results = TRAVEL_AGENCIES
         if district:
-            results = [a for a in results if (a.district or "").lower() == district.lower()]
+            target = normalize_district(district)
+            results = [a for a in results if normalize_district(a.district) == target]
         return results[:limit]
 
     async def count_travel_agencies(self, district: str | None = None) -> int:
         results = TRAVEL_AGENCIES
         if district:
-            results = [a for a in results if (a.district or "").lower() == district.lower()]
+            target = normalize_district(district)
+            results = [a for a in results if normalize_district(a.district) == target]
         return len(results)
 
     async def search_travel_agencies(self, query: str, limit: int = 5) -> list[TravelAgency]:

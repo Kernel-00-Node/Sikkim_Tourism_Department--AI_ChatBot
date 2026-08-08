@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -29,6 +30,7 @@ from fastapi.responses import StreamingResponse
 from app.config import settings
 from app.database.base import BaseRepository
 from app.database.factory import get_repo
+from app.districts import district_filter_values, normalize_district
 from app.limiting import limiter
 from app.models.schemas import ChatRequest, ConversationResponse, Message
 from app.services.rag_chain import (
@@ -178,37 +180,51 @@ _AGENCY_LISTING_PHRASES = (
     "how many agencies", "how many travel agencies", "how many agency",
     "all agencies", "all travel agencies", "agencies in", "travel agencies in",
     "agencies registered in", "agencies are there", "agencies operate",
-    "travel agencies", "travel agency", "tour operators", "tour operator",
-    "agencies", "agency",
 )
 
 
 def _needs_agency_directory_listing(message: str, history: list[dict] | None = None) -> bool:
     """
-    Python_Version_Integrate_Needs_Agency_Directory_Listing--Checker.
+    True for a "how many / list all agencies [in <district>]" style
+    question — distinct from _needs_agency_lookup, which is about one
+    specific named agency. This path returns a real total count instead
+    of silently truncating to search_travel_agencies' 5-result cap and
+    letting the model present that as if it were the complete list.
 
-    True for a "how many / list all agencies [in <district>]" style question,
-    or a follow-up asking about another district (e.g. "what about Namchi?")
-    when previous turns were about travel agencies.
+    Also true for a bare district-name follow-up (e.g. "what about
+    Namchi?", "and Pakyong?") when the previous turn was itself an agency
+    directory question. Without this, "agencies in Gangtok?" worked (it
+    matches _AGENCY_LISTING_PHRASES directly) but a natural follow-up
+    asking about a different district didn't — it has none of those exact
+    phrases, so it silently fell through to the general model instead of
+    the real directory data. Mirrors how _needs_latest_circulars() already
+    handles bare circular follow-ups.
     """
     text = " ".join(message.lower().split())
     if any(phrase in text for phrase in _AGENCY_LISTING_PHRASES):
         return True
+    if _extract_district(message) and any(word in text for word in ("agency", "agencies", "operator", "operators")):
+        return True
     if history and _extract_district(message):
-        for m in history[-6:]:
+        for m in history[-4:]:
             recent = " ".join(m.get("content", "").lower().split())
-            if any(w in recent for w in ("agency", "agencies", "tour operator", "tour operators", "travels", "travel")):
+            if any(phrase in recent for phrase in _AGENCY_LISTING_PHRASES):
                 return True
     return False
 
 
 def _extract_district(message: str) -> str | None:
-    text = message.lower()
-    for alias, canonical in _DISTRICT_ALIASES.items():
-        if alias in text:
-            return canonical
+    text = " ".join(message.lower().split())
+    # Check longer aliases first so "East Sikkim" is not reduced to "East".
+    for alias in sorted(
+            (item for canonical in ("Gangtok", "Mangan", "Namchi", "Soreng", "Gyalshing", "Pakyong")
+             for item in district_filter_values(canonical)),
+            key=len,
+            reverse=True,
+    ):
+        if re.search(rf"(?<!\\w){re.escape(alias)}(?!\\w)", text):
+            return normalize_district(alias)
     return None
-
 
 
 _CIRCULAR_INVENTORY_PHRASES = (

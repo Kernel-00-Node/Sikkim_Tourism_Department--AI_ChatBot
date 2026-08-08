@@ -12,7 +12,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.schemas import ChatRequest
-from app.routers.chat import _needs_full_destination_context
+from app.routers.chat import _extract_district, _needs_agency_directory_listing, _needs_full_destination_context
 
 
 # ── ChatRequest schema (unit-level, no HTTP involved) ──────────────────────
@@ -93,6 +93,16 @@ def test_valid_jpeg_signature_is_accepted():
 def test_full_catalog_context_is_only_used_for_broad_destination_questions():
     assert _needs_full_destination_context("What places can I visit in Sikkim?")
     assert not _needs_full_destination_context("How do I reach Gangtok?")
+
+
+def test_agency_district_aliases_and_followups_are_resolved():
+    assert _extract_district("How many agencies are in East Sikkim?") == "Gangtok"
+    assert _extract_district("What about Pakyong?") == "Pakyong"
+    assert _needs_agency_directory_listing(
+        "What about Namchi?",
+        [{"role": "user", "content": "List agencies in Gangtok"}],
+    )
+    assert _needs_agency_directory_listing("Mangan travel agencies")
 
 
 # ── /api/conversations endpoints (HTTP-level) ──────────────────────────────
