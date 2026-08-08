@@ -47,6 +47,28 @@ CREATE TABLE IF NOT EXISTS destinations (
 
 -- ── Circulars ──────────────────────────────────────────────────────────────────
 -- See docs/migrations/003_add_circulars_table.sql for notes.
+CREATE TABLE IF NOT EXISTS conversations (
+                                             id         CHAR(36)   NOT NULL,
+    created_at DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Conversations ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS messages (
+                                        id              CHAR(36)                    NOT NULL,
+    conversation_id CHAR(36)                    NOT NULL,
+    role            ENUM('user','assistant')    NOT NULL,
+    content         LONGTEXT                    NOT NULL,
+    client_message_id VARCHAR(64)              NULL,
+    created_at      DATETIME                    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_messages_conversation (conversation_id),
+    UNIQUE KEY uq_messages_client_id (conversation_id, client_message_id),
+    CONSTRAINT fk_messages_conversation
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Messages ───────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS circulars (
                                          id              INT UNSIGNED  NOT NULL AUTO_INCREMENT,
                                          title           VARCHAR(300)  NOT NULL,
@@ -62,6 +84,8 @@ CREATE TABLE IF NOT EXISTS circulars (
     INDEX idx_circulars_category_date (category, issue_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ── Travel Agencies ───────────────────────────────────────────────────────────
+-- See docs/migrations/005_add_travel_agencies_table.sql for notes.
 -- ── Travel Agencies ───────────────────────────────────────────────────────────
 -- See docs/migrations/005_add_travel_agencies_table.sql for notes.
 CREATE TABLE IF NOT EXISTS travel_agencies (
@@ -81,26 +105,4 @@ CREATE TABLE IF NOT EXISTS travel_agencies (
     UNIQUE KEY uq_travel_agencies_registration_number (registration_number),
     INDEX idx_travel_agencies_district (district),
     FULLTEXT KEY ft_travel_agencies (name, proprietor)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ── Conversations ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS conversations (
-                                             id         CHAR(36)   NOT NULL,
-    created_at DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ── Messages ───────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS messages (
-                                        id              CHAR(36)                    NOT NULL,
-    conversation_id CHAR(36)                    NOT NULL,
-    role            ENUM('user','assistant')    NOT NULL,
-    content         LONGTEXT                    NOT NULL,
-    client_message_id VARCHAR(64)              NULL,
-    created_at      DATETIME                    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    INDEX idx_messages_conversation (conversation_id),
-    UNIQUE KEY uq_messages_client_id (conversation_id, client_message_id),
-    CONSTRAINT fk_messages_conversation
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

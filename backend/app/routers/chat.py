@@ -116,24 +116,6 @@ _AGENCY_GENERIC_WORDS = (
 
 
 def _needs_agency_lookup(message: str) -> bool:
-    """
-    True when the question looks like it's asking about a specific
-    registered travel agency (name, email, phone, registration number) —
-    the kind of lookup that RAG/web-search can't answer since agencies
-    aren't in the vector store, and previously fell through with a made-up
-    or missing answer.
-
-    Three tiers: an exact-phrase match ("travel agency", "email for X");
-    an agency-ish word ("tours", "travels", "agent") combined with an
-    info-seeking word ("data", "details", "contact", ...) — people rarely
-    say "travel agency" literally, they say "X tours and travels" and ask
-    for its "full data"; or, a short bare business name with no info-word
-    at all (e.g. just "dikcha tours and travels" typed on its own) — a
-    tourist pasting/typing just the name is still asking "tell me about
-    this agency", and without this tier that message previously got zero
-    agency context and let the model invent a fake official record instead
-    of saying it has no match.
-    """
     text = " ".join(message.lower().split())
     if any(phrase in text for phrase in _AGENCY_LOOKUP_PHRASES):
         return True
@@ -143,8 +125,6 @@ def _needs_agency_lookup(message: str) -> bool:
     has_intent_word = any(w in text for w in _AGENCY_INTENT_WORDS)
     if has_entity_word and has_intent_word:
         return True
-    # Bare-name tier: short message, has an agency-ish word, and doesn't
-    # look like a generic tourism question.
     if (
             has_entity_word
             and len(text.split()) <= 6
@@ -307,13 +287,6 @@ async def _build_latest_circulars_context(
 
 
 async def _build_agency_context(repo: BaseRepository, message: str, *, limit: int = 5) -> str:
-    """
-    Direct name-search against the locally synced travel_agencies table
-    (see app/services/travel_agency_scraper.py) so a question like "email
-    for bayul tours" resolves to a real registered agency instead of
-    falling through to RAG/web-search, which either missed it entirely or
-    invented an answer.
-    """
     try:
         agencies = await repo.search_travel_agencies(message, limit=limit)
     except Exception as exc:

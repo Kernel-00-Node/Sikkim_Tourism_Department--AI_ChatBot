@@ -104,20 +104,20 @@ class MockRepository(BaseRepository):
             results = [a for a in results if normalize_district(a.district) == target]
         return len(results)
 
-    async def search_travel_agencies(self, query: str, limit: int = 5) -> list[TravelAgency]:
-        # Simple token-overlap ranking — good enough for "email for bayul
-        # tours" style lookups without pulling in a fuzzy-match dependency.
-        tokens = [t for t in query.lower().split() if len(t) > 2]
-        if not tokens:
-            return []
-        scored: list[tuple[int, TravelAgency]] = []
-        for agency in TRAVEL_AGENCIES:
-            haystack = f"{agency.name} {agency.proprietor or ''}".lower()
-            score = sum(1 for t in tokens if t in haystack)
-            if score:
-                scored.append((score, agency))
-        scored.sort(key=lambda pair: pair[0], reverse=True)
-        return [agency for _, agency in scored[:limit]]
+async def search_travel_agencies(self, query: str, limit: int = 5) -> list[TravelAgency]:
+    # Simple token-overlap ranking — good enough for "email for bayul
+    # tours" style lookups without pulling in a fuzzy-match dependency.
+    tokens = [t for t in query.lower().split() if len(t) > 2]
+    if not tokens:
+        return []
+    scored: list[tuple[int, TravelAgency]] = []
+    for agency in TRAVEL_AGENCIES:
+        haystack = f"{agency.name} {agency.proprietor or ''}".lower()
+        score = sum(1 for t in tokens if t in haystack)
+        if score:
+            scored.append((score, agency))
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [agency for _, agency in scored[:limit]]
 
     async def agency_exists(self, registration_number: str) -> bool:
         return any(a.registration_number == registration_number for a in TRAVEL_AGENCIES)
