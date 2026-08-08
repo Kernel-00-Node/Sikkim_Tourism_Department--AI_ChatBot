@@ -385,6 +385,49 @@ async def _build_official_destinations_context(repo: BaseRepository) -> str:
     return "\n".join(lines)
 
 
+async def _build_district_destinations_context(repo: BaseRepository, district: str) -> str:
+    """
+    Full, exact destinations list for one district, pulled directly from
+    MySQL — not vector similarity.
+
+    Why this exists: without it, a district question relies entirely on
+    _retrieve_context()'s top-4 Qdrant similarity search. Gangtok (the
+    capital, referenced throughout most destinations' "how to reach" text)
+    dominates that embedding space and reliably wins the top-4 ranking, so
+    it "just works". A less-represented district's destinations are
+    correct and complete in MySQL but simply don't win that ranking, so
+    the model only ever sees a partial/fuzzy slice of them and gives an
+    incomplete answer even though the exact data exists. This mirrors
+    _build_agency_directory_context and _build_latest_circulars_context,
+    which already solve the identical problem for agencies and circulars
+    by querying MySQL directly instead of gambling on similarity search.
+    """
+    try:
+        destinations = await repo.list_destinations()
+    except Exception as exc:
+        logger.warning("Could not load district destinations for extra_context: %s", exc)
+        return ""
+
+    matches = [d for d in destinations if normalize_district(d.district) == district]
+    if not matches:
+        return ""
+
+    lines = [
+        f"OFFICIAL SIKKIM TOURISM DEPARTMENT — FULL DESTINATIONS LIST FOR {district.upper()} "
+        f"({len(matches)} records — this is the complete, exact set on file for this district, "
+        "not a partial sample; answer from this rather than a guess at what might be missing):"
+    ]
+    for d in matches:
+        permit = f"Permit required ({d.permit_info})" if d.permit_required else "No permit required"
+        entry_fee = d.entry_fee or "Free"
+        lines.append(
+            f"- {d.name} ({d.district}, category: {d.category}): {d.description} "
+            f"Best time: {d.best_time}. Entry fee: {entry_fee}. {permit}. "
+            f"How to reach: {d.how_to_reach}"
+        )
+    return "\n".join(lines)
+
+
 def _sse_response(event_generator):
     """Create a non-cacheable SSE response with proxy-safe streaming headers."""
     return StreamingResponse(
@@ -518,6 +561,18 @@ async def send_message(
                     dest_context = await _build_official_destinations_context(repo)
                     if dest_context:
                         context_parts.append(dest_context)
+                else:
+                    # No broad "list everything" phrase, but if the message
+                    # names a specific district, give the model that
+                    # district's exact MySQL records directly instead of
+                    # leaving it to vector similarity search, which
+                    # under-represents smaller districts relative to
+                    # Gangtok. See _build_district_destinations_context.
+                    district = _extract_district(body.message)
+                    if district:
+                        district_context = await _build_district_destinations_context(repo, district)
+                        if district_context:
+                            context_parts.append(district_context)
                 inventory = _needs_circular_inventory(body.message)
                 if _needs_latest_circulars(body.message, history) or inventory:
                     road_status_inventory = inventory and "road" in body.message.lower()
