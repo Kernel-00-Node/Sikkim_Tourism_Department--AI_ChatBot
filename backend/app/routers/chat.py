@@ -161,6 +161,10 @@ _DISTRICT_ALIASES: dict[str, str] = {
     "west sikkim": "Gyalshing",
     "south sikkim": "Namchi",
     "north sikkim": "Mangan",
+    "east district": "Gangtok",
+    "west district": "Gyalshing",
+    "south district": "Namchi",
+    "north district": "Mangan",
     "gangtok": "Gangtok",
     "mangan": "Mangan",
     "namchi": "Namchi",
@@ -174,33 +178,26 @@ _AGENCY_LISTING_PHRASES = (
     "how many agencies", "how many travel agencies", "how many agency",
     "all agencies", "all travel agencies", "agencies in", "travel agencies in",
     "agencies registered in", "agencies are there", "agencies operate",
+    "travel agencies", "travel agency", "tour operators", "tour operator",
+    "agencies", "agency",
 )
 
 
 def _needs_agency_directory_listing(message: str, history: list[dict] | None = None) -> bool:
     """
-    True for a "how many / list all agencies [in <district>]" style
-    question — distinct from _needs_agency_lookup, which is about one
-    specific named agency. This path returns a real total count instead
-    of silently truncating to search_travel_agencies' 5-result cap and
-    letting the model present that as if it were the complete list.
+    Python_Version_Integrate_Needs_Agency_Directory_Listing--Checker.
 
-    Also true for a bare district-name follow-up (e.g. "what about
-    Namchi?", "and Pakyong?") when the previous turn was itself an agency
-    directory question. Without this, "agencies in Gangtok?" worked (it
-    matches _AGENCY_LISTING_PHRASES directly) but a natural follow-up
-    asking about a different district didn't — it has none of those exact
-    phrases, so it silently fell through to the general model instead of
-    the real directory data. Mirrors how _needs_latest_circulars() already
-    handles bare circular follow-ups.
+    True for a "how many / list all agencies [in <district>]" style question,
+    or a follow-up asking about another district (e.g. "what about Namchi?")
+    when previous turns were about travel agencies.
     """
     text = " ".join(message.lower().split())
     if any(phrase in text for phrase in _AGENCY_LISTING_PHRASES):
         return True
     if history and _extract_district(message):
-        for m in history[-4:]:
+        for m in history[-6:]:
             recent = " ".join(m.get("content", "").lower().split())
-            if any(phrase in recent for phrase in _AGENCY_LISTING_PHRASES):
+            if any(w in recent for w in ("agency", "agencies", "tour operator", "tour operators", "travels", "travel")):
                 return True
     return False
 
@@ -211,6 +208,7 @@ def _extract_district(message: str) -> str | None:
         if alias in text:
             return canonical
     return None
+
 
 
 _CIRCULAR_INVENTORY_PHRASES = (

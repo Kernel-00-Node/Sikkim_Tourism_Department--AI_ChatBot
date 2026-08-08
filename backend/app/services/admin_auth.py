@@ -1,4 +1,6 @@
-"""Password hashing and validation for the admin console."""
+"""
+Python_Version_Integrate_Admin_Auth — Password Hashing & Credentials Service.
+"""
 from __future__ import annotations
 
 import base64
@@ -12,6 +14,7 @@ _SCRYPT_P = 1
 _DK_LEN = 64
 
 
+# Python_Version_Integrate_Validate_Password--Function
 def validate_password(password: str) -> str | None:
     """Return a public validation error, or ``None`` for an acceptable password."""
     if len(password) < 12:
@@ -23,19 +26,15 @@ def validate_password(password: str) -> str | None:
     return None
 
 
+# Python_Version_Integrate_Hash_Password--Function
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
     digest = hashlib.scrypt(
         password.encode("utf-8"), salt=salt, n=_SCRYPT_N, r=_SCRYPT_R,
         p=_SCRYPT_P, dklen=_DK_LEN,
     )
-    return "scrypt${}${}${}${}${}".format(
-        _SCRYPT_N,
-        _SCRYPT_R,
-        _SCRYPT_P,
-        _b64(salt),
-        _b64(digest),
-    )
+    return f"scrypt${_SCRYPT_N}${_SCRYPT_R}${_SCRYPT_P}${_b64(salt)}${_b64(digest)}"
+
 
 
 def verify_password(password: str, encoded: str) -> bool:

@@ -176,3 +176,11 @@ def test_chat_retry_replays_completed_turn_without_duplicate_model_call(client, 
 
 async def _empty_followups():
     return []
+
+
+def test_needs_agency_directory_listing_district_followup():
+    from app.routers.chat import _needs_agency_directory_listing
+    history = [{"role": "user", "content": "travel agencies in gangtok"}]
+    assert _needs_agency_directory_listing("what about namchi?", history) is True
+    assert _needs_agency_directory_listing("how about pakyong?", history) is True
+
