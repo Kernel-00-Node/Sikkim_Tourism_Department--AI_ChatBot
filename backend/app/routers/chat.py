@@ -177,16 +177,32 @@ _AGENCY_LISTING_PHRASES = (
 )
 
 
-def _needs_agency_directory_listing(message: str) -> bool:
+def _needs_agency_directory_listing(message: str, history: list[dict] | None = None) -> bool:
     """
     True for a "how many / list all agencies [in <district>]" style
     question — distinct from _needs_agency_lookup, which is about one
     specific named agency. This path returns a real total count instead
     of silently truncating to search_travel_agencies' 5-result cap and
     letting the model present that as if it were the complete list.
+
+    Also true for a bare district-name follow-up (e.g. "what about
+    Namchi?", "and Pakyong?") when the previous turn was itself an agency
+    directory question. Without this, "agencies in Gangtok?" worked (it
+    matches _AGENCY_LISTING_PHRASES directly) but a natural follow-up
+    asking about a different district didn't — it has none of those exact
+    phrases, so it silently fell through to the general model instead of
+    the real directory data. Mirrors how _needs_latest_circulars() already
+    handles bare circular follow-ups.
     """
     text = " ".join(message.lower().split())
-    return any(phrase in text for phrase in _AGENCY_LISTING_PHRASES)
+    if any(phrase in text for phrase in _AGENCY_LISTING_PHRASES):
+        return True
+    if history and _extract_district(message):
+        for m in history[-4:]:
+            recent = " ".join(m.get("content", "").lower().split())
+            if any(phrase in recent for phrase in _AGENCY_LISTING_PHRASES):
+                return True
+    return False
 
 
 def _extract_district(message: str) -> str | None:
@@ -546,7 +562,7 @@ async def send_message(
                     )
                     if circular_context:
                         context_parts.append(circular_context)
-                if _needs_agency_directory_listing(body.message):
+                if _needs_agency_directory_listing(body.message, history):
                     directory_context = await _build_agency_directory_context(repo, body.message)
                     if directory_context:
                         context_parts.append(directory_context)
