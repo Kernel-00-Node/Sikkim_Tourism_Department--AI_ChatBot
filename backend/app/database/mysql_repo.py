@@ -40,8 +40,24 @@ logger = logging.getLogger(__name__)
 # "the"), starving out the unordered/unindexed candidate_pool LIMIT before
 # a genuinely matching agency is ever scored. See search_travel_agencies()
 # for the full explanation.
+#
+# This list is deliberately broad: it covers not just articles/prepositions
+# but the generic question/request words a tourist naturally uses when
+# asking about an agency ("do you have contact details for ..."). Without
+# these, a normal phrasing like "what is the contact info for M/s
+# Enchanting Sikkim Tours & Travels" burns through the token cap on
+# "what"/"contact"/"info" before ever reaching "enchanting" — the agency's
+# actual name never makes it into the SQL WHERE clause, so the row is
+# never even fetched into the candidate pool, let alone scored.
 _SEARCH_STOP_WORDS = frozenset({
     "the", "and", "for", "of", "in", "on", "at", "to", "a", "an",
+    "is", "are", "was", "were", "do", "does", "did", "have", "has", "had",
+    "you", "your", "me", "my", "please", "can", "could", "would", "should",
+    "what", "who", "where", "when", "how", "which", "any", "some",
+    "tell", "give", "get", "know", "find", "show", "provide", "share",
+    "contact", "details", "detail", "information", "info", "number",
+    "registration", "reg", "about", "with", "this", "that", "there",
+    "agency", "agencies", "travel", "tour", "tours", "operator",
 })
 
 
@@ -439,7 +455,7 @@ class MySQLRepository(BaseRepository):
         tokens = [
             t for t in query.lower().split()
             if len(t) > 2 and t not in _SEARCH_STOP_WORDS
-        ][:6]
+        ][:10]
         if not tokens:
             return []
         clauses = []
