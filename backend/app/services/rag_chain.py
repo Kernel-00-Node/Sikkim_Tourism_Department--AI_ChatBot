@@ -65,8 +65,18 @@ _SYSTEM_PROMPT = (
 
 
     "Use the following retrieved context to ground your answer where relevant. "
-    "If the context is empty or does not cover the question but the question is still about Sikkim "
-    "in general (history, culture, geography, festivals, etc.), answer from your general knowledge.\n\n"
+    "If the context is empty because no relevant records were found, and the question is still "
+    "about Sikkim in general (history, culture, geography, festivals, etc.), answer from your "
+    "general knowledge.\n\n"
+
+    "CRITICAL — RETRIEVAL FAILURE:\n"
+    "If the context contains a section labelled '--- VECTOR RETRIEVAL TEMPORARILY UNAVAILABLE ---', "
+    "semantic retrieval failed during this request. Do NOT treat that failure as proof that no "
+    "official information exists. Do not invent database-backed facts to fill the missing context. "
+    "Use any authoritative application-provided context that is still present. For official "
+    "travel-agency records, road-status records, circulars, or other structured government data, "
+    "only state facts that are explicitly present in the supplied context. If the required "
+    "official data is unavailable, say so honestly.\n\n"
 
     "CRITICAL — REGISTERED TRAVEL AGENCY DETAILS:\n"
     "Registration numbers, phone numbers, emails, and addresses for registered travel agencies are "
@@ -268,46 +278,84 @@ async def _contextualise_question(inputs: dict) -> str:
     return await chain.ainvoke({"input": question, "chat_history": chat_history})
 
 
-async def _retrieve_context(standalone_question: str, max_attempts: int = 3) -> str:
+async def _retrieve_context(
+        standalone_question: str,
+        max_attempts: int = 3,
+) -> tuple[str, bool]:
     """
-    Retrieve relevant context from Qdrant, retrying transient failures.
+    Retrieve relevant context from Qdrant.
 
-    Gemini's embedding API occasionally returns a 500 under normal load —
-    this is Google's side, not ours, and it's usually gone by the very next
-    request. Retrying with a short backoff turns a real proportion of these
-    from "no context this turn" into "worked on the 2nd try", at the cost of
-    a small amount of extra latency only on the (uncommon) failure path.
+    Returns:
+        (context, retrieval_failed)
+
+        retrieval_failed=False:
+            Retrieval completed normally. An empty context simply means
+            no relevant documents were returned.
+
+        retrieval_failed=True:
+            Retrieval could not be completed because an upstream service
+            such as Gemini Embeddings or Qdrant failed.
     """
-    vs = get_vectorstore()
-    retriever = vs.as_retriever(search_type="similarity", search_kwargs={"k": 4})
+    try:
+        vs = get_vectorstore()
+        retriever = vs.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": 4},
+        )
+    except Exception as exc:
+        logger.exception(
+            "Could not initialise Qdrant/Gemini retrieval: %s",
+            exc,
+        )
+        return "", True
 
     last_exc: Exception | None = None
+
     for attempt in range(1, max_attempts + 1):
         try:
-            # Async retrieval — the previous sync `.invoke()` blocked the whole
-            # FastAPI event loop for the duration of the Qdrant + embedding call.
+            # Async retrieval keeps the FastAPI event loop responsive while
+            # LangChain performs the embedding + Qdrant network calls.
             docs = await retriever.ainvoke(standalone_question)
-            return "\n\n".join(doc.page_content for doc in docs) if docs else ""
+
+            context = "\n\n".join(
+                doc.page_content
+                for doc in docs
+            ) if docs else ""
+
+            logger.debug(
+                "Qdrant retrieval succeeded on attempt %d/%d (%d documents).",
+                attempt,
+                max_attempts,
+                len(docs),
+            )
+
+            return context, False
+
         except Exception as exc:
             last_exc = exc
+
             if attempt < max_attempts:
-                # Short, increasing backoff: 0.5s, then 1s. Long enough to
-                # let a transient upstream blip clear, short enough that a
-                # user waiting on a chat reply doesn't notice the retry.
                 wait_seconds = 0.5 * attempt
+
                 logger.warning(
-                    "Qdrant retrieval attempt %d/%d failed, retrying in %.1fs: %s",
-                    attempt, max_attempts, wait_seconds, exc,
+                    "Vector retrieval attempt %d/%d failed; "
+                    "retrying in %.1fs: %s",
+                    attempt,
+                    max_attempts,
+                    wait_seconds,
+                    exc,
                 )
+
                 await asyncio.sleep(wait_seconds)
 
-    # All attempts exhausted — degrade gracefully, exactly as before.
-    logger.warning(
-        "Qdrant retrieval failed after %d attempts (empty context): %s",
-        max_attempts, last_exc,
+    logger.error(
+        "Vector retrieval unavailable after %d attempts. "
+        "Likely embedding/Qdrant provider failure: %s",
+        max_attempts,
+        last_exc,
     )
-    return ""
 
+    return "", True
 # ---------------------------------------------------------------------------
 # Live web search (Tavily) — only fired for questions that plausibly need
 # current/real-time info, and always scoped to Sikkim.
@@ -387,26 +435,58 @@ async def _tavily_search(query: str) -> str:
 # Combine route-provided records, retrieval results, and current Sikkim web data.
 async def _retrieve_context_step(inputs: dict) -> str:
     question = inputs["standalone_question"]
-    rag = await _retrieve_context(question)
+
+    rag, retrieval_failed = await _retrieve_context(question)
+
     extra = inputs.get("extra_context", "")
 
-    # If an official circular already covers this question (injected by
-    # chat.py's _build_latest_circulars_context), that is the single most
-    # current and authoritative source available — a generic web search
-    # result (which could be an old news article, a blog, or anything else
-    # indexed by a search engine) must never be blended in on top of it.
-    # Doing so is exactly what caused the model to mix real official road
-    # data with unrelated stale web content in earlier testing.
-    has_official_circulars = "OFFICIAL SIKKIM TOURISM/POLICE CIRCULARS" in extra
+    # If an official circular already covers this question, it is the
+    # authoritative source and should not be mixed with generic web results.
+    has_official_circulars = (
+            "OFFICIAL SIKKIM TOURISM/POLICE CIRCULARS" in extra
+    )
 
     web = ""
-    if settings.tavily_api_key and _needs_live_search(question) and not has_official_circulars:
+
+    if (
+            settings.tavily_api_key
+            and _needs_live_search(question)
+            and not has_official_circulars
+    ):
         web = await _tavily_search(question)
 
-    combined = "\n\n".join(p for p in (extra, rag) if p)
+    combined_parts = [
+        part
+        for part in (extra, rag)
+        if part
+    ]
+
     if web:
         web_block = f"--- LIVE WEB SEARCH RESULTS ---\n{web}"
-        combined = f"{combined}\n\n{web_block}" if combined else web_block
+        combined_parts.append(web_block)
+
+    combined = "\n\n".join(combined_parts)
+
+    # Do not silently pretend that an upstream retrieval failure means
+    # "there was simply no relevant information."
+    #
+    # This marker allows the system prompt to distinguish a genuine empty
+    # search result from a temporary embedding/Qdrant outage.
+    if retrieval_failed:
+        failure_notice = (
+            "--- VECTOR RETRIEVAL TEMPORARILY UNAVAILABLE ---\n"
+            "The semantic retrieval service could not be reached for this "
+            "request. Do not invent official database-backed facts from "
+            "missing vector context. Prefer authoritative context supplied "
+            "directly by the application, such as registered travel-agency "
+            "records or official circulars."
+        )
+
+        combined = (
+            f"{combined}\n\n{failure_notice}"
+            if combined
+            else failure_notice
+        )
 
     return combined
 
