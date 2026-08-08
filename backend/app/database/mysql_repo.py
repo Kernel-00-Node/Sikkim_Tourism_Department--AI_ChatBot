@@ -432,26 +432,47 @@ class MySQLRepository(BaseRepository):
         return agency.model_copy(update={"id": new_id})
 
     async def search_travel_agencies(self, query: str, limit: int = 5) -> list[TravelAgency]:
+        """
+        Primary path: MySQL's own FULLTEXT search (NATURAL LANGUAGE MODE)
+        against the `ft_travel_agencies` index on (name, proprietor) —
+        already defined in schema.sql but previously unused. This lets
+        MySQL itself handle relevance ranking and common-word suppression
+        (its built-in 50% rule already deprioritises "tours"/"travels"
+        since they appear in most rows) instead of us hand-rolling a
+        token/stop-word heuristic in Python. A hand-rolled token cap is
+        fragile by construction — any wording change to a natural question
+        can silently drop the very word that identifies the agency before
+        the query ever reaches SQL. FULLTEXT takes the whole question as
+        free text and does its own relevance scoring, so there's no fixed
+        token budget to overflow.
+
+        Fallback: FULLTEXT's own rules (default 4-character minimum word
+        length in InnoDB, the 50% "too common" rule) can occasionally miss
+        short or highly generic queries. If FULLTEXT returns nothing, fall
+        back to the previous LIKE + Python token-overlap scoring so a
+        short/unusual query still has a chance of matching.
+        """
+        fulltext_rows = await asyncio.to_thread(
+            self._query,
+            "SELECT *, MATCH(name, proprietor) AGAINST (%s IN NATURAL LANGUAGE MODE) AS relevance "
+            "FROM travel_agencies "
+            "WHERE MATCH(name, proprietor) AGAINST (%s IN NATURAL LANGUAGE MODE) "
+            "ORDER BY relevance DESC LIMIT %s",
+            (query, query, limit),
+        )
+        if fulltext_rows:
+            return [_row_to_travel_agency(r) for r in fulltext_rows]
+
+        # ── Fallback: LIKE + Python token-overlap scoring ──────────────────
         # NOTE: the WHERE clause below is deliberately broad (OR across all
         # tokens) just to pull a candidate pool from the DB — it is NOT the
         # final ranking. Words like "tour"/"tours"/"travel"/"travels" appear
         # in nearly every registered agency's name, so if we returned rows
         # straight from an unordered "LIMIT 5" against that OR clause, a
         # query like "bayul tours and travels" would almost never surface
-        # Bayul specifically: MySQL would just hand back whichever 5 rows
-        # it scanned first (lowest primary key), all matching on the
-        # generic "tours"/"travels" tokens instead of the distinctive
-        # "bayul" one. We fetch a wider pool, then score/sort by real
-        # token overlap in Python (same approach as mock_repo.py) before
-        # slicing to `limit`, so the actually-matching agency wins.
-        #
-        # Stop-words (e.g. "the") are excluded here: they pass the plain
-        # len(t) > 2 check and match almost every row's name/proprietor,
-        # which can push a genuinely matching row (e.g. "The Kyilkhor Adv.
-        # Tours & Treks") out of the unordered `candidate_pool` LIMIT
-        # before it's ever scored, since the LIKE clauses can't use an
-        # index (leading wildcard) and MySQL returns rows in unspecified
-        # scan order with no ORDER BY.
+        # Bayul specifically. We fetch a wider pool, then score/sort by real
+        # token overlap in Python before slicing to `limit`, so the
+        # actually-matching agency wins.
         tokens = [
             t for t in query.lower().split()
             if len(t) > 2 and t not in _SEARCH_STOP_WORDS
