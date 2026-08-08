@@ -8,7 +8,7 @@ import {
   type AdminDashboard, type AdminDestination, type Circular, type DestinationWrite,
   deleteAdminCircular, deleteAdminDestination, fetchAdminCirculars,
   fetchAdminDashboard, fetchAdminDestinations, getAdminAuthStatus, loginAdmin,
-  runAdminSync, saveAdminDestination, setupAdmin,
+  runAdminSync, saveAdminDestination, setupAdmin, encodeBasicCredentials,
 } from "@/lib/api";
 
 const CATEGORIES = ["nature", "culture", "adventure", "pilgrimage", "wildlife"];
@@ -101,7 +101,7 @@ export default function Admin() {
       await (setupRequired
         ? await setupAdmin(username, passwordDraft, setupKeyDraft)
         : await loginAdmin(username, passwordDraft));
-      setKey(btoa(`${username}:${passwordDraft}`));
+      setKey(encodeBasicCredentials(username, passwordDraft));
       setPasswordDraft(""); setConfirmPasswordDraft(""); setSetupKeyDraft("");
       if (setupRequired) setSetupRequired(false);
     } catch (err) {

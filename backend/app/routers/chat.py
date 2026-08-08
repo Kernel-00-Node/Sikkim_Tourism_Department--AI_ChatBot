@@ -154,27 +154,6 @@ def _needs_agency_lookup(message: str) -> bool:
     return False
 
 
-# District labels the scraper actually stores (see travel_agency_scraper.py —
-# these are the six official post-2021 Sikkim districts, which happen to
-# match the source's own file names). Old-style names ("East Sikkim") map
-# to their new-district equivalent so either phrasing resolves correctly.
-_DISTRICT_ALIASES: dict[str, str] = {
-    "east sikkim": "Gangtok",
-    "west sikkim": "Gyalshing",
-    "south sikkim": "Namchi",
-    "north sikkim": "Mangan",
-    "east district": "Gangtok",
-    "west district": "Gyalshing",
-    "south district": "Namchi",
-    "north district": "Mangan",
-    "gangtok": "Gangtok",
-    "mangan": "Mangan",
-    "namchi": "Namchi",
-    "soreng": "Soreng",
-    "gyalshing": "Gyalshing",
-    "pakyong": "Pakyong",
-}
-
 _AGENCY_LISTING_PHRASES = (
     "list all", "list agencies", "list travel agencies", "list the agencies",
     "how many agencies", "how many travel agencies", "how many agency",
@@ -222,7 +201,7 @@ def _extract_district(message: str) -> str | None:
             key=len,
             reverse=True,
     ):
-        if re.search(rf"(?<!\\w){re.escape(alias)}(?!\\w)", text):
+        if re.search(rf"(?<!\w){re.escape(alias)}(?!\w)", text):
             return normalize_district(alias)
     return None
 

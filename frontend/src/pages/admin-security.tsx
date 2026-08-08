@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Eye, EyeOff, KeyRound, ShieldCheck } from "lucide-react";
-import { changeAdminCredentials } from "@/lib/api";
+import { changeAdminCredentials, encodeBasicCredentials } from "@/lib/api";
 
 export default function AdminSecurity() {
   const [username, setUsername] = useState(""); const [current, setCurrent] = useState("");
@@ -8,7 +8,7 @@ export default function AdminSecurity() {
   const [confirm, setConfirm] = useState(""); const [show, setShow] = useState(false); const [message, setMessage] = useState("");
   const submit = async (event: FormEvent) => { event.preventDefault(); setMessage("");
     if (next !== confirm) return setMessage("New password confirmation does not match.");
-    try { await changeAdminCredentials(btoa(`${username.trim().toLowerCase()}:${current}`), current, newUsername.trim().toLowerCase(), next); setMessage("Credentials updated. Use the new username and password next time."); setCurrent(""); setNext(""); setConfirm(""); }
+    try { await changeAdminCredentials(encodeBasicCredentials(username.trim().toLowerCase(), current), current, newUsername.trim().toLowerCase(), next); setMessage("Credentials updated. Use the new username and password next time."); setCurrent(""); setNext(""); setConfirm(""); }
     catch (error) { setMessage(error instanceof Error ? error.message.replace(/^API error \d+: /, "") : "Could not update credentials."); }
   };
   const password = (label: string, value: string, update: (value: string) => void) => <label className="mt-4 block text-sm font-semibold">{label}<span className="relative mt-2 block"><input required type={show ? "text" : "password"} value={value} onChange={(e) => update(e.target.value)} className="h-12 w-full rounded-xl border border-border bg-background px-3 pr-12 outline-none ring-primary focus:ring-2" autoComplete="new-password" /><button type="button" onClick={() => setShow(!show)} aria-label={show ? "Hide passwords" : "Show passwords"} className="absolute right-2 top-2 rounded-lg p-2 text-muted-foreground hover:bg-muted">{show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>;

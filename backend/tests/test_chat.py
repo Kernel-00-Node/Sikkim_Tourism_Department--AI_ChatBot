@@ -194,3 +194,9 @@ def test_needs_agency_directory_listing_district_followup():
     assert _needs_agency_directory_listing("what about namchi?", history) is True
     assert _needs_agency_directory_listing("how about pakyong?", history) is True
 
+
+def test_district_extraction_requires_word_boundaries():
+    from app.routers.chat import _extract_district
+
+    assert _extract_district("Gangtok2 agencies") is None
+    assert _extract_district("NotGangtok agencies") is None

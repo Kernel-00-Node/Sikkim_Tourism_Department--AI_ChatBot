@@ -1,6 +1,4 @@
-"""
-Python_Version_Integrate_Admin_Auth — Password Hashing & Credentials Service.
-"""
+"""Password hashing and validation for administrator accounts."""
 from __future__ import annotations
 
 import base64
@@ -14,7 +12,6 @@ _SCRYPT_P = 1
 _DK_LEN = 64
 
 
-# Python_Version_Integrate_Validate_Password--Function
 def validate_password(password: str) -> str | None:
     """Return a public validation error, or ``None`` for an acceptable password."""
     if len(password) < 12:
@@ -26,7 +23,6 @@ def validate_password(password: str) -> str | None:
     return None
 
 
-# Python_Version_Integrate_Hash_Password--Function
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
     digest = hashlib.scrypt(
@@ -40,11 +36,11 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, encoded: str) -> bool:
     try:
         algorithm, n, r, p, salt, expected = encoded.split("$", 5)
-        if algorithm != "scrypt":
+        if algorithm != "scrypt" or (int(n), int(r), int(p)) != (_SCRYPT_N, _SCRYPT_R, _SCRYPT_P):
             return False
         actual = hashlib.scrypt(
-            password.encode("utf-8"), salt=_unb64(salt), n=int(n), r=int(r),
-            p=int(p), dklen=_DK_LEN,
+            password.encode("utf-8"), salt=_unb64(salt), n=_SCRYPT_N, r=_SCRYPT_R,
+            p=_SCRYPT_P, dklen=_DK_LEN,
         )
         return hmac.compare_digest(actual, _unb64(expected))
     except (TypeError, ValueError):

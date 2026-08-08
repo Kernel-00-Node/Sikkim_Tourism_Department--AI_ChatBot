@@ -414,13 +414,13 @@ _UPLOAD_CATEGORIES = {"road_status", "cancellation_order", "notice"}
 @_ADMIN_RATE_LIMIT
 async def admin_dashboard(request: Request, repo=Depends(get_repo)):
     """Return the small operational summary rendered by the admin console."""
-    destinations, circulars, agencies = await asyncio.gather(
-        repo.list_destinations(), repo.list_circulars(limit=5), repo.list_travel_agencies(limit=1000)
+    destinations, circulars, agency_count = await asyncio.gather(
+        repo.list_destinations(), repo.list_circulars(limit=5), repo.count_travel_agencies()
     )
     return {
         "destination_count": len(destinations),
         "recent_circulars": circulars,
-        "travel_agency_count": len(agencies),
+        "travel_agency_count": agency_count,
         "db_mode": settings.db_mode,
         "qdrant_mode": settings.qdrant_mode,
     }

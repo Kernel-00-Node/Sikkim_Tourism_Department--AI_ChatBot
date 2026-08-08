@@ -12,6 +12,11 @@
 
 const BASE = "/api";
 
+export function encodeBasicCredentials(username: string, password: string): string {
+  const bytes = new TextEncoder().encode(`${username}:${password}`);
+  return btoa(String.fromCharCode(...bytes));
+}
+
 /**
  * Generic fetch wrapper.
  *  - Throws a descriptive Error on any non-2xx response.
@@ -145,6 +150,7 @@ export interface Circular {
 export interface AdminDashboard {
   destination_count: number;
   recent_circulars: Circular[];
+  travel_agency_count: number;
   db_mode: string;
   qdrant_mode: string;
 }
